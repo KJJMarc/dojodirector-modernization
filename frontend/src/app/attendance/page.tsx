@@ -6,44 +6,37 @@ import { ClassSession, UserProfile } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-interface RawSessionAttendee {
-  id: string;
+interface AttendanceRegisterRow {
   class_session_id: string;
-  user_id: string;
+  class_id: string | null;
+  class_name: string | null;
+  starts_at: string;
+  location: string | null;
+  attendee_id: string | null;
+  session_attendee_id: string | null;
+  user_id: string | null;
   attendance_status: "present" | "absent" | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
 }
 
-interface RawClassSession {
+interface SessionAccumulator {
   id: string;
   class_id: string;
+  class_name: string;
   starts_at: string;
-  classes: { id: string; name: string } | { id: string; name: string }[] | null;
-  session_attendees: RawSessionAttendee[];
+  location: string | null;
+  session_attendees: ClassSession["session_attendees"];
 }
 
 async function getTodaysSessions() {
   const supabase = getSupabaseServerClient();
   const { startIso, endIso } = getTodayUtcRange();
 
-  const { data: sessionRows, error } = await supabase
-    .from("class_sessions")
-    .select(
-      `
-      id,
-      class_id,
-      starts_at,
-      classes (
-        id,
-        name
-      ),
-      session_attendees (
-        id,
-        class_session_id,
-        user_id,
-        attendance_status
-      )
-    `,
-    )
+  const { data, error } = await supabase
+    .from("attendance_register_rows")
+    .select("*")
     .gte("starts_at", startIso)
     .lt("starts_at", endIso)
     .order("starts_at", { ascending: true });
@@ -52,44 +45,59 @@ async function getTodaysSessions() {
     throw new Error(`Failed to load today's sessions: ${error.message}`);
   }
 
-  const rawSessions = (sessionRows ?? []) as RawClassSession[];
-  const userIds = Array.from(
-    new Set(
-      rawSessions.flatMap((session) =>
-        session.session_attendees.map((attendee) => attendee.user_id),
-      ),
-    ),
-  );
+  const rows = (data ?? []) as AttendanceRegisterRow[];
+  const sessionsById = new Map<string, SessionAccumulator>();
 
-  let usersById = new Map<string, UserProfile>();
-  if (userIds.length > 0) {
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("id, first_name, last_name, email")
-      .in("id", userIds);
-
-    if (usersError) {
-      throw new Error(`Failed to load attendee users: ${usersError.message}`);
+  for (const row of rows) {
+    const sessionId = row.class_session_id;
+    if (!sessionId) {
+      continue;
     }
 
-    usersById = new Map((users ?? []).map((user) => [user.id, user as UserProfile]));
+    if (!sessionsById.has(sessionId)) {
+      sessionsById.set(sessionId, {
+        id: sessionId,
+        class_id: row.class_id ?? "",
+        class_name: row.class_name ?? "Unnamed class",
+        starts_at: row.starts_at,
+        location: row.location ?? null,
+        session_attendees: [],
+      });
+    }
+
+    const session = sessionsById.get(sessionId)!;
+    if (!row.user_id) {
+      continue;
+    }
+
+    const user: UserProfile = {
+      id: row.user_id,
+      first_name: row.first_name ?? null,
+      last_name: row.last_name ?? null,
+      email: row.email ?? null,
+    };
+
+    session.session_attendees.push({
+      id: row.session_attendee_id ?? row.attendee_id ?? `${sessionId}-${row.user_id}`,
+      class_session_id: sessionId,
+      user_id: row.user_id,
+      attendance_status: row.attendance_status,
+      users: user,
+    });
   }
 
-  const sessions = rawSessions.map((session) => {
-    const classRelation = Array.isArray(session.classes)
-      ? session.classes[0] ?? null
-      : session.classes ?? null;
-
-    return {
-      ...session,
-      class_name: classRelation?.name ?? "Unnamed class",
-      location: null,
-      session_attendees: session.session_attendees.map((attendee) => ({
-        ...attendee,
-        users: usersById.get(attendee.user_id) ?? null,
-      })),
-    } as ClassSession;
-  });
+  const sessions = Array.from(sessionsById.values()).map(
+    (session) =>
+      ({
+        ...session,
+        classes: session.class_id
+          ? {
+              id: session.class_id,
+              name: session.class_name,
+            }
+          : null,
+      }) as ClassSession,
+  );
 
   return sortSessionsByTime(sessions);
 }
