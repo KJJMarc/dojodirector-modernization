@@ -54,7 +54,7 @@ src/
 ## Attendance Workflow MVP
 
 - Loads **today's sessions** from `class_sessions`.
-- Includes **booked students** from `session_attendees`.
+- Includes **booked attendees** from `session_attendees` linked to `users`.
 - Shows each student as a large, touch-friendly card.
 - One-tap **Present** / **Absent** actions update `session_attendees.attendance_status`.
 - Updates are sent to Supabase directly so existing database automations continue to run.
