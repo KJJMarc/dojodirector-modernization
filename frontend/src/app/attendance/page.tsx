@@ -2,15 +2,30 @@ import { markAttendance } from "@/app/attendance/actions";
 import { SessionAttendanceSection } from "@/components/attendance/session-attendance-section";
 import { getTodayUtcRange, sortSessionsByTime } from "@/lib/attendance";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { ClassSession } from "@/types/database";
+import { ClassSession, UserProfile } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+
+interface RawSessionAttendee {
+  id: string;
+  class_session_id: string;
+  user_id: string;
+  attendance_status: "present" | "absent" | null;
+}
+
+interface RawClassSession {
+  id: string;
+  class_id: string;
+  starts_at: string;
+  classes: { id: string; name: string } | { id: string; name: string }[] | null;
+  session_attendees: RawSessionAttendee[];
+}
 
 async function getTodaysSessions() {
   const supabase = getSupabaseServerClient();
   const { startIso, endIso } = getTodayUtcRange();
 
-  const { data, error } = await supabase
+  const { data: sessionRows, error } = await supabase
     .from("class_sessions")
     .select(
       `
@@ -25,13 +40,7 @@ async function getTodaysSessions() {
         id,
         class_session_id,
         user_id,
-        attendance_status,
-        users:users!session_attendees_user_id_fkey (
-          id,
-          first_name,
-          last_name,
-          email
-        )
+        attendance_status
       )
     `,
     )
@@ -43,7 +52,30 @@ async function getTodaysSessions() {
     throw new Error(`Failed to load today's sessions: ${error.message}`);
   }
 
-  const sessions = ((data ?? []) as Partial<ClassSession>[]).map((session) => {
+  const rawSessions = (sessionRows ?? []) as RawClassSession[];
+  const userIds = Array.from(
+    new Set(
+      rawSessions.flatMap((session) =>
+        session.session_attendees.map((attendee) => attendee.user_id),
+      ),
+    ),
+  );
+
+  let usersById = new Map<string, UserProfile>();
+  if (userIds.length > 0) {
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email")
+      .in("id", userIds);
+
+    if (usersError) {
+      throw new Error(`Failed to load attendee users: ${usersError.message}`);
+    }
+
+    usersById = new Map((users ?? []).map((user) => [user.id, user as UserProfile]));
+  }
+
+  const sessions = rawSessions.map((session) => {
     const classRelation = Array.isArray(session.classes)
       ? session.classes[0] ?? null
       : session.classes ?? null;
@@ -52,6 +84,10 @@ async function getTodaysSessions() {
       ...session,
       class_name: classRelation?.name ?? "Unnamed class",
       location: null,
+      session_attendees: session.session_attendees.map((attendee) => ({
+        ...attendee,
+        users: usersById.get(attendee.user_id) ?? null,
+      })),
     } as ClassSession;
   });
 
