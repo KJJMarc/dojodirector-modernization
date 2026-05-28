@@ -26,10 +26,11 @@ async function getTodaysSessions() {
         class_session_id,
         user_id,
         attendance_status,
-        users (
+        users:users!session_attendees_user_id_fkey (
           id,
           first_name,
-          last_name
+          last_name,
+          email
         )
       )
     `,
