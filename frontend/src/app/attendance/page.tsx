@@ -4,6 +4,8 @@ import { getTodayUtcRange, sortSessionsByTime } from "@/lib/attendance";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ClassSession } from "@/types/database";
 
+export const dynamic = "force-dynamic";
+
 async function getTodaysSessions() {
   const supabase = getSupabaseServerClient();
   const { startIso, endIso } = getTodayUtcRange();

@@ -11,7 +11,7 @@ export interface SessionAttendee {
   session_id: string;
   student_id: string;
   attendance_status: AttendanceStatus;
-  students: Student | null;
+  students: Student | Student[] | null;
 }
 
 export interface ClassSession {

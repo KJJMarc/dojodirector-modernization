@@ -11,6 +11,9 @@ export function SessionAttendanceSection({
   session,
   markAttendanceAction,
 }: SessionAttendanceSectionProps) {
+  const getStudent = (students: ClassSession["session_attendees"][number]["students"]) =>
+    Array.isArray(students) ? students[0] ?? null : students;
+
   return (
     <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -35,8 +38,8 @@ export function SessionAttendanceSection({
             attendeeId={attendee.id}
             status={attendee.attendance_status}
             studentName={getStudentFullName(
-              attendee.students?.first_name ?? null,
-              attendee.students?.last_name ?? null,
+              getStudent(attendee.students)?.first_name ?? null,
+              getStudent(attendee.students)?.last_name ?? null,
             )}
             markAttendanceAction={markAttendanceAction}
           />
