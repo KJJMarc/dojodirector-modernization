@@ -6,9 +6,14 @@ export interface UserProfile {
   last_name: string | null;
 }
 
+export interface ClassInfo {
+  id: string;
+  name: string;
+}
+
 export interface SessionAttendee {
   id: string;
-  session_id: string;
+  class_session_id: string;
   user_id: string;
   attendance_status: AttendanceStatus;
   users: UserProfile | UserProfile[] | null;
@@ -16,8 +21,10 @@ export interface SessionAttendee {
 
 export interface ClassSession {
   id: string;
+  class_id: string;
   class_name: string;
   starts_at: string;
   location: string | null;
+  classes: ClassInfo | ClassInfo[] | null;
   session_attendees: SessionAttendee[];
 }

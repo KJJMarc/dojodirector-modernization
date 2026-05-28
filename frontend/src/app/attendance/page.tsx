@@ -15,12 +15,15 @@ async function getTodaysSessions() {
     .select(
       `
       id,
-      class_name,
+      class_id,
       starts_at,
-      location,
+      classes (
+        id,
+        name
+      ),
       session_attendees (
         id,
-        session_id,
+        class_session_id,
         user_id,
         attendance_status,
         users (
@@ -39,7 +42,19 @@ async function getTodaysSessions() {
     throw new Error(`Failed to load today's sessions: ${error.message}`);
   }
 
-  return sortSessionsByTime((data ?? []) as ClassSession[]);
+  const sessions = ((data ?? []) as Partial<ClassSession>[]).map((session) => {
+    const classRelation = Array.isArray(session.classes)
+      ? session.classes[0] ?? null
+      : session.classes ?? null;
+
+    return {
+      ...session,
+      class_name: classRelation?.name ?? "Unnamed class",
+      location: null,
+    } as ClassSession;
+  });
+
+  return sortSessionsByTime(sessions);
 }
 
 export default async function AttendancePage() {
