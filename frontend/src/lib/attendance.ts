@@ -1,0 +1,32 @@
+import { ClassSession } from "@/types/database";
+
+export function getStudentFullName(
+  firstName: string | null,
+  lastName: string | null,
+) {
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  return fullName.length > 0 ? fullName : "Unknown student";
+}
+
+export function formatClassTime(startsAt: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(startsAt));
+}
+
+export function getTodayUtcRange() {
+  const now = new Date();
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
+export function sortSessionsByTime(sessions: ClassSession[]) {
+  return [...sessions].sort(
+    (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+  );
+}
