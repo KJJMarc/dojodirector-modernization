@@ -1,6 +1,6 @@
 export type AttendanceStatus = "present" | "absent" | null;
 
-export interface Student {
+export interface UserProfile {
   id: string;
   first_name: string | null;
   last_name: string | null;
@@ -9,9 +9,9 @@ export interface Student {
 export interface SessionAttendee {
   id: string;
   session_id: string;
-  student_id: string;
+  user_id: string;
   attendance_status: AttendanceStatus;
-  students: Student | Student[] | null;
+  users: UserProfile | UserProfile[] | null;
 }
 
 export interface ClassSession {

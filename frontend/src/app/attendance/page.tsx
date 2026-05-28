@@ -21,9 +21,9 @@ async function getTodaysSessions() {
       session_attendees (
         id,
         session_id,
-        student_id,
+        user_id,
         attendance_status,
-        students (
+        users (
           id,
           first_name,
           last_name
