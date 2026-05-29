@@ -6,6 +6,8 @@ import { AppHeader } from "@/components/layout/app-header";
 import {
   filterAdminStudents,
   getClubStudents,
+  parseAdminStudentSort,
+  sortAdminStudents,
 } from "@/lib/admin-students";
 
 export const dynamic = "force-dynamic";
@@ -16,15 +18,22 @@ export const metadata: Metadata = {
 };
 
 interface AdminStudentsPageProps {
-  searchParams: { q?: string };
+  searchParams: { q?: string; sort?: string; dir?: string };
 }
 
 export default async function AdminStudentsPage({
   searchParams,
 }: AdminStudentsPageProps) {
   const searchQuery = searchParams.q?.trim();
+  const currentSort = parseAdminStudentSort(
+    searchParams.sort,
+    searchParams.dir,
+  );
   const allStudents = await getClubStudents();
-  const students = filterAdminStudents(allStudents, searchQuery);
+  const students = sortAdminStudents(
+    filterAdminStudents(allStudents, searchQuery),
+    currentSort,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -48,13 +57,18 @@ export default async function AdminStudentsPage({
             Search by first name, last name or email.
           </p>
         </div>
-        <StudentSearchForm initialQuery={searchQuery ?? ""} />
+        <StudentSearchForm
+          initialQuery={searchQuery ?? ""}
+          sortKey={currentSort.key}
+          sortDir={currentSort.dir}
+        />
       </section>
 
       <StudentsList
         students={students}
         totalCount={allStudents.length}
         searchQuery={searchQuery}
+        currentSort={currentSort}
       />
     </main>
   );

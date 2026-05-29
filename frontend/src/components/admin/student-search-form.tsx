@@ -2,12 +2,22 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AdminStudentSortDir,
+  AdminStudentSortKey,
+} from "@/lib/admin-students";
 
 interface StudentSearchFormProps {
   initialQuery?: string;
+  sortKey: AdminStudentSortKey;
+  sortDir: AdminStudentSortDir;
 }
 
-export function StudentSearchForm({ initialQuery = "" }: StudentSearchFormProps) {
+export function StudentSearchForm({
+  initialQuery = "",
+  sortKey,
+  sortDir,
+}: StudentSearchFormProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
 
@@ -16,16 +26,14 @@ export function StudentSearchForm({ initialQuery = "" }: StudentSearchFormProps)
 
     const trimmedQuery = query.trim();
     const params = new URLSearchParams();
+    params.set("sort", sortKey);
+    params.set("dir", sortDir);
 
     if (trimmedQuery) {
       params.set("q", trimmedQuery);
     }
 
-    const nextPath = params.size
-      ? `/admin/students?${params.toString()}`
-      : "/admin/students";
-
-    router.push(nextPath);
+    router.push(`/admin/students?${params.toString()}`);
   }
 
   return (

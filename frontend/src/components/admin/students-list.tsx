@@ -1,16 +1,34 @@
 import Link from "next/link";
+import { StudentMobileSort } from "@/components/admin/student-mobile-sort";
 import {
   AdminStudent,
+  AdminStudentSort,
+  AdminStudentSortKey,
+  buildAdminStudentsListHref,
   formatStudentRole,
+  getNextAdminStudentSortDir,
 } from "@/lib/admin-students";
 
 interface StudentsListProps {
   students: AdminStudent[];
   totalCount: number;
   searchQuery?: string;
+  currentSort: AdminStudentSort;
 }
 
 const ATTENDANCE_CARD_YEAR = 2026;
+
+const SORTABLE_COLUMNS: {
+  key: AdminStudentSortKey;
+  label: string;
+}[] = [
+  { key: "first_name", label: "First name" },
+  { key: "last_name", label: "Last name" },
+  { key: "email", label: "Email" },
+  { key: "belt_level", label: "Belt level" },
+  { key: "attendances", label: "Attendances" },
+  { key: "role", label: "Role" },
+];
 
 function StudentActions({ studentId }: { studentId: string }) {
   return (
@@ -31,10 +49,72 @@ function StudentActions({ studentId }: { studentId: string }) {
   );
 }
 
+function SortIndicator({
+  isActive,
+  direction,
+}: {
+  isActive: boolean;
+  direction: AdminStudentSort["dir"];
+}) {
+  return (
+    <span
+      className="inline-flex w-3 shrink-0 items-center justify-center text-dojo-red"
+      aria-hidden="true"
+    >
+      {isActive ? (direction === "asc" ? "↑" : "↓") : ""}
+    </span>
+  );
+}
+
+function SortableHeader({
+  columnKey,
+  label,
+  currentSort,
+  searchQuery,
+}: {
+  columnKey: AdminStudentSortKey;
+  label: string;
+  currentSort: AdminStudentSort;
+  searchQuery?: string;
+}) {
+  const nextDir = getNextAdminStudentSortDir(currentSort, columnKey);
+  const href = buildAdminStudentsListHref({
+    sort: columnKey,
+    dir: nextDir,
+    searchQuery,
+  });
+  const isActive = currentSort.key === columnKey;
+
+  return (
+    <th
+      className="whitespace-nowrap px-4 py-3 font-semibold align-middle"
+      scope="col"
+      aria-sort={
+        isActive
+          ? currentSort.dir === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <Link
+        href={href}
+        className={`inline-flex items-center gap-1 whitespace-nowrap transition hover:text-dojo-white ${
+          isActive ? "text-dojo-white" : "text-dojo-muted"
+        }`}
+      >
+        <span>{label}</span>
+        <SortIndicator isActive={isActive} direction={currentSort.dir} />
+      </Link>
+    </th>
+  );
+}
+
 export function StudentsList({
   students,
   totalCount,
   searchQuery,
+  currentSort,
 }: StudentsListProps) {
   const countLabel =
     searchQuery && students.length !== totalCount
@@ -44,6 +124,8 @@ export function StudentsList({
   return (
     <section aria-label="Students list" className="space-y-3">
       <p className="text-sm text-dojo-muted">{countLabel}</p>
+
+      <StudentMobileSort currentSort={currentSort} searchQuery={searchQuery} />
 
       {students.length === 0 ? (
         <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
@@ -55,15 +137,20 @@ export function StudentsList({
         <>
           <div className="hidden overflow-x-auto rounded-xl border border-dojo-border bg-dojo-surface sm:block">
             <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="border-b border-dojo-border bg-dojo-elevated text-[10px] uppercase tracking-wide text-dojo-muted">
+              <thead className="border-b border-dojo-border bg-dojo-elevated text-[10px] uppercase tracking-wide">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">First name</th>
-                  <th className="px-4 py-3 font-semibold">Last name</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Belt level</th>
-                  <th className="px-4 py-3 font-semibold">Attendances</th>
-                  <th className="px-4 py-3 font-semibold">Role</th>
-                  <th className="px-4 py-3 font-semibold">Actions</th>
+                  {SORTABLE_COLUMNS.map(({ key, label }) => (
+                    <SortableHeader
+                      key={key}
+                      columnKey={key}
+                      label={label}
+                      currentSort={currentSort}
+                      searchQuery={searchQuery}
+                    />
+                  ))}
+                  <th className="whitespace-nowrap px-4 py-3 align-middle font-semibold text-dojo-muted">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-dojo-border">
