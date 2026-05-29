@@ -6,13 +6,11 @@ import { resolveBookingStudent } from "@/lib/booking-eligibility";
 import {
   formatBookingDate,
   formatBookingTime,
-  getSessionLocation,
   parseStudentBookingSubmission,
   StudentBookingSubmission,
   validateStudentBookingDetails,
 } from "@/lib/booking";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient, logSupabaseAdminDiagnostics } from "@/lib/supabase/admin";
 
 export type BookingOutcome =
   | "confirmed"
@@ -46,7 +44,7 @@ interface SessionAttendeeRow {
 }
 
 async function getClassSession(classSessionId: string) {
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("class_sessions")
     .select("id, class_id, club_id, starts_at, ends_at, capacity, status")
@@ -65,7 +63,7 @@ async function getClassSession(classSessionId: string) {
 }
 
 async function getClassName(classId: string) {
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("classes")
     .select("name")
@@ -80,7 +78,7 @@ async function getClassName(classId: string) {
 }
 
 async function getBookedCount(classSessionId: string) {
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
   const { count, error } = await supabase
     .from("session_attendees")
     .select("id", { count: "exact", head: true })
@@ -95,7 +93,7 @@ async function getBookedCount(classSessionId: string) {
 }
 
 async function getExistingMemberBooking(classSessionId: string, userId: string) {
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("session_attendees")
     .select("id, booking_status")
@@ -108,6 +106,24 @@ async function getExistingMemberBooking(classSessionId: string, userId: string) 
   }
 
   return data as SessionAttendeeRow | null;
+}
+
+async function getBookingSessionLocation(
+  classSessionId: string,
+): Promise<string | null> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("attendance_register_rows")
+    .select("location")
+    .eq("class_session_id", classSessionId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+
+  return data?.location ?? null;
 }
 
 function buildBookingResult(
@@ -188,7 +204,7 @@ async function completeMemberBooking(
 
   const [className, location, bookingStudent] = await Promise.all([
     getClassName(classSession.class_id),
-    getSessionLocation(classSessionId),
+    getBookingSessionLocation(classSessionId),
     resolveBookingStudent(details, classSession.club_id),
   ]);
 
@@ -263,6 +279,7 @@ async function completeMemberBooking(
 export async function submitStudentBooking(
   input: StudentBookingSubmission,
 ): Promise<BookingResult> {
+  await logSupabaseAdminDiagnostics("submitStudentBooking");
   getSupabaseAdminClient();
 
   const submission = parseStudentBookingSubmission(input);
