@@ -30,18 +30,40 @@ const SORTABLE_COLUMNS: {
   { key: "role", label: "Role" },
 ];
 
-function StudentActions({ studentId }: { studentId: string }) {
+function StudentActions({
+  studentId,
+  compact = false,
+}: {
+  studentId: string;
+  compact?: boolean;
+}) {
+  const buttonClassName = compact
+    ? "inline-flex min-h-[32px] shrink-0 items-center whitespace-nowrap rounded-md border border-dojo-border bg-dojo-elevated px-2 py-1 text-[11px] font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+    : "min-h-[36px] rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
+
+  const attendanceCardLabel = compact ? "Card" : "Attendance Card";
+
   return (
-    <div className="flex flex-wrap gap-2">
+    <div
+      className={
+        compact
+          ? "inline-flex max-w-full flex-row flex-nowrap items-center gap-1"
+          : "flex flex-wrap gap-2"
+      }
+    >
       <Link
         href={`/students/${studentId}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
-        className="min-h-[36px] rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+        className={buttonClassName}
+        title="Attendance Card"
+        aria-label="Attendance Card"
       >
-        Attendance Card
+        {attendanceCardLabel}
       </Link>
       <Link
         href={`/admin/students/${studentId}/profile`}
-        className="min-h-[36px] rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+        className={buttonClassName}
+        title="Profile"
+        aria-label="Profile"
       >
         Profile
       </Link>
@@ -148,7 +170,7 @@ export function StudentsList({
                       searchQuery={searchQuery}
                     />
                   ))}
-                  <th className="whitespace-nowrap px-4 py-3 align-middle font-semibold text-dojo-muted">
+                  <th className="w-[1%] whitespace-nowrap px-3 py-3 align-middle font-semibold text-dojo-muted">
                     Actions
                   </th>
                 </tr>
@@ -174,8 +196,8 @@ export function StudentsList({
                     <td className="px-4 py-3 text-dojo-white">
                       {formatStudentRole(student.role)}
                     </td>
-                    <td className="px-4 py-3">
-                      <StudentActions studentId={student.id} />
+                    <td className="w-[1%] whitespace-nowrap px-3 py-3">
+                      <StudentActions studentId={student.id} compact />
                     </td>
                   </tr>
                 ))}

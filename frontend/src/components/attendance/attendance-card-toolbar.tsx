@@ -34,12 +34,26 @@ export function AttendanceCardToolbar({
       >
         Print
       </button>
-      <Link
-        href="/attendance"
-        className="ml-auto text-sm font-medium text-dojo-muted hover:text-dojo-white"
-      >
-        Back to register
-      </Link>
+      <div className="ml-auto flex flex-wrap items-center gap-3">
+        <Link
+          href="/attendance"
+          className="text-sm font-medium text-dojo-muted hover:text-dojo-white"
+        >
+          Back to register
+        </Link>
+        <Link
+          href="/admin/students"
+          className="text-sm font-medium text-dojo-muted hover:text-dojo-white"
+        >
+          Back to students
+        </Link>
+        <Link
+          href={`/admin/students/${userId}/profile`}
+          className="text-sm font-medium text-dojo-muted hover:text-dojo-white"
+        >
+          Student profile
+        </Link>
+      </div>
     </div>
   );
 }
