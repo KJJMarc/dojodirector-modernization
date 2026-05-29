@@ -58,18 +58,6 @@ export function BookingConfirmation({
         "This class is full, so you have been added to the waiting list. A waiting list email will be sent later.",
       tone: "border-dojo-red/40 bg-dojo-red/10",
     },
-    already_booked: {
-      title: "Already booked",
-      message:
-        "This email address is already booked onto this class. No duplicate booking was created.",
-      tone: "border-dojo-border bg-dojo-elevated",
-    },
-    already_waitlisted: {
-      title: "Already on waiting list",
-      message:
-        "This email address is already on the waiting list for this class.",
-      tone: "border-dojo-border bg-dojo-elevated",
-    },
   } as const;
 
   const copy = copyByOutcome[result.outcome];

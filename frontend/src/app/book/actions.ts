@@ -12,11 +12,11 @@ import {
 } from "@/lib/booking";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export type BookingOutcome =
-  | "confirmed"
-  | "waitlisted"
-  | "already_booked"
-  | "already_waitlisted";
+export type BookingOutcome = "confirmed" | "waitlisted";
+
+const ALREADY_BOOKED_MESSAGE = "You are already booked onto this class.";
+const ALREADY_WAITLISTED_MESSAGE =
+  "You are already on the waiting list for this class.";
 
 export interface BookingResult {
   outcome: BookingOutcome;
@@ -214,25 +214,11 @@ async function completeMemberBooking(
   );
 
   if (existingBooking?.booking_status === "booked") {
-    return buildBookingResult(
-      "already_booked",
-      className,
-      classSession,
-      location,
-      studentName,
-      email,
-    );
+    throw new Error(ALREADY_BOOKED_MESSAGE);
   }
 
   if (existingBooking?.booking_status === "waitlisted") {
-    return buildBookingResult(
-      "already_waitlisted",
-      className,
-      classSession,
-      location,
-      studentName,
-      email,
-    );
+    throw new Error(ALREADY_WAITLISTED_MESSAGE);
   }
 
   const bookedCount = await getBookedCount(classSessionId);
