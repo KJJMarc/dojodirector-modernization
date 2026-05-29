@@ -19,3 +19,28 @@ a {
     text-wrap: balance;
   }
 }
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
+  body {
+    @apply bg-white text-black;
+  }
+
+  .attendance-card-page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .attendance-card-sheet {
+    box-shadow: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

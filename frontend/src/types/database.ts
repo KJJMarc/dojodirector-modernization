@@ -29,3 +29,23 @@ export interface ClassSession {
   classes: ClassInfo | ClassInfo[] | null;
   session_attendees: SessionAttendee[];
 }
+
+export interface BeltLevel {
+  id: string;
+  name: string;
+  colour: string | null;
+  stripe_count: number | null;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  user_id: string;
+  attended_on: string;
+}
+
+export interface GradeAward {
+  id: string;
+  user_id: string;
+  awarded_at: string;
+  belt_levels: BeltLevel | BeltLevel[] | null;
+}

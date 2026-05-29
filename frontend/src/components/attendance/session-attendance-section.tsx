@@ -45,6 +45,7 @@ export function SessionAttendanceSection({
           <StudentAttendanceCard
             key={attendee.id}
             attendeeId={attendee.id}
+            userId={attendee.user_id}
             status={attendee.attendance_status}
             studentName={getStudentFullName(
               getUser(attendee.users)?.first_name ?? null,

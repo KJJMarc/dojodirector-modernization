@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { AttendanceStatus } from "@/types/database";
 
 interface StudentAttendanceCardProps {
   attendeeId: string;
+  userId: string;
   studentName: string;
   status: AttendanceStatus;
   markAttendanceAction: (formData: FormData) => Promise<void>;
@@ -12,6 +14,7 @@ interface StudentAttendanceCardProps {
 
 export function StudentAttendanceCard({
   attendeeId,
+  userId,
   studentName,
   status,
   markAttendanceAction,
@@ -40,6 +43,12 @@ export function StudentAttendanceCard({
         <h3 className="truncate text-sm font-medium leading-tight text-dojo-white">
           {studentName}
         </h3>
+        <Link
+          href={`/students/${userId}/attendance-card`}
+          className="text-xs text-dojo-muted hover:text-dojo-red"
+        >
+          View attendance card
+        </Link>
       </div>
 
       <div className="flex shrink-0 gap-1">
