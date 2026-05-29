@@ -1,6 +1,9 @@
 import { markAttendance } from "@/app/attendance/actions";
 import { SessionAttendanceSection } from "@/components/attendance/session-attendance-section";
-import { getTodayUtcRange, sortSessionsByTime } from "@/lib/attendance";
+import {
+  getAttendanceRegisterDateRange,
+  sortSessionsByTime,
+} from "@/lib/attendance";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ClassSession, UserProfile } from "@/types/database";
 
@@ -32,7 +35,7 @@ interface SessionAccumulator {
 
 async function getTodaysSessions() {
   const supabase = getSupabaseServerClient();
-  const { startIso, endIso } = getTodayUtcRange();
+  const { startIso, endIso } = getAttendanceRegisterDateRange();
 
   const { data, error } = await supabase
     .from("attendance_register_rows")
@@ -42,7 +45,7 @@ async function getTodaysSessions() {
     .order("starts_at", { ascending: true });
 
   if (error) {
-    throw new Error(`Failed to load today's sessions: ${error.message}`);
+    throw new Error(`Failed to load sessions: ${error.message}`);
   }
 
   const rows = (data ?? []) as AttendanceRegisterRow[];
@@ -119,7 +122,7 @@ export default async function AttendancePage() {
 
       {sessions.length === 0 ? (
         <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-center text-slate-300">
-          No sessions scheduled for today.
+          No sessions found.
         </section>
       ) : (
         <div className="space-y-5">
