@@ -10,7 +10,7 @@ import {
   StudentBookingSubmission,
   validateStudentBookingDetails,
 } from "@/lib/booking";
-import { getSupabaseAdminClient, logSupabaseAdminDiagnostics } from "@/lib/supabase/admin";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type BookingOutcome =
   | "confirmed"
@@ -279,7 +279,6 @@ async function completeMemberBooking(
 export async function submitStudentBooking(
   input: StudentBookingSubmission,
 ): Promise<BookingResult> {
-  await logSupabaseAdminDiagnostics("submitStudentBooking");
   getSupabaseAdminClient();
 
   const submission = parseStudentBookingSubmission(input);
