@@ -52,7 +52,7 @@ export function StudentAttendanceCard({
           className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
             isPresent
               ? "bg-green-600 text-white ring-2 ring-green-400"
-              : "bg-dojo-elevated text-dojo-muted hover:bg-green-600/20 hover:text-green-400"
+              : "border border-green-700/50 bg-dojo-elevated text-green-500 hover:bg-green-600/25"
           }`}
         >
           Present
@@ -66,7 +66,7 @@ export function StudentAttendanceCard({
           className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
             isAbsent
               ? "bg-dojo-red text-dojo-white ring-2 ring-dojo-red-hover"
-              : "bg-dojo-elevated text-dojo-muted hover:bg-dojo-red/20 hover:text-dojo-red-hover"
+              : "border border-dojo-red/40 bg-dojo-elevated text-dojo-red hover:bg-dojo-red/25"
           }`}
         >
           Absent
