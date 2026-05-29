@@ -184,12 +184,21 @@ classes
 - club_id uuid references clubs(id) on delete cascade
 - name text not null
 - description text
+- programme_type text not null default 'bjj'
 - default_instructor_id uuid references users(id)
 - is_active boolean default true
 - legacy_event_collection_id integer
 - created_at timestamptz default now()
 - updated_at timestamptz default now()
 ```
+
+Suggested `programme_type` values:
+- bjj
+- muay_thai
+- strength_conditioning
+
+Notes:
+- Only `bjj` classes should count toward BJJ attendance cards and grading eligibility.
 
 Examples:
 - Adult BJJ Fundamentals

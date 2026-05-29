@@ -14,6 +14,12 @@ export default async function BookPage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Book a Class" />
+
+      <p className="text-sm text-dojo-muted">
+        Upcoming class sessions for the next 14 days from the same timetable as
+        the attendance register.
+      </p>
+
       <BookingFlow sessionGroups={sessionGroups} />
     </main>
   );

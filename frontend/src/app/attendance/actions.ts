@@ -85,4 +85,5 @@ export async function markAttendance(formData: FormData) {
   }
 
   revalidatePath("/attendance");
+  revalidatePath(`/attendance/${attendee.class_session_id}`);
 }

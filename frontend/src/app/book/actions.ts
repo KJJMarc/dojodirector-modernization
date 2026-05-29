@@ -10,6 +10,7 @@ import {
   StudentBookingSubmission,
   validateStudentBookingDetails,
 } from "@/lib/booking";
+import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type BookingOutcome = "confirmed" | "waitlisted";
@@ -113,17 +114,19 @@ async function getBookingSessionLocation(
 ): Promise<string | null> {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
-    .from("attendance_register_rows")
-    .select("location")
-    .eq("class_session_id", classSessionId)
-    .limit(1)
+    .from("class_sessions")
+    .select("source, external_id")
+    .eq("id", classSessionId)
     .maybeSingle();
 
-  if (error) {
+  if (error || !data) {
     return null;
   }
 
-  return data?.location ?? null;
+  return resolveSessionLocationFromRow({
+    source: data.source,
+    external_id: data.external_id,
+  });
 }
 
 function buildBookingResult(

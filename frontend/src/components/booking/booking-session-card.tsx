@@ -2,22 +2,17 @@
 
 import {
   BookableSession,
-  formatBookingTime,
   formatSessionLocation,
   formatSpacesAvailable,
 } from "@/lib/booking";
+import {
+  formatScheduleCapacitySummary,
+  formatScheduleTimeRange,
+} from "@/lib/class-session-schedule";
 
 interface BookingSessionCardProps {
   session: BookableSession;
   onBookSession: (classSessionId: string) => void;
-}
-
-function formatCapacitySummary(session: BookableSession) {
-  if (session.capacity === null) {
-    return `${session.bookedCount} booked`;
-  }
-
-  return `${session.bookedCount} / ${session.capacity} booked`;
 }
 
 export function BookingSessionCard({
@@ -29,25 +24,26 @@ export function BookingSessionCard({
   return (
     <article className="rounded-xl border border-dojo-border bg-dojo-surface p-3">
       <div className="space-y-3">
-        <div className="space-y-1">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-base font-semibold text-dojo-white">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h3 className="truncate text-base font-semibold text-dojo-white">
               {session.className}
             </h3>
-            <p className="shrink-0 text-xs font-medium text-dojo-muted">
-              {formatCapacitySummary(session)}
+            <p className="text-sm text-dojo-muted">
+              {formatScheduleTimeRange(session.startsAt, session.endsAt)}
+            </p>
+            <p className="text-sm text-dojo-muted">
+              {formatSessionLocation(session.location)}
             </p>
           </div>
-          <p className="text-sm text-dojo-muted">
-            {formatBookingTime(session.startsAt)}
-            {session.endsAt ? ` – ${formatBookingTime(session.endsAt)}` : ""}
-          </p>
-          <p className="text-sm text-dojo-muted">
-            {formatSessionLocation(session.location)}
-          </p>
-          <p className="text-xs font-medium text-dojo-white">
-            {formatSpacesAvailable(session.spacesAvailable)}
-          </p>
+          <div className="shrink-0 text-right">
+            <p className="text-xs font-medium text-dojo-muted">
+              {formatScheduleCapacitySummary(session)}
+            </p>
+            <p className="mt-1 text-xs font-medium text-dojo-white">
+              {formatSpacesAvailable(session.spacesAvailable)}
+            </p>
+          </div>
         </div>
 
         <button
