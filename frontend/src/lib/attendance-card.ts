@@ -157,6 +157,13 @@ async function getAttendanceRecordsForYear(userId: string, year: number) {
   return (data ?? []) as AttendanceRecord[];
 }
 
+function isGradeAwardsPermissionDenied(error: { message?: string }) {
+  const message = (error.message ?? "").toLowerCase();
+  return (
+    message.includes("permission denied") && message.includes("grade_awards")
+  );
+}
+
 async function getGradeAwardsForYear(userId: string, year: number) {
   const supabase = getSupabaseServerClient();
   const startDate = `${year}-01-01`;
@@ -170,6 +177,9 @@ async function getGradeAwardsForYear(userId: string, year: number) {
     .lte("awarded_at", endDate);
 
   if (error) {
+    if (isGradeAwardsPermissionDenied(error)) {
+      return [] as GradeAward[];
+    }
     throw new Error(`Failed to load grade awards: ${error.message}`);
   }
 
@@ -190,6 +200,9 @@ async function getBeltAtEndOfYear(userId: string, year: number) {
     .maybeSingle();
 
   if (error) {
+    if (isGradeAwardsPermissionDenied(error)) {
+      return null;
+    }
     throw new Error(`Failed to load belt rank: ${error.message}`);
   }
 
