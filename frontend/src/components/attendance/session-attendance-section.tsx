@@ -1,6 +1,11 @@
-import { formatClassTime, getStudentFullName } from "@/lib/attendance";
-import { ClassSession } from "@/types/database";
+import { AttendanceSummary } from "@/components/attendance/attendance-summary";
 import { StudentAttendanceCard } from "@/components/attendance/student-attendance-card";
+import { getStudentFullName } from "@/lib/attendance";
+import {
+  countAttendance,
+  formatSessionStartsAt,
+} from "@/lib/attendance-ui";
+import { ClassSession } from "@/types/database";
 
 interface SessionAttendanceSectionProps {
   session: ClassSession;
@@ -14,24 +19,28 @@ export function SessionAttendanceSection({
   const getUser = (users: ClassSession["session_attendees"][number]["users"]) =>
     Array.isArray(users) ? users[0] ?? null : users;
 
+  const counts = countAttendance(session.session_attendees);
+
   return (
-    <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-100">
-            {session.class_name}
-          </h2>
-          <p className="text-sm text-slate-300">
-            {formatClassTime(session.starts_at)}
-            {session.location ? ` · ${session.location}` : ""}
-          </p>
+    <section className="overflow-hidden rounded-xl border border-dojo-border bg-dojo-surface">
+      <header className="border-b border-dojo-border px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-dojo-white">
+              {session.class_name}
+            </h2>
+            <p className="text-xs text-dojo-muted">
+              {formatSessionStartsAt(session.starts_at)}
+              {session.location ? ` · ${session.location}` : ""}
+            </p>
+          </div>
         </div>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300">
-          {session.session_attendees.length} booked
-        </span>
+        <div className="mt-2">
+          <AttendanceSummary counts={counts} compact />
+        </div>
       </header>
 
-      <div className="space-y-3">
+      <div className="space-y-1 p-2">
         {session.session_attendees.map((attendee) => (
           <StudentAttendanceCard
             key={attendee.id}

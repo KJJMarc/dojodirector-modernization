@@ -8,10 +8,17 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      colors: {
+        dojo: {
+          black: "#0a0a0a",
+          surface: "#111111",
+          elevated: "#1a1a1a",
+          border: "#2a2a2a",
+          muted: "#9ca3af",
+          white: "#f5f5f5",
+          red: "#c41e3a",
+          "red-hover": "#d42a4a",
+        },
       },
     },
   },

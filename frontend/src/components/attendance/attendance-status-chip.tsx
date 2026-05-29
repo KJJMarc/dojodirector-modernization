@@ -1,14 +1,26 @@
 import { AttendanceStatus } from "@/types/database";
 
 const statusStyles: Record<Exclude<AttendanceStatus, null>, string> = {
-  present: "bg-emerald-500/20 text-emerald-300 ring-emerald-500/40",
-  absent: "bg-rose-500/20 text-rose-300 ring-rose-500/40",
+  present: "bg-dojo-elevated text-dojo-white ring-dojo-border",
+  absent: "bg-dojo-elevated text-dojo-muted ring-dojo-border",
 };
 
-export function AttendanceStatusChip({ status }: { status: AttendanceStatus }) {
+interface AttendanceStatusChipProps {
+  status: AttendanceStatus;
+  compact?: boolean;
+}
+
+export function AttendanceStatusChip({
+  status,
+  compact = false,
+}: AttendanceStatusChipProps) {
+  const size = compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs";
+
   if (!status) {
     return (
-      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300 ring-1 ring-slate-700">
+      <span
+        className={`rounded font-medium uppercase tracking-wide text-dojo-muted ring-1 ring-dojo-border bg-dojo-black ${size}`}
+      >
         Unmarked
       </span>
     );
@@ -16,7 +28,7 @@ export function AttendanceStatusChip({ status }: { status: AttendanceStatus }) {
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-medium capitalize ring-1 ${statusStyles[status]}`}
+      className={`rounded font-medium capitalize ring-1 ${size} ${statusStyles[status]}`}
     >
       {status}
     </span>

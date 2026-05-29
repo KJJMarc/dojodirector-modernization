@@ -28,21 +28,34 @@ export function StudentAttendanceCard({
     });
   };
 
+  const isPresent = status === "present";
+  const isAbsent = status === "absent";
+
   return (
-    <article className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg shadow-black/20">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <h3 className="text-lg font-semibold leading-snug text-slate-100">
+    <article
+      className={`flex items-center gap-2 rounded-lg border border-dojo-border bg-dojo-surface px-2 py-1.5 ${
+        isPending ? "pointer-events-none opacity-60" : ""
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-medium leading-tight text-dojo-white">
           {studentName}
         </h3>
-        <AttendanceStatusChip status={status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <AttendanceStatusChip status={status} compact />
+
+      <div className="flex shrink-0 gap-1">
         <button
           type="button"
           onClick={() => submitWithStatus("present")}
           disabled={isPending}
-          className="rounded-xl bg-emerald-500 px-4 py-4 text-base font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
+          aria-pressed={isPresent}
+          className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
+            isPresent
+              ? "bg-dojo-red text-dojo-white"
+              : "bg-dojo-elevated text-dojo-muted hover:text-dojo-white"
+          }`}
         >
           Present
         </button>
@@ -50,7 +63,12 @@ export function StudentAttendanceCard({
           type="button"
           onClick={() => submitWithStatus("absent")}
           disabled={isPending}
-          className="rounded-xl bg-rose-500 px-4 py-4 text-base font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-70"
+          aria-pressed={isAbsent}
+          className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
+            isAbsent
+              ? "bg-dojo-white text-dojo-black"
+              : "bg-dojo-elevated text-dojo-muted hover:text-dojo-white"
+          }`}
         >
           Absent
         </button>

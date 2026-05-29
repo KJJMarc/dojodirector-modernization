@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
-  title: "Kingston Jiu Jitsu | Instructor Attendance",
-  description: "Attendance register MVP for Kingston Jiu Jitsu instructors.",
+  title: "Dojo Director | Attendance Register",
+  description:
+    "Professional martial arts club management. Attendance register for instructors.",
 };
 
 export default function RootLayout({
@@ -16,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} min-h-screen`}>{children}</body>
     </html>
   );
 }

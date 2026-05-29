@@ -1,9 +1,12 @@
 import { markAttendance } from "@/app/attendance/actions";
+import { AttendanceSummary } from "@/components/attendance/attendance-summary";
 import { SessionAttendanceSection } from "@/components/attendance/session-attendance-section";
+import { AppHeader } from "@/components/layout/app-header";
 import {
   getAttendanceRegisterDateRange,
   sortSessionsByTime,
 } from "@/lib/attendance";
+import { countAttendance } from "@/lib/attendance-ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ClassSession, UserProfile } from "@/types/database";
 
@@ -107,25 +110,21 @@ async function getTodaysSessions() {
 
 export default async function AttendancePage() {
   const sessions = await getTodaysSessions();
+  const pageCounts = countAttendance(
+    sessions.flatMap((session) => session.session_attendees),
+  );
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-4 py-6 pb-16 sm:px-6">
-      <header className="sticky top-0 z-10 -mx-4 border-b border-slate-800 bg-slate-950/90 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
-        <p className="text-xs uppercase tracking-[0.24em] text-emerald-400">
-          Kingston Jiu Jitsu
-        </p>
-        <h1 className="text-2xl font-semibold text-slate-100">
-          Instructor Attendance Register
-        </h1>
-        <p className="text-sm text-slate-300">Today&apos;s sessions and attendees</p>
-      </header>
+    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
+      <AppHeader pageTitle="Attendance Register" />
 
       {sessions.length === 0 ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-center text-slate-300">
+        <section className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
           No sessions found.
         </section>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
+          <AttendanceSummary counts={pageCounts} />
           {sessions.map((session) => (
             <SessionAttendanceSection
               key={session.id}
