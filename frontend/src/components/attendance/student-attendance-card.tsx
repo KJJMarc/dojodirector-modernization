@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { AttendanceStatusChip } from "@/components/attendance/attendance-status-chip";
 import { AttendanceStatus } from "@/types/database";
 
 interface StudentAttendanceCardProps {
@@ -43,18 +42,17 @@ export function StudentAttendanceCard({
         </h3>
       </div>
 
-      <AttendanceStatusChip status={status} compact />
-
       <div className="flex shrink-0 gap-1">
         <button
           type="button"
           onClick={() => submitWithStatus("present")}
           disabled={isPending}
           aria-pressed={isPresent}
+          aria-label={`Mark ${studentName} present`}
           className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
             isPresent
-              ? "bg-dojo-red text-dojo-white"
-              : "bg-dojo-elevated text-dojo-muted hover:text-dojo-white"
+              ? "bg-green-600 text-white ring-2 ring-green-400"
+              : "bg-dojo-elevated text-dojo-muted hover:bg-green-600/20 hover:text-green-400"
           }`}
         >
           Present
@@ -64,10 +62,11 @@ export function StudentAttendanceCard({
           onClick={() => submitWithStatus("absent")}
           disabled={isPending}
           aria-pressed={isAbsent}
+          aria-label={`Mark ${studentName} absent`}
           className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
             isAbsent
-              ? "bg-dojo-white text-dojo-black"
-              : "bg-dojo-elevated text-dojo-muted hover:text-dojo-white"
+              ? "bg-dojo-red text-dojo-white ring-2 ring-dojo-red-hover"
+              : "bg-dojo-elevated text-dojo-muted hover:bg-dojo-red/20 hover:text-dojo-red-hover"
           }`}
         >
           Absent

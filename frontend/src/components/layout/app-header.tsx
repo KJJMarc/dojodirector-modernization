@@ -10,14 +10,16 @@ export function AppHeader({
   clubName = ACTIVE_CLUB_NAME,
 }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 -mx-4 border-b border-dojo-border bg-dojo-black/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-dojo-white">
+    <header className="sticky top-0 z-20 -mx-4 border-b border-dojo-border bg-dojo-black/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
+      <p className="text-3xl font-bold uppercase leading-none tracking-tight text-dojo-red sm:text-4xl">
         {PRODUCT_NAME}
       </p>
-      <p className="mt-0.5 text-sm font-medium text-dojo-muted">{clubName}</p>
-      <h1 className="mt-1 text-xl font-semibold leading-tight text-dojo-white sm:text-2xl">
+      <p className="mt-2 text-lg font-semibold leading-tight text-dojo-white sm:text-xl">
+        {clubName}
+      </p>
+      <p className="mt-1 text-lg font-semibold leading-tight text-dojo-white sm:text-xl">
         {pageTitle}
-      </h1>
+      </p>
     </header>
   );
 }
