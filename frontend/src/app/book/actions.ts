@@ -279,8 +279,6 @@ async function completeMemberBooking(
 export async function submitStudentBooking(
   input: StudentBookingSubmission,
 ): Promise<BookingResult> {
-  getSupabaseAdminClient();
-
   const submission = parseStudentBookingSubmission(input);
   validateStudentBookingDetails(submission);
 
