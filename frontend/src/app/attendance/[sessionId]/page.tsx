@@ -30,7 +30,8 @@ export default async function AttendanceSessionPage({
     notFound();
   }
 
-  const { session, endsAt, capacity, isCancelled } = details;
+  const { session, endsAt, capacity, isCancelled, status } = details;
+  const markingDisabled = isCancelled || status === "completed";
   const scheduleSession = {
     id: session.id,
     className: session.class_name,
@@ -78,6 +79,11 @@ export default async function AttendanceSessionPage({
               Cancelled
             </p>
           ) : null}
+          {status === "completed" ? (
+            <p className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+              Completed
+            </p>
+          ) : null}
         </div>
         <div className="mt-3">
           <AttendanceSummary counts={counts} compact />
@@ -89,10 +95,18 @@ export default async function AttendanceSessionPage({
           No students booked for this session yet.
         </section>
       ) : (
-        <SessionAttendanceSection
-          session={session}
-          markAttendanceAction={markAttendance}
-        />
+        <>
+          {markingDisabled ? (
+            <p className="rounded-xl border border-dojo-red/30 bg-dojo-red/10 px-4 py-3 text-sm text-dojo-red">
+              Attendance marking is disabled for {isCancelled ? "cancelled" : "completed"} sessions.
+            </p>
+          ) : null}
+          <SessionAttendanceSection
+            session={session}
+            markAttendanceAction={markAttendance}
+            markingDisabled={markingDisabled}
+          />
+        </>
       )}
     </main>
   );

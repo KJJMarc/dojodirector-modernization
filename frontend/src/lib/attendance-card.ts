@@ -1,5 +1,6 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getStudentFullName } from "@/lib/attendance";
+import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   AttendanceRecord,
   BeltLevel,
@@ -145,8 +146,11 @@ async function getAttendanceRecordsForYear(userId: string, year: number) {
 
   const { data, error } = await supabase
     .from("attendance_records")
-    .select("id, user_id, attended_on")
+    .select(
+      "id, user_id, attended_on, class_session_id, class_sessions(class_id, classes(programme_type))",
+    )
     .eq("user_id", userId)
+    .eq("club_id", ACTIVE_CLUB_ID)
     .gte("attended_on", startDate)
     .lte("attended_on", endDate);
 
@@ -154,7 +158,63 @@ async function getAttendanceRecordsForYear(userId: string, year: number) {
     throw new Error(`Failed to load attendance records: ${error.message}`);
   }
 
-  return (data ?? []) as AttendanceRecord[];
+  return ((data ?? []) as Array<
+    AttendanceRecord & {
+      class_session_id: string | null;
+      class_sessions:
+        | {
+            class_id: string;
+            classes: { programme_type: string } | { programme_type: string }[] | null;
+          }
+        | {
+            class_id: string;
+            classes: { programme_type: string } | { programme_type: string }[] | null;
+          }[]
+        | null;
+    }
+  >)
+    .filter((record) => isBjjAttendanceRecord(record))
+    .map(({ id, user_id, attended_on }) => ({ id, user_id, attended_on }));
+}
+
+function getProgrammeTypeFromJoinedSession(
+  classSessions: {
+    classes: { programme_type: string } | { programme_type: string }[] | null;
+  } | {
+    classes: { programme_type: string } | { programme_type: string }[] | null;
+  }[] | null,
+) {
+  if (!classSessions) {
+    return null;
+  }
+
+  const session = Array.isArray(classSessions) ? classSessions[0] ?? null : classSessions;
+  const classes = session?.classes;
+
+  if (!classes) {
+    return null;
+  }
+
+  const classRow = Array.isArray(classes) ? classes[0] ?? null : classes;
+  return classRow?.programme_type ?? null;
+}
+
+function isBjjAttendanceRecord(record: {
+  class_session_id: string | null;
+  class_sessions:
+    | {
+        classes: { programme_type: string } | { programme_type: string }[] | null;
+      }
+    | {
+        classes: { programme_type: string } | { programme_type: string }[] | null;
+      }[]
+    | null;
+}) {
+  if (!record.class_session_id) {
+    return true;
+  }
+
+  return getProgrammeTypeFromJoinedSession(record.class_sessions) === "bjj";
 }
 
 function isGradeAwardsPermissionDenied(error: { message?: string }) {

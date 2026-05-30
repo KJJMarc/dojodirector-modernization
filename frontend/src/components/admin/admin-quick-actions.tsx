@@ -4,6 +4,11 @@ const actions = [
   { label: "Add student", href: "/admin/students/new", description: "Register a new student" },
   { label: "Students", href: "/admin/students", description: "View and manage students" },
   {
+    label: "Manage Classes",
+    href: "/admin/classes",
+    description: "Recurring classes, events and sessions",
+  },
+  {
     label: "Attendance register",
     href: "/attendance",
     description: "Mark today's attendance",

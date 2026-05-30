@@ -46,6 +46,12 @@ export default async function AdminStudentsPage({
         >
           ← Back to admin
         </Link>
+        <Link
+          href="/admin/students/new"
+          className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover"
+        >
+          Add Student
+        </Link>
       </div>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">

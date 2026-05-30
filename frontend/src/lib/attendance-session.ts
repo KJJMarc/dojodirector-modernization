@@ -35,6 +35,99 @@ export interface AttendanceSessionDetails {
   isCancelled: boolean;
 }
 
+interface SessionAttendeeRow {
+  id: string;
+  class_session_id: string;
+  user_id: string;
+  booking_status: string | null;
+  attendance_status: string | null;
+  notes: string | null;
+}
+
+interface UserRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+}
+
+async function loadSessionAttendeeRegisterRows(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  sessionId: string,
+  classSessionMeta: ClassSessionMetaRow,
+  location: string | null,
+): Promise<AttendanceRegisterRow[]> {
+  const { data: classRow } = await supabase
+    .from("classes")
+    .select("id, name")
+    .eq("id", classSessionMeta.class_id)
+    .maybeSingle();
+
+  const { data: attendeeRows, error: attendeesError } = await supabase
+    .from("session_attendees")
+    .select(
+      "id, class_session_id, user_id, booking_status, attendance_status, notes",
+    )
+    .eq("class_session_id", sessionId)
+    .in("booking_status", ["booked", "walk_in"])
+    .order("booked_at", { ascending: true });
+
+  if (attendeesError) {
+    throw new Error(`Failed to load session attendees: ${attendeesError.message}`);
+  }
+
+  const attendees = (attendeeRows ?? []) as SessionAttendeeRow[];
+
+  if (attendees.length === 0) {
+    return [];
+  }
+
+  const userIds = Array.from(new Set(attendees.map((attendee) => attendee.user_id)));
+
+  const { data: userRows, error: usersError } = await supabase
+    .from("users")
+    .select("id, first_name, last_name, email")
+    .in("id", userIds);
+
+  if (usersError) {
+    throw new Error(`Failed to load attendee profiles: ${usersError.message}`);
+  }
+
+  const userById = new Map(
+    ((userRows ?? []) as UserRow[]).map((user) => [user.id, user]),
+  );
+
+  const rows: AttendanceRegisterRow[] = attendees.map((attendee) => {
+    const user = userById.get(attendee.user_id);
+    const attendanceStatus: AttendanceRegisterRow["attendance_status"] =
+      attendee.attendance_status === "present" ||
+      attendee.attendance_status === "absent"
+        ? attendee.attendance_status
+        : null;
+
+    return {
+      class_session_id: sessionId,
+      class_id: classSessionMeta.class_id,
+      class_name: classRow?.name ?? null,
+      starts_at: classSessionMeta.starts_at,
+      location,
+      attendee_id: attendee.id,
+      session_attendee_id: attendee.id,
+      user_id: attendee.user_id,
+      attendance_status: attendanceStatus,
+      first_name: user?.first_name ?? null,
+      last_name: user?.last_name ?? null,
+      email: user?.email ?? null,
+    };
+  });
+
+  return rows.sort((left, right) =>
+    (left.last_name ?? "").localeCompare(right.last_name ?? "", "en", {
+      sensitivity: "base",
+    }),
+  );
+}
+
 function buildSessionFromRows(
   rows: AttendanceRegisterRow[],
   meta: ClassSessionMetaRow,
@@ -104,76 +197,14 @@ export async function getAttendanceSessionDetails(
   }
 
   const classSessionMeta = meta as ClassSessionMetaRow;
+  const locationBySessionId = await getSessionLocationMap([sessionId]);
 
-  const [{ data: registerRows, error: registerError }, locationBySessionId] =
-    await Promise.all([
-      supabase
-        .from("attendance_register_rows")
-        .select("*")
-        .eq("class_session_id", sessionId)
-        .order("last_name", { ascending: true }),
-      getSessionLocationMap([sessionId]),
-    ]);
-
-  if (registerError) {
-    throw new Error(`Failed to load session attendees: ${registerError.message}`);
-  }
-
-  let rows = (registerRows ?? []) as AttendanceRegisterRow[];
-
-  if (rows.length === 0) {
-    const { data: classRow } = await supabase
-      .from("classes")
-      .select("id, name")
-      .eq("id", classSessionMeta.class_id)
-      .maybeSingle();
-
-    const { data: attendeeRows, error: attendeesError } = await supabase
-      .from("session_attendees")
-      .select(
-        `
-        id,
-        class_session_id,
-        user_id,
-        attendance_status,
-        booking_status,
-        users (
-          id,
-          first_name,
-          last_name,
-          email
-        )
-      `,
-      )
-      .eq("class_session_id", sessionId)
-      .in("booking_status", ["booked", "walk_in"])
-      .order("booked_at", { ascending: true });
-
-    if (attendeesError) {
-      throw new Error(`Failed to load session attendees: ${attendeesError.message}`);
-    }
-
-    rows = (attendeeRows ?? []).map((attendee) => {
-      const users = Array.isArray(attendee.users)
-        ? attendee.users[0] ?? null
-        : attendee.users;
-
-      return {
-        class_session_id: sessionId,
-        class_id: classSessionMeta.class_id,
-        class_name: classRow?.name ?? null,
-        starts_at: classSessionMeta.starts_at,
-        location: locationBySessionId.get(sessionId) ?? null,
-        attendee_id: attendee.id,
-        session_attendee_id: attendee.id,
-        user_id: attendee.user_id,
-        attendance_status: attendee.attendance_status as "present" | "absent" | null,
-        first_name: users?.first_name ?? null,
-        last_name: users?.last_name ?? null,
-        email: users?.email ?? null,
-      };
-    });
-  }
+  const rows = await loadSessionAttendeeRegisterRows(
+    supabase,
+    sessionId,
+    classSessionMeta,
+    locationBySessionId.get(sessionId) ?? null,
+  );
 
   const session = buildSessionFromRows(
     rows,

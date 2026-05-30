@@ -10,11 +10,13 @@ import { ClassSession } from "@/types/database";
 interface SessionAttendanceSectionProps {
   session: ClassSession;
   markAttendanceAction: (formData: FormData) => Promise<void>;
+  markingDisabled?: boolean;
 }
 
 export function SessionAttendanceSection({
   session,
   markAttendanceAction,
+  markingDisabled = false,
 }: SessionAttendanceSectionProps) {
   const getUser = (users: ClassSession["session_attendees"][number]["users"]) =>
     Array.isArray(users) ? users[0] ?? null : users;
@@ -52,6 +54,7 @@ export function SessionAttendanceSection({
               getUser(attendee.users)?.last_name ?? null,
             )}
             markAttendanceAction={markAttendanceAction}
+            markingDisabled={markingDisabled}
           />
         ))}
       </div>

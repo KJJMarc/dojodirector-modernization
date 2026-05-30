@@ -10,6 +10,7 @@ interface StudentAttendanceCardProps {
   studentName: string;
   status: AttendanceStatus;
   markAttendanceAction: (formData: FormData) => Promise<void>;
+  markingDisabled?: boolean;
 }
 
 export function StudentAttendanceCard({
@@ -18,10 +19,15 @@ export function StudentAttendanceCard({
   studentName,
   status,
   markAttendanceAction,
+  markingDisabled = false,
 }: StudentAttendanceCardProps) {
   const [isPending, startTransition] = useTransition();
 
   const submitWithStatus = (nextStatus: "present" | "absent") => {
+    if (markingDisabled) {
+      return;
+    }
+
     const formData = new FormData();
     formData.set("attendeeId", attendeeId);
     formData.set("attendanceStatus", nextStatus);
@@ -36,7 +42,7 @@ export function StudentAttendanceCard({
   return (
     <article
       className={`flex items-center gap-2 rounded-lg border border-dojo-border bg-dojo-surface px-2 py-1.5 ${
-        isPending ? "pointer-events-none opacity-60" : ""
+        isPending || markingDisabled ? "pointer-events-none opacity-60" : ""
       }`}
     >
       <div className="min-w-0 flex-1">
@@ -55,7 +61,7 @@ export function StudentAttendanceCard({
         <button
           type="button"
           onClick={() => submitWithStatus("present")}
-          disabled={isPending}
+          disabled={isPending || markingDisabled}
           aria-pressed={isPresent}
           aria-label={`Mark ${studentName} present`}
           className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${
@@ -69,7 +75,7 @@ export function StudentAttendanceCard({
         <button
           type="button"
           onClick={() => submitWithStatus("absent")}
-          disabled={isPending}
+          disabled={isPending || markingDisabled}
           aria-pressed={isAbsent}
           aria-label={`Mark ${studentName} absent`}
           className={`min-h-[36px] min-w-[4.25rem] rounded-md px-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed ${

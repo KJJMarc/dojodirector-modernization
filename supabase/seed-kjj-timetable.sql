@@ -1,11 +1,13 @@
--- Seed Kingston Jiu Jitsu recurring timetable (class templates + 8 weeks of sessions).
+-- Seed Kingston Jiu Jitsu recurring timetable (class templates + recurring schedules + 8 weeks of sessions).
 --
 -- Prerequisites:
---   Run supabase/migrations/20260529120000_add_programme_type_to_classes.sql first.
+--   1. supabase/migrations/20260529120000_add_programme_type_to_classes.sql
+--   2. supabase/migrations/20260530120000_add_recurring_class_schedules.sql
 --
 -- Safe to run repeatedly (idempotent):
 --   - Inserts classes only when missing for this club (matched by name)
 --   - Updates programme_type on existing KJJ classes when name matches
+--   - Inserts recurring_class_schedules only when missing
 --   - Inserts class_sessions only when missing (matched by class_id + starts_at)
 --   - Does NOT modify existing non-seed sessions or attendee rows
 --
@@ -105,6 +107,43 @@ VALUES
   ('All-Levels Jiu Jitsu', 5, '13:00', '14:00', 20, 'St. John''s Parish Hall');
 
 -- ---------------------------------------------------------------------------
+-- Persist recurring schedules for admin class management
+-- ---------------------------------------------------------------------------
+
+INSERT INTO public.recurring_class_schedules (
+  club_id,
+  class_id,
+  day_of_week,
+  start_time,
+  end_time,
+  capacity,
+  location,
+  is_active
+)
+SELECT
+  'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid,
+  c.id,
+  s.dow,
+  s.start_time,
+  s.end_time,
+  s.capacity,
+  s.location,
+  true
+FROM kjj_timetable_slots s
+JOIN public.classes c
+  ON c.club_id = 'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid
+ AND c.name = s.class_name
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.recurring_class_schedules rcs
+  WHERE rcs.club_id = 'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid
+    AND rcs.class_id = c.id
+    AND rcs.day_of_week = s.dow
+    AND rcs.start_time = s.start_time
+    AND COALESCE(rcs.location, '') = s.location
+);
+
+-- ---------------------------------------------------------------------------
 -- Generate sessions for the next 8 weeks (from today, Europe/London)
 -- ---------------------------------------------------------------------------
 
@@ -116,7 +155,8 @@ INSERT INTO public.class_sessions (
   capacity,
   status,
   source,
-  external_id
+  external_id,
+  recurring_schedule_id
 )
 SELECT
   c.id,
@@ -132,7 +172,8 @@ SELECT
     to_char(occurrence.slot_day, 'YYYY-MM-DD'),
     to_char(s.start_time, 'HH24:MI'),
     replace(s.location, ' ', '_')
-  )
+  ),
+  rcs.id
 FROM generate_series(
   (timezone('Europe/London', now()))::date,
   (timezone('Europe/London', now()))::date + 55,
@@ -143,6 +184,12 @@ JOIN kjj_timetable_slots s
 JOIN public.classes c
   ON c.club_id = 'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid
  AND c.name = s.class_name
+JOIN public.recurring_class_schedules rcs
+  ON rcs.club_id = 'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid
+ AND rcs.class_id = c.id
+ AND rcs.day_of_week = s.dow
+ AND rcs.start_time = s.start_time
+ AND COALESCE(rcs.location, '') = s.location
 WHERE NOT EXISTS (
   SELECT 1
   FROM public.class_sessions cs
@@ -150,5 +197,28 @@ WHERE NOT EXISTS (
     AND cs.class_id = c.id
     AND cs.starts_at = (occurrence.slot_day + s.start_time) AT TIME ZONE 'Europe/London'
 );
+
+UPDATE public.class_sessions cs
+SET recurring_schedule_id = rcs.id,
+    updated_at = now()
+FROM public.recurring_class_schedules rcs
+WHERE cs.club_id = 'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid
+  AND cs.club_id = rcs.club_id
+  AND cs.class_id = rcs.class_id
+  AND cs.recurring_schedule_id IS NULL
+  AND cs.source IN ('kjj_timetable_seed', 'admin_recurring')
+  AND EXTRACT(DOW FROM timezone('Europe/London', cs.starts_at))::integer = rcs.day_of_week
+  AND (timezone('Europe/London', cs.starts_at))::time = rcs.start_time
+  AND COALESCE(rcs.location, '') = replace(
+    COALESCE(
+      (regexp_match(
+        cs.external_id,
+        '^(?:kjj_timetable|admin_recurring):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}:(.+)$'
+      ))[1],
+      ''
+    ),
+    '_',
+    ' '
+  );
 
 COMMIT;

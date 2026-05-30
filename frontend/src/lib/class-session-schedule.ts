@@ -3,6 +3,7 @@ import {
   formatBookingTime,
   getSpacesAvailable,
 } from "@/lib/booking";
+import { utcIsoToLondonTime } from "@/lib/london-datetime";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 interface ClassSessionRow {
@@ -19,6 +20,7 @@ interface ClassSessionRow {
 interface ClassRow {
   id: string;
   name: string;
+  is_active: boolean | null;
 }
 
 interface SessionAttendeeRow {
@@ -51,6 +53,7 @@ export interface LoadClassScheduleSessionsOptions {
   startIso: string;
   endIso: string;
   includeCancelled?: boolean;
+  activeClassesOnly?: boolean;
 }
 
 export function formatScheduleDayLabel(startsAt: string) {
@@ -83,9 +86,14 @@ export function resolveSessionLocationFromRow(row: {
   source: string | null;
   external_id: string | null;
 }): string | null {
-  if (row.source === "kjj_timetable_seed" && row.external_id) {
+  if (
+    (row.source === "kjj_timetable_seed" ||
+      row.source === "admin_recurring" ||
+      row.source === "admin_one_off") &&
+    row.external_id
+  ) {
     const match = row.external_id.match(
-      /^kjj_timetable:[^:]+:\d{4}-\d{2}-\d{2}:\d{2}:\d{2}:(.+)$/,
+      /^(?:kjj_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}(?::\d{2})?:(.+)$/,
     );
 
     if (match?.[1]) {
@@ -96,12 +104,31 @@ export function resolveSessionLocationFromRow(row: {
   return null;
 }
 
+/** Timetable slot time from external_id when present; falls back to London wall time. */
+export function resolveSessionSlotTimeFromRow(row: {
+  starts_at: string;
+  external_id: string | null;
+}): string {
+  if (row.external_id) {
+    const match = row.external_id.match(
+      /^(?:kjj_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:(\d{1,2}:\d{2})/,
+    );
+
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return utcIsoToLondonTime(row.starts_at);
+}
+
 /** Loads sessions from class_sessions (source of truth) with class names and booking counts. */
 export async function loadClassScheduleSessions(
   options: LoadClassScheduleSessionsOptions,
 ): Promise<ClassScheduleSession[]> {
   const supabase = getSupabaseServerClient();
-  const { startIso, endIso, includeCancelled = false } = options;
+  const { startIso, endIso, includeCancelled = false, activeClassesOnly = false } =
+    options;
 
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("class_sessions")
@@ -115,7 +142,7 @@ export async function loadClassScheduleSessions(
   }
 
   const sessions = ((sessionRows ?? []) as ClassSessionRow[]).filter((session) =>
-    includeCancelled ? true : session.status !== "cancelled",
+    includeCancelled ? true : session.status === "scheduled" || session.status === null,
   );
 
   if (sessions.length === 0) {
@@ -126,7 +153,7 @@ export async function loadClassScheduleSessions(
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
 
   const [classesResult, attendeesResult] = await Promise.all([
-    supabase.from("classes").select("id, name").in("id", classIds),
+    supabase.from("classes").select("id, name, is_active").in("id", classIds),
     supabase
       .from("session_attendees")
       .select("id, class_session_id, booking_status")
@@ -146,6 +173,15 @@ export async function loadClassScheduleSessions(
   const classNameById = new Map(
     ((classesResult.data ?? []) as ClassRow[]).map((row) => [row.id, row.name]),
   );
+  const activeClassIds = new Set(
+    ((classesResult.data ?? []) as ClassRow[])
+      .filter((row) => row.is_active !== false)
+      .map((row) => row.id),
+  );
+
+  const visibleSessions = activeClassesOnly
+    ? sessions.filter((session) => activeClassIds.has(session.class_id))
+    : sessions;
 
   const bookedCountBySession = new Map<string, number>();
 
@@ -160,7 +196,7 @@ export async function loadClassScheduleSessions(
     );
   }
 
-  return sessions.map((session) => {
+  return visibleSessions.map((session) => {
     const bookedCount = bookedCountBySession.get(session.id) ?? 0;
     const isCancelled = session.status === "cancelled";
 

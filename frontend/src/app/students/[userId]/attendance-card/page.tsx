@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { toggleManualAttendance } from "@/app/students/[userId]/attendance-card/actions";
 import { AttendanceCardToolbar } from "@/components/attendance/attendance-card-toolbar";
 import { YearlyAttendanceGrid } from "@/components/attendance/yearly-attendance-grid";
 import { AppHeader } from "@/components/layout/app-header";
@@ -62,7 +63,12 @@ export default async function AttendanceCardPage({
           </span>
         </div>
 
-        <YearlyAttendanceGrid rows={cardData.rows} year={year} />
+        <YearlyAttendanceGrid
+          rows={cardData.rows}
+          year={year}
+          userId={params.userId}
+          toggleAttendanceAction={toggleManualAttendance}
+        />
 
         <footer className="attendance-card-footer border-t border-dojo-border pt-4 print:border-neutral-400">
           <p className="text-sm font-semibold text-dojo-white print:text-black">

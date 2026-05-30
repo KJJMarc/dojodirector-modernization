@@ -16,8 +16,7 @@ export default async function BookPage() {
       <AppHeader pageTitle="Book a Class" />
 
       <p className="text-sm text-dojo-muted">
-        Upcoming class sessions for the next 14 days from the same timetable as
-        the attendance register.
+        Browse and book upcoming class sessions over the next 14 days.
       </p>
 
       <BookingFlow sessionGroups={sessionGroups} />

@@ -1,7 +1,7 @@
-import { getAttendanceScheduleSessions } from "@/lib/attendance-schedule";
 import {
   ClassScheduleSession,
   groupClassScheduleSessionsByDate,
+  loadClassScheduleSessions,
   type ClassScheduleDateGroup,
 } from "@/lib/class-session-schedule";
 import {
@@ -117,15 +117,12 @@ export function groupSessionsByDate(
 
 export async function getUpcomingBookableSessions(): Promise<BookableSession[]> {
   const { startIso, endIso } = getBookingDateRange();
-  const startMs = Date.parse(startIso);
-  const endMs = Date.parse(endIso);
 
-  // Same loader as /attendance, narrowed to the 14-day booking window.
-  const sessions = await getAttendanceScheduleSessions();
-
-  return sessions.filter((session) => {
-    const startsMs = Date.parse(session.startsAt);
-    return startsMs >= startMs && startsMs < endMs && !session.isCancelled;
+  return loadClassScheduleSessions({
+    startIso,
+    endIso,
+    includeCancelled: false,
+    activeClassesOnly: true,
   });
 }
 

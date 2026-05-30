@@ -42,6 +42,30 @@ export async function markAttendance(formData: FormData) {
   const supabase = getSupabaseServerClient();
   const attendee = await getSessionAttendeeForMarking(attendeeId);
 
+  const { data: classSession, error: classSessionError } = await supabase
+    .from("class_sessions")
+    .select("club_id, starts_at, status")
+    .eq("id", attendee.class_session_id)
+    .maybeSingle();
+
+  if (classSessionError) {
+    throw new Error(
+      `Unable to load class session for attendance: ${classSessionError.message}`,
+    );
+  }
+
+  if (!classSession) {
+    throw new Error("Class session not found.");
+  }
+
+  if (classSession.status === "cancelled") {
+    throw new Error("Attendance cannot be marked for a cancelled session.");
+  }
+
+  if (classSession.status === "completed") {
+    throw new Error("Attendance cannot be marked for a completed session.");
+  }
+
   const { error } = await supabase
     .from("session_attendees")
     .update({ attendance_status: attendanceStatus })
@@ -52,19 +76,7 @@ export async function markAttendance(formData: FormData) {
   }
 
   if (attendee.user_id) {
-    const { data: classSession, error: classSessionError } = await supabase
-      .from("class_sessions")
-      .select("club_id, starts_at")
-      .eq("id", attendee.class_session_id)
-      .maybeSingle();
-
-    if (classSessionError) {
-      throw new Error(
-        `Unable to load class session for attendance sync: ${classSessionError.message}`,
-      );
-    }
-
-    if (!classSession?.club_id || !classSession.starts_at) {
+    if (!classSession.club_id || !classSession.starts_at) {
       throw new Error("Unable to resolve class session details for attendance sync.");
     }
 
