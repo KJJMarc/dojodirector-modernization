@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { StudentProfileMembershipManager } from "@/components/admin/student-profile-membership-manager";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   formatMembershipStatus,
   formatProfileDate,
@@ -9,6 +11,7 @@ import {
 const ATTENDANCE_CARD_YEAR = 2026;
 
 interface StudentProfileViewProps {
+  clubSlug: string;
   pageData: AdminStudentProfilePageData;
 }
 
@@ -62,7 +65,7 @@ function ActionButton({
   );
 }
 
-export function StudentProfileView({ pageData }: StudentProfileViewProps) {
+export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewProps) {
   const { student, attendance, belt, gradeHistory } = pageData;
 
   return (
@@ -101,6 +104,8 @@ export function StudentProfileView({ pageData }: StudentProfileViewProps) {
           ) : null}
         </dl>
       </section>
+
+      <StudentProfileMembershipManager clubSlug={clubSlug} student={student} />
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
@@ -150,7 +155,7 @@ export function StudentProfileView({ pageData }: StudentProfileViewProps) {
 
         <div className="flex flex-wrap gap-2">
           <ActionButton
-            href={`/admin/students/${student.id}/change-belt`}
+            href={clubAdminPath(clubSlug, `students/${student.id}/change-belt`)}
             label="Change belt level"
           />
           <ActionButton href="#grading-history" label="See grading history" variant="secondary" />

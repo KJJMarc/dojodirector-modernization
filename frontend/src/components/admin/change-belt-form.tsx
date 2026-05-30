@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { awardBeltLevelAction } from "@/app/admin/students/[userId]/change-belt/actions";
+import { awardBeltLevelAction } from "@/app/admin/[clubSlug]/students/[userId]/change-belt/actions";
 import {
   getTodayDateInputValue,
   type BeltCategory,
@@ -9,11 +9,13 @@ import {
 } from "@/lib/admin-belt-levels.shared";
 
 interface ChangeBeltFormProps {
+  clubSlug: string;
   userId: string;
   adultBeltOptions: BeltLevelOption[];
 }
 
 export function ChangeBeltForm({
+  clubSlug,
   userId,
   adultBeltOptions,
 }: ChangeBeltFormProps) {
@@ -28,6 +30,7 @@ export function ChangeBeltForm({
     setError(null);
 
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("userId", userId);
     formData.set("beltLevelId", selectedBeltLevelId);
     formData.set("awardedAt", awardedAt);

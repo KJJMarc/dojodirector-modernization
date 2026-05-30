@@ -1,4 +1,6 @@
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { formatBeltOptionLabel } from "@/lib/admin-belt-levels.shared";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { BeltLevel } from "@/types/database";
 
@@ -126,6 +128,7 @@ export function getNextAdminStudentSortDir(
 }
 
 export function buildAdminStudentsListHref(options: {
+  clubSlug: string;
   sort: AdminStudentSortKey;
   dir: AdminStudentSortDir;
   searchQuery?: string;
@@ -138,7 +141,7 @@ export function buildAdminStudentsListHref(options: {
     params.set("q", options.searchQuery);
   }
 
-  return `/admin/students?${params.toString()}`;
+  return `${clubAdminPath(options.clubSlug, "students")}?${params.toString()}`;
 }
 
 export function formatAdminBeltLabel(
@@ -148,13 +151,7 @@ export function formatAdminBeltLabel(
     return "Not set";
   }
 
-  const stripeCount = belt.stripe_count ?? 0;
-
-  if (stripeCount > 0) {
-    return `${belt.name}, ${stripeCount} Stripe${stripeCount === 1 ? "" : "s"}`;
-  }
-
-  return belt.name;
+  return formatBeltOptionLabel(belt);
 }
 
 export function sortAdminStudents(

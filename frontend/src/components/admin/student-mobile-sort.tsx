@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin-students";
 
 interface StudentMobileSortProps {
+  clubSlug: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
 }
@@ -35,6 +36,7 @@ function parseMobileSortValue(value: string): AdminStudentSort {
 }
 
 export function StudentMobileSort({
+  clubSlug,
   currentSort,
   searchQuery,
 }: StudentMobileSortProps) {
@@ -55,6 +57,7 @@ export function StudentMobileSort({
           const nextSort = parseMobileSortValue(event.target.value);
           router.push(
             buildAdminStudentsListHref({
+              clubSlug,
               sort: nextSort.key,
               dir: nextSort.dir,
               searchQuery,

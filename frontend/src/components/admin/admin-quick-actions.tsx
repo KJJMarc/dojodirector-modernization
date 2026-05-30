@@ -1,22 +1,44 @@
 import Link from "next/link";
+import { clubAdminPath } from "@/lib/clubs.shared";
 
-const actions = [
-  { label: "Add student", href: "/admin/students/new", description: "Register a new student" },
-  { label: "Students", href: "/admin/students", description: "View and manage students" },
-  {
-    label: "Manage Classes",
-    href: "/admin/classes",
-    description: "Recurring classes, events and sessions",
-  },
-  {
-    label: "Attendance register",
-    href: "/attendance",
-    description: "Mark today's attendance",
-  },
-  { label: "Booking page", href: "/book", description: "Public class booking" },
-] as const;
+function buildActions(clubSlug: string) {
+  return [
+    {
+      label: "Add student",
+      href: clubAdminPath(clubSlug, "students/new"),
+      description: "Register a new student",
+    },
+    {
+      label: "Students",
+      href: clubAdminPath(clubSlug, "students"),
+      description: "View and manage students",
+    },
+    {
+      label: "Manage Classes",
+      href: clubAdminPath(clubSlug, "classes"),
+      description: "Recurring classes, events and sessions",
+    },
+    {
+      label: "Instructors",
+      href: clubAdminPath(clubSlug, "instructors"),
+      description: "Manage instructors and class allocation",
+    },
+    {
+      label: "Attendance register",
+      href: "/attendance",
+      description: "Mark today's attendance",
+    },
+    { label: "Booking page", href: "/book", description: "Public class booking" },
+  ] as const;
+}
 
-export function AdminQuickActions() {
+interface AdminQuickActionsProps {
+  clubSlug: string;
+}
+
+export function AdminQuickActions({ clubSlug }: AdminQuickActionsProps) {
+  const actions = buildActions(clubSlug);
+
   return (
     <section aria-label="Quick actions">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-dojo-red">

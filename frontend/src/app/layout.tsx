@@ -8,9 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Dojo Director | Attendance Register",
+  title: "Dojo Director | Martial arts academy management",
   description:
-    "Professional martial arts club management. Attendance register for instructors.",
+    "Class booking, attendance tracking and grading management for martial arts academies.",
 };
 
 export default function RootLayout({

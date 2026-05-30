@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { createAdminStudentAction } from "@/app/admin/students/new/actions";
+import { createAdminStudentAction } from "@/app/admin/[clubSlug]/students/new/actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   MEMBERSHIP_ROLE_OPTIONS,
   MEMBERSHIP_STATUS_OPTIONS,
 } from "@/lib/admin-create-student.shared";
 
-export function AddStudentForm() {
+export function AddStudentForm({ clubSlug }: { clubSlug: string }) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -36,6 +37,7 @@ export function AddStudentForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <input type="hidden" name="clubSlug" value={clubSlug} />
       {errorMessage ? (
         <p className="rounded-md border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-red">
           {errorMessage}
@@ -174,7 +176,7 @@ export function AddStudentForm() {
           {isPending ? "Adding…" : "Add student"}
         </button>
         <Link
-          href="/admin/students"
+          href={clubAdminPath(clubSlug, "students")}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50"
         >
           Cancel

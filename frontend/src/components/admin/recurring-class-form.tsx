@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createRecurringClassAction } from "@/app/admin/classes/actions";
+import { createRecurringClassAction } from "@/app/admin/[clubSlug]/classes/actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import { PROGRAMME_TYPES, formatProgrammeTypeLabel } from "@/lib/admin-programme-types";
 import { DAY_OF_WEEK_OPTIONS } from "@/lib/admin-recurring-classes.shared";
 
-export function RecurringClassForm() {
+export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -17,11 +18,12 @@ export function RecurringClassForm() {
     setErrorMessage(null);
 
     const formData = new FormData(event.currentTarget);
+    formData.set("clubSlug", clubSlug);
 
     startTransition(async () => {
       try {
         await createRecurringClassAction(formData);
-        router.push("/admin/classes");
+        router.push(clubAdminPath(clubSlug, "classes"));
         router.refresh();
       } catch (error) {
         setErrorMessage(
@@ -178,7 +180,7 @@ export function RecurringClassForm() {
           {isPending ? "Creating…" : "Create recurring class"}
         </button>
         <Link
-          href="/admin/classes"
+          href={clubAdminPath(clubSlug, "classes")}
           className="inline-flex min-h-[40px] items-center rounded-md border border-dojo-border px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-elevated"
         >
           Cancel

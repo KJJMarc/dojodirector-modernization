@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { updateClassSessionAction } from "@/app/admin/classes/actions";
+import { updateClassSessionAction } from "@/app/admin/[clubSlug]/classes/actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   PROGRAMME_TYPES,
   SESSION_STATUSES,
@@ -16,10 +17,11 @@ import {
 } from "@/lib/admin-class-sessions.shared";
 
 interface EditClassSessionFormProps {
+  clubSlug: string;
   session: EditableClassSession;
 }
 
-export function EditClassSessionForm({ session }: EditClassSessionFormProps) {
+export function EditClassSessionForm({ clubSlug, session }: EditClassSessionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -29,12 +31,13 @@ export function EditClassSessionForm({ session }: EditClassSessionFormProps) {
     setErrorMessage(null);
 
     const formData = new FormData(event.currentTarget);
+    formData.set("clubSlug", clubSlug);
     formData.set("sessionId", session.id);
 
     startTransition(async () => {
       try {
         await updateClassSessionAction(formData);
-        router.push("/admin/classes");
+        router.push(clubAdminPath(clubSlug, "classes"));
         router.refresh();
       } catch (error) {
         setErrorMessage(
@@ -214,7 +217,7 @@ export function EditClassSessionForm({ session }: EditClassSessionFormProps) {
           {isPending ? "Saving…" : "Save session"}
         </button>
         <Link
-          href="/admin/classes"
+          href={clubAdminPath(clubSlug, "classes")}
           className="inline-flex min-h-[40px] items-center rounded-md border border-dojo-border px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-elevated"
         >
           Cancel

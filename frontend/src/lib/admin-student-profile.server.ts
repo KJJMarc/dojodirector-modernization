@@ -1,7 +1,12 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
-import { formatAdminBeltLabel, formatStudentRole } from "@/lib/admin-students";
+import { formatAdminBeltLabel } from "@/lib/admin-students";
+import { formatInstructorRoleLabel } from "@/lib/admin-instructors.shared";
+import {
+  canChangeProfileMembershipRole,
+  canDeleteStudentMembership,
+} from "@/lib/admin-student-membership.shared";
 import type { AdminStudentProfilePageData } from "@/lib/admin-student-profile.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -351,8 +356,11 @@ export async function getAdminStudentProfilePageData(
       dateOfBirth: user.date_of_birth,
       address,
       notes: combineNotes(user.notes, membership.notes),
-      role: formatStudentRole(membership.role),
+      role: formatInstructorRoleLabel(membership.role),
+      membershipRole: membership.role,
       membershipStatus: membership.status,
+      canChangeRole: canChangeProfileMembershipRole(membership.role),
+      canDelete: canDeleteStudentMembership(membership.role),
     },
     attendance,
     belt: {

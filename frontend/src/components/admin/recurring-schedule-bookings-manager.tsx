@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   blockBookRecurringScheduleAction,
   cancelRecurringScheduleBookingsAction,
-} from "@/app/admin/classes/recurring-schedule-actions";
+} from "@/app/admin/[clubSlug]/classes/recurring-schedule-actions";
 import { getStudentFullName } from "@/lib/attendance";
 import {
   formatDayOfWeekLabel,
@@ -19,6 +19,7 @@ import type {
 } from "@/lib/admin-session-bookings.shared";
 
 interface RecurringScheduleBookingsManagerProps {
+  clubSlug: string;
   pageData: RecurringScheduleBookingsPageData;
   students: BookingStudentOption[];
 }
@@ -30,6 +31,7 @@ function getDefaultEndDate() {
 }
 
 export function RecurringScheduleBookingsManager({
+  clubSlug,
   pageData,
   students,
 }: RecurringScheduleBookingsManagerProps) {
@@ -64,6 +66,7 @@ export function RecurringScheduleBookingsManager({
     setError(null);
 
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("scheduleId", schedule.id);
     formData.set("userId", bookUserId);
     formData.set("endDate", endDate);
@@ -92,6 +95,7 @@ export function RecurringScheduleBookingsManager({
     setError(null);
 
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("scheduleId", schedule.id);
     formData.set("userId", cancelUserId);
 

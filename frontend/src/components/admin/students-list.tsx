@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StudentMobileSort } from "@/components/admin/student-mobile-sort";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   AdminStudent,
   AdminStudentSort,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/admin-students";
 
 interface StudentsListProps {
+  clubSlug: string;
   students: AdminStudent[];
   totalCount: number;
   searchQuery?: string;
@@ -31,9 +33,11 @@ const SORTABLE_COLUMNS: {
 ];
 
 function StudentActions({
+  clubSlug,
   studentId,
   compact = false,
 }: {
+  clubSlug: string;
   studentId: string;
   compact?: boolean;
 }) {
@@ -60,7 +64,7 @@ function StudentActions({
         {attendanceCardLabel}
       </Link>
       <Link
-        href={`/admin/students/${studentId}/profile`}
+        href={clubAdminPath(clubSlug, `students/${studentId}/profile`)}
         className={buttonClassName}
         title="Profile"
         aria-label="Profile"
@@ -89,11 +93,13 @@ function SortIndicator({
 }
 
 function SortableHeader({
+  clubSlug,
   columnKey,
   label,
   currentSort,
   searchQuery,
 }: {
+  clubSlug: string;
   columnKey: AdminStudentSortKey;
   label: string;
   currentSort: AdminStudentSort;
@@ -101,6 +107,7 @@ function SortableHeader({
 }) {
   const nextDir = getNextAdminStudentSortDir(currentSort, columnKey);
   const href = buildAdminStudentsListHref({
+    clubSlug,
     sort: columnKey,
     dir: nextDir,
     searchQuery,
@@ -133,6 +140,7 @@ function SortableHeader({
 }
 
 export function StudentsList({
+  clubSlug,
   students,
   totalCount,
   searchQuery,
@@ -147,7 +155,11 @@ export function StudentsList({
     <section aria-label="Students list" className="space-y-3">
       <p className="text-sm text-dojo-muted">{countLabel}</p>
 
-      <StudentMobileSort currentSort={currentSort} searchQuery={searchQuery} />
+      <StudentMobileSort
+        clubSlug={clubSlug}
+        currentSort={currentSort}
+        searchQuery={searchQuery}
+      />
 
       {students.length === 0 ? (
         <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
@@ -164,6 +176,7 @@ export function StudentsList({
                   {SORTABLE_COLUMNS.map(({ key, label }) => (
                     <SortableHeader
                       key={key}
+                      clubSlug={clubSlug}
                       columnKey={key}
                       label={label}
                       currentSort={currentSort}
@@ -197,7 +210,7 @@ export function StudentsList({
                       {formatStudentRole(student.role)}
                     </td>
                     <td className="w-[1%] whitespace-nowrap px-3 py-3">
-                      <StudentActions studentId={student.id} compact />
+                      <StudentActions clubSlug={clubSlug} studentId={student.id} compact />
                     </td>
                   </tr>
                 ))}
@@ -242,7 +255,7 @@ export function StudentsList({
                       </span>
                     </p>
                   </div>
-                  <StudentActions studentId={student.id} />
+                  <StudentActions clubSlug={clubSlug} studentId={student.id} />
                 </div>
               </li>
             ))}

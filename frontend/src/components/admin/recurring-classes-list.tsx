@@ -5,7 +5,8 @@ import { useTransition } from "react";
 import {
   deactivateRecurringClassAction,
   reactivateRecurringClassAction,
-} from "@/app/admin/classes/recurring-schedule-actions";
+} from "@/app/admin/[clubSlug]/classes/recurring-schedule-actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   formatDayOfWeekLabel,
   formatProgrammeTypeLabel,
@@ -19,6 +20,7 @@ import {
 } from "@/components/admin/recurring-class-action-styles";
 
 interface RecurringClassesListProps {
+  clubSlug: string;
   schedules: RecurringClassScheduleRow[];
 }
 
@@ -36,11 +38,18 @@ function ScheduleStatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-function ScheduleActions({ schedule }: { schedule: RecurringClassScheduleRow }) {
+function ScheduleActions({
+  clubSlug,
+  schedule,
+}: {
+  clubSlug: string;
+  schedule: RecurringClassScheduleRow;
+}) {
   const [isPending, startTransition] = useTransition();
 
   const submitAction = (action: (formData: FormData) => Promise<void>) => {
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("scheduleId", schedule.id);
 
     startTransition(async () => {
@@ -52,7 +61,7 @@ function ScheduleActions({ schedule }: { schedule: RecurringClassScheduleRow }) 
     return (
       <div className="flex flex-col gap-3">
         <Link
-          href={`/admin/classes/recurring/${schedule.id}/bookings`}
+          href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/bookings`)}
           className={RECURRING_ACTION_LINK_CLASS}
         >
           Manage Bookings
@@ -74,7 +83,7 @@ function ScheduleActions({ schedule }: { schedule: RecurringClassScheduleRow }) 
   return (
     <div className="flex flex-col gap-3">
       <Link
-        href={`/admin/classes/recurring/${schedule.id}/bookings`}
+        href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/bookings`)}
         className={RECURRING_ACTION_LINK_CLASS}
       >
         Manage Bookings
@@ -95,7 +104,10 @@ function ScheduleActions({ schedule }: { schedule: RecurringClassScheduleRow }) 
   );
 }
 
-export function RecurringClassesList({ schedules }: RecurringClassesListProps) {
+export function RecurringClassesList({
+  clubSlug,
+  schedules,
+}: RecurringClassesListProps) {
   if (schedules.length === 0) {
     return (
       <div className="rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-8 text-center">
@@ -148,7 +160,7 @@ export function RecurringClassesList({ schedules }: RecurringClassesListProps) {
                   <ScheduleStatusBadge isActive={schedule.isActive} />
                 </td>
                 <td className="px-4 py-3 align-top">
-                  <ScheduleActions schedule={schedule} />
+                  <ScheduleActions clubSlug={clubSlug} schedule={schedule} />
                 </td>
               </tr>
             ))}
@@ -194,7 +206,7 @@ export function RecurringClassesList({ schedules }: RecurringClassesListProps) {
                 <dd className="mt-0.5 text-dojo-white">{schedule.location}</dd>
               </div>
             </dl>
-            <ScheduleActions schedule={schedule} />
+            <ScheduleActions clubSlug={clubSlug} schedule={schedule} />
           </article>
         ))}
       </div>

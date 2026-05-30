@@ -5,7 +5,8 @@ import { useTransition } from "react";
 import {
   cancelClassSessionAction,
   reinstateClassSessionAction,
-} from "@/app/admin/classes/actions";
+} from "@/app/admin/[clubSlug]/classes/actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   AdminClassSessionRow,
   formatSessionKindLabel,
@@ -14,6 +15,7 @@ import { formatProgrammeTypeLabel, formatSessionStatusLabel } from "@/lib/admin-
 import { formatScheduleCapacitySummary } from "@/lib/class-session-schedule";
 
 interface AdminClassSessionsListProps {
+  clubSlug: string;
   sessions: AdminClassSessionRow[];
 }
 
@@ -68,9 +70,16 @@ function SessionActionButton({
   );
 }
 
-function SessionActions({ session }: { session: AdminClassSessionRow }) {
+function SessionActions({
+  clubSlug,
+  session,
+}: {
+  clubSlug: string;
+  session: AdminClassSessionRow;
+}) {
   const submitSessionAction = (action: (formData: FormData) => Promise<void>) => {
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("sessionId", session.id);
     return action(formData);
   };
@@ -78,7 +87,7 @@ function SessionActions({ session }: { session: AdminClassSessionRow }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link
-        href={`/admin/classes/sessions/${session.id}`}
+        href={clubAdminPath(clubSlug, `classes/sessions/${session.id}`)}
         className="text-xs font-semibold text-dojo-red transition hover:text-dojo-red-hover"
       >
         Bookings
@@ -90,7 +99,7 @@ function SessionActions({ session }: { session: AdminClassSessionRow }) {
         Register
       </Link>
       <Link
-        href={`/admin/classes/sessions/${session.id}/edit`}
+        href={clubAdminPath(clubSlug, `classes/sessions/${session.id}/edit`)}
         className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
       >
         Edit
@@ -113,7 +122,10 @@ function SessionActions({ session }: { session: AdminClassSessionRow }) {
   );
 }
 
-export function AdminClassSessionsList({ sessions }: AdminClassSessionsListProps) {
+export function AdminClassSessionsList({
+  clubSlug,
+  sessions,
+}: AdminClassSessionsListProps) {
   if (sessions.length === 0) {
     return (
       <div className="rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-8 text-center">
@@ -172,7 +184,7 @@ export function AdminClassSessionsList({ sessions }: AdminClassSessionsListProps
                   <SessionStatusBadge session={session} />
                 </td>
                 <td className="px-4 py-3">
-                  <SessionActions session={session} />
+                  <SessionActions clubSlug={clubSlug} session={session} />
                 </td>
               </tr>
             ))}
@@ -214,7 +226,7 @@ export function AdminClassSessionsList({ sessions }: AdminClassSessionsListProps
                 <dd className="mt-0.5 text-dojo-white">{session.locationLabel}</dd>
               </div>
             </dl>
-            <SessionActions session={session} />
+            <SessionActions clubSlug={clubSlug} session={session} />
           </article>
         ))}
       </div>

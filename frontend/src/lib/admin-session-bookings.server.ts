@@ -366,32 +366,55 @@ export async function getBookingStudentOptions(
 
   const { data: memberships, error: membershipsError } = await supabase
     .from("memberships")
-    .select("user_id")
-    .eq("club_id", clubId);
+    .select("users!inner(id, first_name, last_name, email)")
+    .eq("club_id", clubId)
+    .eq("role", "student")
+    .eq("status", "active");
 
   if (membershipsError) {
     throw new Error(`Unable to load club members: ${membershipsError.message}`);
   }
 
-  const userIds = Array.from(
-    new Set((memberships ?? []).map((membership) => membership.user_id)),
-  );
+  type BookingUserRow = {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  };
 
-  if (userIds.length === 0) {
-    return [];
+  function normalizeEmbeddedUser(
+    users: BookingUserRow | BookingUserRow[] | null | undefined,
+  ): BookingUserRow | null {
+    if (!users) {
+      return null;
+    }
+
+    return Array.isArray(users) ? (users[0] ?? null) : users;
   }
 
-  const { data: users, error: usersError } = await supabase
-    .from("users")
-    .select("id, first_name, last_name, email")
-    .in("id", userIds)
-    .order("last_name", { ascending: true });
+  const students = (memberships ?? [])
+    .map((membership) =>
+      normalizeEmbeddedUser(
+        (membership as { users: BookingUserRow | BookingUserRow[] | null }).users,
+      ),
+    )
+    .filter((user): user is BookingUserRow => Boolean(user));
 
-  if (usersError) {
-    throw new Error(`Unable to load students: ${usersError.message}`);
-  }
+  students.sort((a, b) => {
+    const lastNameCompare = (a.last_name ?? "").localeCompare(b.last_name ?? "", undefined, {
+      sensitivity: "base",
+    });
 
-  return (users ?? []).map((user) => ({
+    if (lastNameCompare !== 0) {
+      return lastNameCompare;
+    }
+
+    return (a.first_name ?? "").localeCompare(b.first_name ?? "", undefined, {
+      sensitivity: "base",
+    });
+  });
+
+  return students.map((user) => ({
     id: user.id,
     label: getStudentFullName(user.first_name, user.last_name),
     email: user.email,

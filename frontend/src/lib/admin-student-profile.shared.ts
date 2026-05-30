@@ -9,7 +9,10 @@ export interface AdminStudentProfileDetails {
   address: string | null;
   notes: string | null;
   role: string | null;
+  membershipRole: string | null;
   membershipStatus: string | null;
+  canChangeRole: boolean;
+  canDelete: boolean;
 }
 
 export interface AdminStudentProfileAttendanceSummary {

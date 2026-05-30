@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   addSessionBookingAction,
   cancelSessionBookingAction,
-} from "@/app/admin/classes/sessions/[sessionId]/actions";
+} from "@/app/admin/[clubSlug]/classes/sessions/[sessionId]/actions";
 import { getStudentFullName } from "@/lib/attendance";
 import { formatProgrammeTypeLabel, formatSessionStatusLabel } from "@/lib/admin-programme-types";
 import type {
@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin-session-bookings.shared";
 
 interface SessionBookingsManagerProps {
+  clubSlug: string;
   pageData: AdminSessionBookingsView;
   students: BookingStudentOption[];
 }
@@ -38,6 +39,7 @@ function SessionStatusBadge({ isCancelled }: { isCancelled: boolean }) {
 }
 
 export function SessionBookingsManager({
+  clubSlug,
   pageData,
   students,
 }: SessionBookingsManagerProps) {
@@ -75,6 +77,7 @@ export function SessionBookingsManager({
     setError(null);
 
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("sessionId", session.id);
     formData.set("userId", selectedUserId);
     formData.set("allowWaitlist", allowWaitlist ? "true" : "false");
@@ -102,6 +105,7 @@ export function SessionBookingsManager({
     setError(null);
 
     const formData = new FormData();
+    formData.set("clubSlug", clubSlug);
     formData.set("attendeeId", attendeeId);
     formData.set("sessionId", session.id);
     formData.set("userId", userId);

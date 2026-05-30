@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createOneOffEventAction } from "@/app/admin/classes/actions";
+import { createOneOffEventAction } from "@/app/admin/[clubSlug]/classes/actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   PROGRAMME_TYPES,
   formatProgrammeTypeLabel,
 } from "@/lib/admin-programme-types";
 
-export function OneOffEventForm() {
+export function OneOffEventForm({ clubSlug }: { clubSlug: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -19,11 +20,12 @@ export function OneOffEventForm() {
     setErrorMessage(null);
 
     const formData = new FormData(event.currentTarget);
+    formData.set("clubSlug", clubSlug);
 
     startTransition(async () => {
       try {
         await createOneOffEventAction(formData);
-        router.push("/admin/classes");
+        router.push(clubAdminPath(clubSlug, "classes"));
         router.refresh();
       } catch (error) {
         setErrorMessage(
@@ -168,7 +170,7 @@ export function OneOffEventForm() {
           {isPending ? "Creating…" : "Create one-off event"}
         </button>
         <Link
-          href="/admin/classes"
+          href={clubAdminPath(clubSlug, "classes")}
           className="inline-flex min-h-[40px] items-center rounded-md border border-dojo-border px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-elevated"
         >
           Cancel

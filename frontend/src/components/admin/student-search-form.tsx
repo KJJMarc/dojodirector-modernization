@@ -2,18 +2,21 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   AdminStudentSortDir,
   AdminStudentSortKey,
 } from "@/lib/admin-students";
 
 interface StudentSearchFormProps {
+  clubSlug: string;
   initialQuery?: string;
   sortKey: AdminStudentSortKey;
   sortDir: AdminStudentSortDir;
 }
 
 export function StudentSearchForm({
+  clubSlug,
   initialQuery = "",
   sortKey,
   sortDir,
@@ -33,7 +36,7 @@ export function StudentSearchForm({
       params.set("q", trimmedQuery);
     }
 
-    router.push(`/admin/students?${params.toString()}`);
+    router.push(`${clubAdminPath(clubSlug, "students")}?${params.toString()}`);
   }
 
   return (
