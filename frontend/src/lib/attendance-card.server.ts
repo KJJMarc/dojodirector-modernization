@@ -1,9 +1,11 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
+import { loadBjjAttendanceSummary } from "@/lib/admin-bjj-attendance.server";
 import {
   buildYearlyGrid,
   formatBeltLabel,
+  type AttendanceCardHeaderStats,
   type StudentAttendanceCardData,
 } from "@/lib/attendance-card";
 import {
@@ -141,6 +143,18 @@ function getLatestAwardOnOrBeforeYearEnd(
   return null;
 }
 
+async function loadAttendanceCardHeaderStats(
+  userId: string,
+  clubId: string,
+): Promise<AttendanceCardHeaderStats> {
+  const bjjAttendance = await loadBjjAttendanceSummary(userId, clubId, null);
+
+  return {
+    lifetimeBjjAttendanceCount: bjjAttendance.lifetimeBjjAttendanceCount,
+    lastAttendanceDate: bjjAttendance.lastAttendanceDate,
+  };
+}
+
 export async function getStudentAttendanceCardData(
   userId: string,
   year: number,
@@ -170,6 +184,8 @@ export async function getStudentAttendanceCardData(
     year,
   );
 
+  const headerStats = await loadAttendanceCardHeaderStats(userId, resolvedClubId);
+
   return {
     student,
     studentName: getStudentFullName(student.first_name, student.last_name),
@@ -177,5 +193,6 @@ export async function getStudentAttendanceCardData(
     year,
     rows,
     totalAttendance,
+    headerStats,
   };
 }

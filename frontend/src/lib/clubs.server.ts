@@ -70,3 +70,24 @@ export async function requireClubBySlug(slug: string): Promise<ClubRow> {
 
   return club;
 }
+
+export async function getClubSlugById(clubId: string): Promise<string | null> {
+  const normalizedId = clubId.trim();
+
+  if (!normalizedId) {
+    return null;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("clubs")
+    .select("slug")
+    .eq("id", normalizedId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load club slug: ${error.message}`);
+  }
+
+  return (data as { slug: string } | null)?.slug ?? null;
+}

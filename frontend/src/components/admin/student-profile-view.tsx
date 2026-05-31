@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { AdminAccessPanel } from "@/components/admin/admin-access-panel";
-import { InstructorPortalAccessPanel } from "@/components/admin/instructor-portal-access-panel";
-import { StudentPortalAccessPanel } from "@/components/admin/student-portal-access-panel";
+import { LoginAccessPanel } from "@/components/admin/login-access-panel";
+import { ProfileAccessAgreementsPanel } from "@/components/admin/profile-access-agreements-panel";
+import {
+  ProfileDetailItem,
+  ProfileSectionHeading,
+  profileDetailGridClassName,
+  profileSectionClassName,
+} from "@/components/admin/profile-detail-item";
 import { StudentProfileMembershipManager } from "@/components/admin/student-profile-membership-manager";
-import { resolveInstructorPortalLoginEmail } from "@/lib/instructor-portal-auth.shared";
-import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   formatPromotionProgressLabel,
@@ -24,23 +27,6 @@ const ATTENDANCE_CARD_YEAR = 2026;
 interface StudentProfileViewProps {
   clubSlug: string;
   pageData: AdminStudentProfilePageData;
-}
-
-function DetailItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
-        {label}
-      </dt>
-      <dd className="mt-1 text-sm text-dojo-white">{value}</dd>
-    </div>
-  );
 }
 
 function PlaceholderButton({ label }: { label: string }) {
@@ -79,6 +65,7 @@ function ActionButton({
 export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewProps) {
   const {
     student,
+    loginAccess,
     portalAccess,
     instructorPortalAccess,
     showAdminDashboardAccess,
@@ -88,24 +75,15 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
     belt,
     gradeHistory,
   } = pageData;
-  const loginEmail = resolvePortalLoginEmail(
-    portalAccess.portalLoginEmail,
-    student.email,
-  );
-  const instructorLoginEmail = instructorPortalAccess
-    ? resolveInstructorPortalLoginEmail(
-        instructorPortalAccess.portalLoginEmail,
-        student.email,
-      )
-    : null;
-
   return (
-    <div className="space-y-6">
-      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-2">
+      <section className={profileSectionClassName}>
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold text-dojo-white">{student.fullName}</h2>
-            <p className="mt-1 text-sm text-dojo-muted">Student Profile</p>
+            <h2 className="text-lg font-semibold leading-snug text-dojo-white">
+              {student.fullName}
+            </h2>
+            <p className="text-xs text-dojo-muted">Personal details</p>
           </div>
           <ActionButton
             href={clubAdminPath(clubSlug, `students/${student.id}/edit`)}
@@ -114,28 +92,28 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
           />
         </div>
 
-        <dl className="grid gap-4 sm:grid-cols-2">
-          <DetailItem label="Full name" value={student.fullName} />
-          <DetailItem label="Email" value={formatProfileField(student.email)} />
-          <DetailItem label="Phone" value={formatProfileField(student.phone)} />
-          <DetailItem
+        <dl className={profileDetailGridClassName}>
+          <ProfileDetailItem label="Full name" value={student.fullName} />
+          <ProfileDetailItem label="Email" value={formatProfileField(student.email)} />
+          <ProfileDetailItem label="Phone" value={formatProfileField(student.phone)} />
+          <ProfileDetailItem
             label="Date of birth"
             value={formatProfileDate(student.dateOfBirth)}
           />
-          <DetailItem label="Role" value={student.role ?? "—"} />
-          <DetailItem
+          <ProfileDetailItem label="Role" value={student.role ?? "—"} />
+          <ProfileDetailItem
             label="Membership status"
             value={formatMembershipStatus(student.membershipStatus)}
           />
           <div className="sm:col-span-2">
-            <DetailItem label="Address" value={formatProfileField(student.address)} />
+            <ProfileDetailItem label="Address" value={formatProfileField(student.address)} />
           </div>
           {student.notes ? (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted">
                 Notes
               </dt>
-              <dd className="mt-1 whitespace-pre-wrap text-sm text-dojo-white">
+              <dd className="mt-0.5 whitespace-pre-wrap text-sm leading-snug text-dojo-white">
                 {student.notes}
               </dd>
             </div>
@@ -145,44 +123,31 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
 
       <StudentProfileMembershipManager clubSlug={clubSlug} student={student} />
 
-      {showAdminDashboardAccess && adminAccess ? (
-        <AdminAccessPanel
-          clubSlug={clubSlug}
-          userId={student.id}
-          adminAccess={adminAccess}
-        />
-      ) : null}
-
-      {instructorPortalAccess ? (
-        <InstructorPortalAccessPanel
-          clubSlug={clubSlug}
-          loginEmail={instructorLoginEmail}
-          portalAccess={instructorPortalAccess}
-          studentUserId={student.id}
-        />
-      ) : null}
-
-      <StudentPortalAccessPanel
+      <LoginAccessPanel
         clubSlug={clubSlug}
-        loginEmail={loginEmail}
-        portalAccess={portalAccess}
-        agreementAccess={agreementAccess}
-        studentUserId={student.id}
+        userId={student.id}
+        loginAccess={loginAccess}
       />
 
-      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            ATTENDANCE SUMMARY
-          </h3>
-        </div>
+      <ProfileAccessAgreementsPanel
+        studentUserId={student.id}
+        membershipRole={student.membershipRole}
+        portalAccess={portalAccess}
+        agreementAccess={agreementAccess}
+        instructorPortalAccess={instructorPortalAccess}
+        showAdminDashboardAccess={showAdminDashboardAccess}
+        adminAccess={adminAccess}
+      />
 
-        <dl className="grid gap-4 sm:grid-cols-2">
-          <DetailItem
+      <section className={profileSectionClassName}>
+        <ProfileSectionHeading title="Attendance Summary" />
+
+        <dl className={profileDetailGridClassName}>
+          <ProfileDetailItem
             label="Lifetime BJJ attendance"
             value={String(attendance.lifetimeBjjCount)}
           />
-          <DetailItem
+          <ProfileDetailItem
             label="Last attendance"
             value={formatProfileDate(attendance.lastAttendanceDate)}
           />
@@ -197,75 +162,51 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            BELT / LEVEL SUMMARY
-          </h3>
-        </div>
+      <section className={profileSectionClassName}>
+        <ProfileSectionHeading title="Belt / Level Summary" />
 
         {belt.promotion?.isEligible ? (
-          <div className="rounded-lg border border-dojo-red/30 bg-dojo-red/10 p-4">
-            <h3 className="text-sm font-semibold text-dojo-white">
+          <div className="rounded-lg border border-dojo-red/30 bg-dojo-red/10 p-2.5">
+            <p className="text-sm font-semibold leading-snug text-dojo-white">
               Consider belt promotion
-            </h3>
-            <p className="mt-1 text-sm text-dojo-muted">
-              This student appears to meet the attendance and time requirements
-              for the next level.
             </p>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <DetailItem
+            <p className="mt-0.5 text-xs leading-snug text-dojo-muted">
+              Meets attendance and time requirements for the next level.
+            </p>
+            <dl className={`mt-2 ${profileDetailGridClassName}`}>
+              <ProfileDetailItem
                 label="Current level"
                 value={belt.promotion.currentBeltLabel}
               />
-              <DetailItem
-                label="Suggested next level"
+              <ProfileDetailItem
+                label="Suggested next"
                 value={belt.promotion.nextBeltLabel}
-              />
-              <DetailItem
-                label="Attendance since current level"
-                value={formatPromotionProgressLabel(
-                  belt.promotion.attendanceSinceAward,
-                  belt.promotion.requiredAttendance,
-                )}
-              />
-              <DetailItem
-                label="Required attendance"
-                value={String(belt.promotion.requiredAttendance)}
-              />
-              <DetailItem
-                label="Time since current level"
-                value={formatPromotionTimeSinceLabel(belt.promotion)}
-              />
-              <DetailItem
-                label="Required time"
-                value={formatPromotionRequiredTimeLabel(belt.promotion)}
               />
             </dl>
           </div>
         ) : null}
 
-        <dl className="grid gap-4 sm:grid-cols-2">
-          <DetailItem label="Current belt level" value={belt.currentBeltLabel} />
-          <DetailItem
+        <dl className={profileDetailGridClassName}>
+          <ProfileDetailItem label="Current belt level" value={belt.currentBeltLabel} />
+          <ProfileDetailItem
             label="Awarded date"
             value={formatProfileDate(belt.currentBeltAwardedAt)}
           />
-          <DetailItem
+          <ProfileDetailItem
             label="Next belt level"
             value={belt.nextBeltLabel ?? "—"}
           />
           {belt.promotion && !belt.promotion.isEligible ? (
             <>
-              <DetailItem
-                label="Attendance since current level"
+              <ProfileDetailItem
+                label="Attendance since level"
                 value={formatPromotionProgressLabel(
                   belt.promotion.attendanceSinceAward,
                   belt.promotion.requiredAttendance,
                 )}
               />
-              <DetailItem
-                label="Time since current level"
+              <ProfileDetailItem
+                label="Time since level"
                 value={formatPromotionTimeProgressLabel(belt.promotion)}
               />
             </>
@@ -277,35 +218,28 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
             href={clubAdminPath(clubSlug, `students/${student.id}/change-belt`)}
             label="Change Belt Level"
           />
-          <ActionButton href="#grading-history" label="See Grading History" variant="secondary" />
+          <ActionButton href="#grading-history" label="Grading History" variant="secondary" />
         </div>
       </section>
 
-      <section
-        id="grading-history"
-        className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4"
-      >
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            GRADING HISTORY
-          </h3>
-          <p className="mt-1 text-xs text-dojo-muted">
-            Previous belt and stripe awards for this student.
-          </p>
-        </div>
+      <section id="grading-history" className={profileSectionClassName}>
+        <ProfileSectionHeading
+          title="Grading History"
+          description="Previous belt and stripe awards."
+        />
 
         {gradeHistory.length === 0 ? (
-          <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-8 text-center text-sm text-dojo-muted">
+          <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-4 text-center text-sm text-dojo-muted">
             No grading history recorded yet.
           </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-dojo-border">
             <table className="min-w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-dojo-border bg-dojo-elevated text-left text-xs uppercase tracking-wide text-dojo-muted">
-                  <th className="px-4 py-3 font-semibold">Belt level</th>
-                  <th className="px-4 py-3 font-semibold">Awarded</th>
-                  <th className="px-4 py-3 font-semibold">Notes</th>
+                <tr className="border-b border-dojo-border bg-dojo-elevated text-left text-[11px] font-medium uppercase tracking-wide text-dojo-muted">
+                  <th className="px-3 py-1.5">Belt level</th>
+                  <th className="px-3 py-1.5">Awarded</th>
+                  <th className="px-3 py-1.5">Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -314,13 +248,13 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
                     key={entry.id}
                     className="border-b border-dojo-border/70 last:border-b-0"
                   >
-                    <td className="px-4 py-3 font-medium text-dojo-white">
+                    <td className="px-3 py-1.5 font-medium leading-snug text-dojo-white">
                       {entry.beltLabel}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-dojo-muted">
+                    <td className="whitespace-nowrap px-3 py-1.5 leading-snug text-dojo-muted">
                       {formatProfileDate(entry.awardedAt)}
                     </td>
-                    <td className="px-4 py-3 text-dojo-muted">
+                    <td className="px-3 py-1.5 leading-snug text-dojo-muted">
                       {entry.notes?.trim() ? entry.notes : "—"}
                     </td>
                   </tr>

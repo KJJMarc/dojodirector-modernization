@@ -45,7 +45,7 @@ export default async function ClubNewEventPage({
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Creates a single session for seminars, gradings, open mats and other
-            special events. Appears on /book and /attendance.
+            special events. Appears on the public booking page and /attendance.
           </p>
         </div>
 

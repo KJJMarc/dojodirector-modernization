@@ -28,9 +28,15 @@ export type {
   StudentPortalUpcomingBooking,
 };
 
+import {
+  formatStudentBookingCancelBlockedMessage,
+  resolveStudentBookingCancellation,
+} from "@/lib/student-portal-booking-cancel.shared";
+
 interface SessionAttendeeBookingRow {
   id: string;
   booking_status: string | null;
+  attendance_status: string | null;
   class_sessions:
     | {
         id: string;
@@ -101,6 +107,7 @@ async function loadStudentUpcomingBookings(
       `
       id,
       booking_status,
+      attendance_status,
       class_sessions (
         id,
         starts_at,
@@ -136,6 +143,12 @@ async function loadStudentUpcomingBookings(
       continue;
     }
 
+    const cancellation = resolveStudentBookingCancellation({
+      sessionStartsAt: session.starts_at,
+      sessionEndsAt: session.ends_at,
+      attendanceStatus: row.attendance_status,
+    });
+
     pendingBookings.push({
       id: row.id,
       classSessionId: session.id,
@@ -147,6 +160,11 @@ async function loadStudentUpcomingBookings(
       bookingStatus: formatBookingStatusLabel(row.booking_status),
       dateLabel: formatBookingDate(session.starts_at),
       timeLabel: formatBookingTimeRange(session.starts_at, session.ends_at),
+      canCancelBooking: cancellation.canCancelBooking,
+      cancelBlockedReason: cancellation.cancelBlockedReason,
+      cancelBlockedMessage: formatStudentBookingCancelBlockedMessage(
+        cancellation.cancelBlockedReason,
+      ),
     });
   }
 
@@ -156,10 +174,10 @@ async function loadStudentUpcomingBookings(
   );
 
   const bookings: StudentPortalUpcomingBooking[] = pendingBookings.map(
-    ({ classSessionId, ...booking }) => ({
+    (booking) => ({
       ...booking,
       instructorName:
-        instructorNameBySessionId.get(classSessionId) ?? null,
+        instructorNameBySessionId.get(booking.classSessionId) ?? null,
     }),
   );
 
@@ -190,6 +208,7 @@ export async function getStudentPortalPageData(
     attendanceRows: attendanceCard.rows,
     totalAttendanceForYear: attendanceCard.totalAttendance,
     attendanceBeltLabel: attendanceCard.beltLabel,
+    attendanceHeaderStats: attendanceCard.headerStats,
   };
 }
 
@@ -210,6 +229,7 @@ export async function getStudentPortalAttendancePageData(
     attendanceRows: attendanceCard.rows,
     totalAttendanceForYear: attendanceCard.totalAttendance,
     attendanceBeltLabel: attendanceCard.beltLabel,
+    attendanceHeaderStats: attendanceCard.headerStats,
   };
 }
 

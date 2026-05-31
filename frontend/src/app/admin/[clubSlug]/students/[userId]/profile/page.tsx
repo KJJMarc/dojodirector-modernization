@@ -41,17 +41,15 @@ export default async function ClubStudentProfilePage({
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+    <main className="mx-auto min-h-screen w-full max-w-4xl space-y-2 px-3 py-3 pb-20 sm:px-5">
       <AppHeader pageTitle="Student Profile" clubName={club.name} />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={clubAdminPath(club.slug, "students")}
-          className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-        >
-          ← Back to Students
-        </Link>
-      </div>
+      <Link
+        href={clubAdminPath(club.slug, "students")}
+        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
+      >
+        ← Back to Students
+      </Link>
 
       <StudentProfileView clubSlug={club.slug} pageData={pageData} />
     </main>

@@ -19,8 +19,16 @@ import type {
 } from "@/lib/student-portal.shared";
 
 interface SessionAttendeeStatusRow {
+  id: string;
   class_session_id: string;
   booking_status: string | null;
+  attendance_status: string | null;
+}
+
+interface MemberBookingDetails {
+  status: StudentPortalMemberBookingStatus;
+  attendeeId: string;
+  attendanceStatus: string | null;
 }
 
 interface ClassSessionInstructorRow {
@@ -56,35 +64,43 @@ function normalizeMemberBookingStatus(
   return null;
 }
 
-async function loadMemberBookingStatusBySessionId(
+async function loadMemberBookingDetailsBySessionId(
   userId: string,
   sessionIds: string[],
-): Promise<Map<string, StudentPortalMemberBookingStatus>> {
-  const statusBySessionId = new Map<string, StudentPortalMemberBookingStatus>();
+): Promise<Map<string, MemberBookingDetails>> {
+  const detailsBySessionId = new Map<string, MemberBookingDetails>();
 
   if (sessionIds.length === 0) {
-    return statusBySessionId;
+    return detailsBySessionId;
   }
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("session_attendees")
-    .select("class_session_id, booking_status")
+    .select("id, class_session_id, booking_status, attendance_status")
     .eq("user_id", userId)
-    .in("class_session_id", sessionIds);
+    .in("class_session_id", sessionIds)
+    .in("booking_status", ["booked", "waitlisted"]);
 
   if (error) {
     throw new Error(`Failed to load your booking status: ${error.message}`);
   }
 
   for (const row of (data ?? []) as SessionAttendeeStatusRow[]) {
-    statusBySessionId.set(
-      row.class_session_id,
-      normalizeMemberBookingStatus(row.booking_status),
-    );
+    const status = normalizeMemberBookingStatus(row.booking_status);
+
+    if (!status) {
+      continue;
+    }
+
+    detailsBySessionId.set(row.class_session_id, {
+      status,
+      attendeeId: row.id,
+      attendanceStatus: row.attendance_status,
+    });
   }
 
-  return statusBySessionId;
+  return detailsBySessionId;
 }
 
 export async function loadInstructorNameBySessionId(
@@ -203,6 +219,7 @@ export async function loadStudentPortalBookableSessionGroups(
     endIso,
     includeCancelled: false,
     activeClassesOnly: true,
+    clubId,
   });
 
   if (sessions.length === 0) {
@@ -210,16 +227,16 @@ export async function loadStudentPortalBookableSessionGroups(
   }
 
   const sessionIds = sessions.map((session) => session.id);
-  const [memberBookingStatusBySessionId, instructorNameBySessionId] =
+  const [memberBookingDetailsBySessionId, instructorNameBySessionId] =
     await Promise.all([
-      loadMemberBookingStatusBySessionId(userId, sessionIds),
+      loadMemberBookingDetailsBySessionId(userId, sessionIds),
       loadInstructorNameBySessionId(clubId, sessionIds),
     ]);
 
   const bookableSessions: StudentPortalBookableSession[] = sessions.map(
     (session) => {
-      const memberBookingStatus =
-        memberBookingStatusBySessionId.get(session.id) ?? null;
+      const bookingDetails = memberBookingDetailsBySessionId.get(session.id);
+      const memberBookingStatus = bookingDetails?.status ?? null;
       const locationLabel =
         session.location?.trim() || "Location TBC";
 

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { clubAdminPath } from "@/lib/clubs.shared";
+import { clubAdminPath, clubBookingPath } from "@/lib/clubs.shared";
 
 function revalidateUniquePaths(paths: string[]) {
   const seen = new Set<string>();
@@ -41,6 +41,7 @@ export function revalidateClassManagementPaths(
     clubAdminPath(clubSlug, "classes"),
     clubAdminPath(clubSlug, "classes/new"),
     clubAdminPath(clubSlug, "classes/new-event"),
+    clubBookingPath(clubSlug),
     "/book",
     "/attendance",
     sessionId ? clubAdminPath(clubSlug, `classes/sessions/${sessionId}`) : "",
@@ -58,6 +59,7 @@ export function revalidateRecurringClassPaths(
 ) {
   revalidateUniquePaths([
     clubAdminPath(clubSlug, "classes"),
+    clubBookingPath(clubSlug),
     "/book",
     "/attendance",
     scheduleId
@@ -75,6 +77,7 @@ export function revalidateSessionBookingPaths(
   revalidateUniquePaths([
     clubAdminPath(clubSlug, "classes"),
     clubAdminPath(clubSlug, `classes/sessions/${sessionId}`),
+    clubBookingPath(clubSlug),
     "/book",
     "/attendance",
     `/attendance/${sessionId}`,
@@ -112,6 +115,7 @@ export function revalidateTrainingAgreementsPaths(clubSlug: string) {
     clubAdminPath(clubSlug, "training-agreements"),
     clubAdminPath(clubSlug, "training-agreements/member_portal_agreement/edit"),
     clubAdminPath(clubSlug, "training-agreements/guest_training_agreement/edit"),
+    clubBookingPath(clubSlug),
     "/book",
     "/student-portal/agreements",
     "/student-portal",

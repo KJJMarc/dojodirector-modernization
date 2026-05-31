@@ -13,7 +13,10 @@ import {
   validatePortalPasswordInput,
 } from "@/lib/student-portal-auth.server";
 import { formatPortalAuthStatusLabel } from "@/lib/student-portal-auth.shared";
-import { ensureAuthUserForPortalLogin } from "@/lib/portal-auth-user.server";
+import {
+  ensureAuthUserForPortalLogin,
+  linkProfileAfterPortalPasswordSet,
+} from "@/lib/portal-auth-user.server";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -375,14 +378,19 @@ export async function setInstructorPortalPassword(input: {
     profileUserId: input.userId,
   });
 
-  const supabase = getSupabaseAdminClient();
   const preservedLoginEmail =
     portalUser.instructorPortalLoginEmail?.trim() || loginEmail;
 
+  await linkProfileAfterPortalPasswordSet({
+    userId: input.userId,
+    authUserId,
+    loginEmail: preservedLoginEmail,
+  });
+
+  const supabase = getSupabaseAdminClient();
   const { error: updateError } = await supabase
     .from("users")
     .update({
-      auth_user_id: authUserId,
       instructor_portal_login_email: preservedLoginEmail,
       instructor_portal_auth_status: "active",
     })

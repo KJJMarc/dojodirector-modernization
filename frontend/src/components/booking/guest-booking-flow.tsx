@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { submitGuestBooking } from "@/app/book/actions";
+import { submitGuestBooking } from "@/app/[clubSlug]/book/actions";
 import { BookingDateGroup } from "@/components/booking/booking-date-group";
 import { GuestBookingAgreementPanel } from "@/components/booking/guest-booking-agreement-panel";
 import { GuestBookingConfirmation } from "@/components/booking/guest-booking-confirmation";
@@ -21,6 +21,7 @@ import { hasGuestBookingFieldErrors } from "@/lib/guest-booking-validation.share
 import { isSignatoryType } from "@/lib/student-portal-agreements.shared";
 
 interface GuestBookingFlowProps {
+  clubSlug: string;
   sessionGroups: BookableSessionGroup[];
   trainingAgreement: ClientClubAgreementContent;
 }
@@ -56,6 +57,7 @@ function pickAgreementFieldErrors(
 }
 
 export function GuestBookingFlow({
+  clubSlug,
   sessionGroups,
   trainingAgreement,
 }: GuestBookingFlowProps) {
@@ -165,7 +167,7 @@ export function GuestBookingFlow({
 
     startTransition(async () => {
       try {
-        const result = await submitGuestBooking(submission);
+        const result = await submitGuestBooking(clubSlug, submission);
         setBookingResult(result);
         setPendingSessionId(null);
       } catch (error) {

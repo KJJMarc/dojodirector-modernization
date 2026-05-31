@@ -29,6 +29,7 @@ import {
 } from "@/lib/admin-auth.server";
 import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
 import { getAdminInstructorPortalAuthSummary } from "@/lib/instructor-portal-auth.server";
+import { getProfileLoginAccessSummary } from "@/lib/profile-login-access.server";
 import { getAdminStudentPortalAuthSummary } from "@/lib/student-portal-auth.server";
 import { loadUserAddressFromUsers } from "@/lib/user-address-field.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -142,17 +143,27 @@ export async function getAdminStudentProfilePageData(
   userId: string,
   clubId: string = ACTIVE_CLUB_ID,
 ): Promise<AdminStudentProfilePageData> {
-  const [{ user, address }, membership, beltLevels, gradeAwards, requirementsByTargetBeltId, juniorRequirementsByFromBeltId, portalAccess, agreementAccess] =
-    await Promise.all([
-      loadUserProfileRow(userId),
-      loadMembershipRow(userId, clubId),
-      loadBeltLevelsForClub(clubId),
-      loadGradeAwards(userId, clubId),
-      loadGradingRequirementsByTargetBeltId(),
-      loadJuniorGradingRequirementsByFromBeltId(clubId),
-      getAdminStudentPortalAuthSummary(userId),
-      getAdminStudentAgreementSummary(userId),
-    ]);
+  const [
+    { user, address },
+    membership,
+    beltLevels,
+    gradeAwards,
+    requirementsByTargetBeltId,
+    juniorRequirementsByFromBeltId,
+    portalAccess,
+    agreementAccess,
+    loginAccess,
+  ] = await Promise.all([
+    loadUserProfileRow(userId),
+    loadMembershipRow(userId, clubId),
+    loadBeltLevelsForClub(clubId),
+    loadGradeAwards(userId, clubId),
+    loadGradingRequirementsByTargetBeltId(),
+    loadJuniorGradingRequirementsByFromBeltId(clubId),
+    getAdminStudentPortalAuthSummary(userId),
+    getAdminStudentAgreementSummary(userId),
+    getProfileLoginAccessSummary(userId),
+  ]);
 
   const instructorPortalAccess = isInstructorPortalMembershipRole(membership.role)
     ? await getAdminInstructorPortalAuthSummary(userId)
@@ -214,6 +225,7 @@ export async function getAdminStudentProfilePageData(
   });
 
   return {
+    loginAccess,
     student: {
       id: user.id,
       fullName: getStudentFullName(user.first_name, user.last_name),

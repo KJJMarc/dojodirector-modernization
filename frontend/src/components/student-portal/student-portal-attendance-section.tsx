@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { AttendanceCardCompactHeader } from "@/components/attendance/attendance-card-compact-header";
+import { AttendanceCardComposedBlock } from "@/components/attendance/attendance-card-composed-block";
+import { AttendanceCardLegend } from "@/components/attendance/attendance-card-legend";
+import { attendanceCardHeaderRowClassName } from "@/components/attendance/attendance-card-meta";
+import { attendanceCardSectionClassName } from "@/components/attendance/yearly-attendance-grid.shared";
 import { ReadonlyYearlyAttendanceGrid } from "@/components/student-portal/readonly-yearly-attendance-grid";
 import type { StudentPortalPageData } from "@/lib/student-portal.shared";
 
@@ -8,6 +13,9 @@ interface StudentPortalAttendanceSectionProps {
   year: number;
 }
 
+const yearNavButtonClassName =
+  "inline-flex min-h-[30px] shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-2.5 py-1 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50";
+
 export function StudentPortalAttendanceSection({
   userId,
   pageData,
@@ -16,52 +24,36 @@ export function StudentPortalAttendanceSection({
   const basePath = `/student-portal/${userId}`;
 
   return (
-    <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          ATTENDANCE CARD
+    <section className={attendanceCardSectionClassName}>
+      <div className={attendanceCardHeaderRowClassName}>
+        <h3 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-dojo-red">
+          Attendance card
         </h3>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`${basePath}?year=${year - 1}`}
-            className="rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm font-medium text-dojo-white transition hover:border-dojo-red/50"
-          >
+        <div className="flex min-w-0 flex-wrap gap-1.5">
+          <Link href={`${basePath}?year=${year - 1}`} className={yearNavButtonClassName}>
             Previous Year
           </Link>
-          <Link
-            href={`${basePath}?year=${year + 1}`}
-            className="rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm font-medium text-dojo-white transition hover:border-dojo-red/50"
-          >
+          <Link href={`${basePath}?year=${year + 1}`} className={yearNavButtonClassName}>
             Next Year
           </Link>
         </div>
       </div>
 
-      <header className="space-y-1 border-b border-dojo-border pb-4">
-        <p className="text-xs uppercase tracking-wide text-dojo-muted">
-          {year} · BJJ attendance
-        </p>
-        {pageData.attendanceBeltLabel ? (
-          <p className="text-sm font-medium text-dojo-muted">
-            Rank: {pageData.attendanceBeltLabel}
-          </p>
-        ) : null}
-      </header>
-
-      <div className="flex flex-wrap gap-4 text-xs text-dojo-muted">
-        <span>
-          <strong className="text-dojo-white">X</strong> = attended
-        </span>
-        <span>
-          <strong className="text-dojo-white">G</strong> = grading day
-        </span>
-      </div>
-
-      <ReadonlyYearlyAttendanceGrid rows={pageData.attendanceRows} year={year} />
-
-      <p className="text-sm font-semibold text-dojo-white">
-        Total classes in {year}: {pageData.totalAttendanceForYear}
-      </p>
+      <AttendanceCardComposedBlock>
+        <AttendanceCardCompactHeader
+          studentName={pageData.studentName}
+          year={year}
+          rankLabel={pageData.attendanceBeltLabel}
+          totalClasses={pageData.totalAttendanceForYear}
+          headerStats={pageData.attendanceHeaderStats}
+        />
+        <AttendanceCardLegend />
+        <ReadonlyYearlyAttendanceGrid
+          rows={pageData.attendanceRows}
+          year={year}
+          density="compact"
+        />
+      </AttendanceCardComposedBlock>
     </section>
   );
 }

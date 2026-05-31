@@ -1,6 +1,103 @@
 import "server-only";
 
+import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+export const PORTAL_AUTH_LINK_COLUMNS =
+  "id, email, auth_user_id, portal_login_email, portal_auth_status, instructor_portal_login_email, instructor_portal_auth_status";
+
+export interface PortalAuthLinkProfile {
+  id: string;
+  email: string | null;
+  auth_user_id: string | null;
+  portal_login_email: string | null;
+  portal_auth_status: string | null;
+  instructor_portal_login_email: string | null;
+  instructor_portal_auth_status: string | null;
+}
+
+export function isPortalAuthStatusActiveOrInvited(
+  status: string | null | undefined,
+) {
+  return status === "invited" || status === "active";
+}
+
+export function profileBlocksUnlinkingAuthUser(profile: PortalAuthLinkProfile) {
+  if (!profile.auth_user_id) {
+    return false;
+  }
+
+  if (isPortalAuthStatusActiveOrInvited(profile.portal_auth_status)) {
+    return true;
+  }
+
+  if (isPortalAuthStatusActiveOrInvited(profile.instructor_portal_auth_status)) {
+    return true;
+  }
+
+  return true;
+}
+
+export async function loadPortalAuthLinkProfile(
+  userId: string,
+): Promise<PortalAuthLinkProfile | null> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select(PORTAL_AUTH_LINK_COLUMNS)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load portal auth profile: ${error.message}`);
+  }
+
+  return (data as PortalAuthLinkProfile | null) ?? null;
+}
+
+export function resolveProfilePortalLoginEmail(profile: {
+  portal_login_email: string | null;
+  email: string | null;
+}) {
+  return resolvePortalLoginEmail(profile.portal_login_email, profile.email);
+}
+
+export async function linkProfileAfterPortalPasswordSet(input: {
+  userId: string;
+  authUserId: string;
+  loginEmail: string;
+}) {
+  const supabase = getSupabaseAdminClient();
+  const loginEmail = input.loginEmail.trim().toLowerCase();
+  const { data: existing, error: loadError } = await supabase
+    .from("users")
+    .select("portal_login_email")
+    .eq("id", input.userId)
+    .maybeSingle();
+
+  if (loadError) {
+    throw new Error(`Failed to load portal login email: ${loadError.message}`);
+  }
+
+  const update: {
+    auth_user_id: string;
+    portal_auth_status: "active";
+    portal_login_email?: string;
+  } = {
+    auth_user_id: input.authUserId,
+    portal_auth_status: "active",
+  };
+
+  if (!existing?.portal_login_email?.trim()) {
+    update.portal_login_email = loginEmail;
+  }
+
+  const { error } = await supabase.from("users").update(update).eq("id", input.userId);
+
+  if (error) {
+    throw new Error(`Failed to link portal auth user: ${error.message}`);
+  }
+}
 
 interface SupabaseErrorLike {
   message?: string;

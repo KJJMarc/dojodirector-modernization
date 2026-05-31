@@ -1,4 +1,7 @@
-import type { YearlyGridRow } from "@/lib/attendance-card";
+import type {
+  AttendanceCardHeaderStats,
+  YearlyGridRow,
+} from "@/lib/attendance-card";
 import type { StudentAgreementStatusSummary } from "@/lib/student-portal-agreements.shared";
 
 export type StudentPortalMemberBookingStatus = "booked" | "waitlisted" | null;
@@ -26,8 +29,11 @@ export interface StudentPortalBookableSessionGroup {
   sessions: StudentPortalBookableSession[];
 }
 
+import type { StudentBookingCancelBlockedReason } from "@/lib/student-portal-booking-cancel.shared";
+
 export interface StudentPortalUpcomingBooking {
   id: string;
+  classSessionId: string;
   className: string;
   startsAt: string;
   endsAt: string | null;
@@ -36,6 +42,9 @@ export interface StudentPortalUpcomingBooking {
   bookingStatus: string;
   dateLabel: string;
   timeLabel: string;
+  canCancelBooking: boolean;
+  cancelBlockedReason: StudentBookingCancelBlockedReason;
+  cancelBlockedMessage: string | null;
 }
 
 export interface StudentPortalPageData {
@@ -47,6 +56,7 @@ export interface StudentPortalPageData {
   attendanceRows: YearlyGridRow[];
   totalAttendanceForYear: number;
   attendanceBeltLabel: string | null;
+  attendanceHeaderStats: AttendanceCardHeaderStats;
 }
 
 export interface StudentPortalAttendancePageData {
@@ -55,6 +65,7 @@ export interface StudentPortalAttendancePageData {
   attendanceRows: YearlyGridRow[];
   totalAttendanceForYear: number;
   attendanceBeltLabel: string | null;
+  attendanceHeaderStats: AttendanceCardHeaderStats;
 }
 
 export interface StudentPortalBookingsPageData {

@@ -39,6 +39,22 @@ a {
     box-shadow: none;
   }
 
+  .attendance-card-grid-scroll {
+    overflow: visible !important;
+  }
+
+  .attendance-card-grid {
+    width: 100% !important;
+  }
+
+  .attendance-card-grid table {
+    page-break-inside: avoid;
+  }
+
+  .attendance-card-legend {
+    break-inside: avoid;
+  }
+
   a {
     color: inherit;
     text-decoration: none;

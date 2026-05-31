@@ -79,8 +79,18 @@ export interface AdminDashboardAccessSummary {
   showPanel: boolean;
 }
 
+export interface ProfileLoginAccessSummary {
+  loginEmail: string | null;
+  canSetPassword: boolean;
+  hasAuthLogin: boolean;
+  loginStatusLabel: string;
+  authLinkedLabel: string;
+  portalAuthStatusLabel: string;
+}
+
 export interface AdminStudentProfilePageData {
   student: AdminStudentProfileDetails;
+  loginAccess: ProfileLoginAccessSummary;
   showAdminDashboardAccess: boolean;
   portalAccess: AdminStudentPortalAccessSummary;
   instructorPortalAccess: AdminInstructorPortalAccessSummary | null;

@@ -6,6 +6,9 @@ import {
   formatBookingTime,
 } from "@/lib/booking";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
+import { clubBookingPath } from "@/lib/clubs.shared";
+import { getClubSlugById } from "@/lib/clubs.server";
+import { resolveStudentBookingCancellation } from "@/lib/student-portal-booking-cancel.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type MemberBookingOutcome = "confirmed" | "waitlisted";
@@ -35,6 +38,7 @@ interface ClassSessionRow {
 interface SessionAttendeeRow {
   id: string;
   booking_status: string | null;
+  attendance_status: string | null;
 }
 
 export interface BookClassSessionForUserInput {
@@ -96,7 +100,7 @@ async function getExistingMemberBooking(classSessionId: string, userId: string) 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("session_attendees")
-    .select("id, booking_status")
+    .select("id, booking_status, attendance_status")
     .eq("class_session_id", classSessionId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -187,8 +191,20 @@ async function createMemberSessionAttendee(
   }
 }
 
-export function revalidatePathsAfterMemberBooking(portalUserId?: string) {
+export async function revalidatePathsAfterMemberBooking(
+  portalUserId?: string,
+  clubId?: string,
+) {
   revalidatePath("/book");
+
+  if (clubId) {
+    const clubSlug = await getClubSlugById(clubId);
+
+    if (clubSlug) {
+      revalidatePath(clubBookingPath(clubSlug));
+    }
+  }
+
   revalidatePath("/attendance");
 
   if (portalUserId) {
@@ -253,7 +269,7 @@ export async function bookClassSessionForUser(
     existingBooking,
   );
 
-  revalidatePathsAfterMemberBooking(userId);
+  await revalidatePathsAfterMemberBooking(userId, classSession.club_id);
 
   return buildMemberBookingResult(
     bookingStatus === "booked" ? "confirmed" : "waitlisted",
@@ -261,4 +277,82 @@ export async function bookClassSessionForUser(
     classSession,
     location,
   );
+}
+
+function isActiveMemberBookingStatus(status: string | null | undefined) {
+  return status === "booked" || status === "waitlisted";
+}
+
+export async function cancelClassSessionBookingForUser(
+  input: BookClassSessionForUserInput,
+): Promise<{ className: string }> {
+  const userId = input.userId.trim();
+  const classSessionId = input.classSessionId.trim();
+
+  if (!userId) {
+    throw new Error("Student account is required.");
+  }
+
+  if (!classSessionId) {
+    throw new Error("Please choose a class to cancel.");
+  }
+
+  const classSession = await getClassSession(classSessionId);
+
+  if (input.clubId && classSession.club_id !== input.clubId) {
+    throw new Error("This class is not available for your club.");
+  }
+
+  if (classSession.status === "cancelled") {
+    throw new Error("This class session is no longer available.");
+  }
+
+  const existingBooking = await getExistingMemberBooking(classSessionId, userId);
+
+  if (!existingBooking || !isActiveMemberBookingStatus(existingBooking.booking_status)) {
+    throw new Error("No active booking found for this class.");
+  }
+
+  const cancellation = resolveStudentBookingCancellation({
+    sessionStartsAt: classSession.starts_at,
+    sessionEndsAt: classSession.ends_at,
+    attendanceStatus: existingBooking.attendance_status,
+  });
+
+  if (!cancellation.canCancelBooking) {
+    if (cancellation.cancelBlockedReason === "past_booking") {
+      throw new Error("Past booking");
+    }
+
+    if (cancellation.cancelBlockedReason === "session_started") {
+      throw new Error("This class has already started.");
+    }
+
+    if (cancellation.cancelBlockedReason === "attendance_recorded") {
+      throw new Error("Attendance has already been recorded.");
+    }
+
+    throw new Error("This booking cannot be cancelled.");
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error: updateError } = await supabase
+    .from("session_attendees")
+    .update({
+      booking_status: "cancelled",
+      attendance_status: "not_marked",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", existingBooking.id)
+    .eq("user_id", userId);
+
+  if (updateError) {
+    throw new Error(`Unable to cancel booking: ${updateError.message}`);
+  }
+
+  const className = await getClassName(classSession.class_id);
+
+  await revalidatePathsAfterMemberBooking(userId, classSession.club_id);
+
+  return { className };
 }

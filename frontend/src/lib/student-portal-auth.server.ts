@@ -6,6 +6,11 @@ import {
   resolvePortalLoginEmail,
   type PortalAuthStatus,
 } from "@/lib/student-portal-auth.shared";
+import {
+  ensureAuthUserForPortalLogin,
+  linkProfileAfterPortalPasswordSet,
+  resolveProfilePortalLoginEmail,
+} from "@/lib/portal-auth-user.server";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -310,7 +315,7 @@ export async function getAdminStudentPortalAuthSummary(
     portalInvitedAt: portalUser.portalInvitedAt,
     canSendInvite:
       Boolean(portalUser.portalLoginEmail) && portalAuthStatus !== "active",
-    canSetPassword: Boolean(portalUser.authUserId),
+    canSetPassword: Boolean(portalUser.portalLoginEmail),
   };
 }
 
@@ -339,20 +344,26 @@ export async function setStudentPortalPassword(input: {
     throw new Error("Student not found.");
   }
 
-  if (!portalUser.authUserId) {
-    throw new Error("No portal login has been created for this student.");
+  const loginEmail = portalUser.portalLoginEmail;
+
+  if (!loginEmail) {
+    throw new Error("Add a login email before setting a student portal password.");
   }
 
-  const supabase = getSupabaseAdminClient();
-  const { error } = await supabase.auth.admin.updateUserById(portalUser.authUserId, {
+  const authUserId = await ensureAuthUserForPortalLogin({
+    loginEmail,
     password: input.password,
+    existingAuthUserId: portalUser.authUserId,
+    profileUserId: input.userId,
   });
 
-  if (error) {
-    throw new Error(`Failed to update portal password: ${error.message}`);
-  }
+  await linkProfileAfterPortalPasswordSet({
+    userId: input.userId,
+    authUserId,
+    loginEmail,
+  });
 
-  return { authUserId: portalUser.authUserId };
+  return { authUserId, loginEmail };
 }
 
 export async function sendStudentPortalInvite(input: {

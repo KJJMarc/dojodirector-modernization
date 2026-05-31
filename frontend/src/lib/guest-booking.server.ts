@@ -368,7 +368,11 @@ async function generateGuestBookingAgreementPdf(input: {
 
 export async function submitGuestBooking(
   rawInput: GuestBookingSubmission,
-  requestMeta?: { ipAddress?: string | null; userAgent?: string | null },
+  requestMeta?: {
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    expectedClubId?: string;
+  },
 ): Promise<GuestBookingResult> {
   // TODO: When Resend is configured, send guest booking notification to:
   // admin@kingstonjiujitsu.com
@@ -376,6 +380,10 @@ export async function submitGuestBooking(
   const submission = parseGuestBookingSubmission(rawInput);
   const session = await loadClassSessionForGuestBooking(submission.classSessionId);
   const clubId = await resolveGuestBookingClubId(submission.classSessionId);
+
+  if (requestMeta?.expectedClubId && clubId !== requestMeta.expectedClubId) {
+    throw new Error("This class is not available for booking at this club.");
+  }
 
   const guestName = getStudentFullName(submission.firstName, submission.lastName);
   const acceptedAt = new Date().toISOString();

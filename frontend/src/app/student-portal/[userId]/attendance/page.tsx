@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { StudentPortalAttendanceView } from "@/components/student-portal/student-portal-attendance-view";
 import { StudentPortalBackLink } from "@/components/student-portal/student-portal-back-link";
 import { StudentPortalHomeLink } from "@/components/student-portal/student-portal-home-link";
+import { studentPortalAttendanceMainClassName } from "@/components/attendance/yearly-attendance-grid.shared";
 import { parseYearParam } from "@/lib/attendance-card";
 import { ACTIVE_CLUB_NAME } from "@/lib/branding";
 import { getStudentPortalAttendancePageData } from "@/lib/student-portal.server";
@@ -55,7 +56,7 @@ export default async function StudentPortalAttendancePage({
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+    <main className={studentPortalAttendanceMainClassName}>
       <AppHeader pageTitle="Attendance Card" clubName={ACTIVE_CLUB_NAME} />
 
       <StudentPortalBackLink userId={params.userId} />

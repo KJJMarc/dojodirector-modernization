@@ -52,7 +52,7 @@ export default async function StudentPortalBookingsPage({
 
       <StudentPortalBackLink userId={params.userId} />
 
-      <StudentPortalBookingsView pageData={pageData} />
+      <StudentPortalBookingsView userId={params.userId} pageData={pageData} />
 
       <StudentPortalHomeLink />
     </main>

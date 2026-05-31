@@ -23,3 +23,9 @@ export function clubAdminPath(slug: string, section?: string) {
   const normalized = section.replace(/^\/+/, "");
   return normalized ? `${base}/${normalized}` : base;
 }
+
+/** Public guest booking page for a club. */
+export function clubBookingPath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized ? `/${normalized}/book` : `/${KINGSTON_CLUB_SLUG}/book`;
+}

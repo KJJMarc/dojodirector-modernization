@@ -1,47 +1,45 @@
-import { GridCell, YearlyGridRow } from "@/lib/attendance-card";
+import { AttendanceCardGridShell } from "@/components/attendance/attendance-card-grid-shell";
+import { AttendanceGridColGroup } from "@/components/attendance/attendance-grid-colgroup";
+import {
+  attendanceGridColumnHeaderClassName,
+  attendanceGridDayCellBaseClassName,
+  attendanceGridDayCellClassName,
+  attendanceGridDayHeaderClassName,
+  attendanceGridMonthLabelClassName,
+  attendanceGridMonthRowClassName,
+  attendanceGridTableClassName,
+  type AttendanceGridDensity,
+} from "@/components/attendance/yearly-attendance-grid.shared";
+import { isAttendanceGridDayInMonth } from "@/lib/attendance-card-dates";
+import { YearlyGridRow } from "@/lib/attendance-card";
 
 interface ReadonlyYearlyAttendanceGridProps {
   rows: YearlyGridRow[];
   year: number;
-}
-
-function cellClassName(cell: GridCell, isValidDay: boolean) {
-  if (!isValidDay) {
-    return "bg-neutral-100 text-transparent";
-  }
-
-  if (cell === "G") {
-    return "bg-amber-100 font-bold text-amber-900";
-  }
-
-  if (cell === "X") {
-    return "font-semibold text-neutral-900";
-  }
-
-  return "text-neutral-300";
+  /** Narrower day columns for student portal cards. */
+  density?: AttendanceGridDensity;
 }
 
 export function ReadonlyYearlyAttendanceGrid({
   rows,
   year,
+  density = "compact",
 }: ReadonlyYearlyAttendanceGridProps) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-dojo-border bg-white text-neutral-900">
-      <table className="w-full min-w-[720px] border-collapse text-[10px] leading-none sm:text-xs">
+    <AttendanceCardGridShell>
+      <table className={attendanceGridTableClassName(density)}>
         <caption className="sr-only">Yearly attendance grid for {year}</caption>
+        <AttendanceGridColGroup density={density} />
         <thead>
-          <tr className="border-b border-neutral-300 bg-neutral-50">
-            <th
-              scope="col"
-              className="sticky left-0 z-10 border-r border-neutral-300 bg-neutral-50 px-2 py-1.5 text-left font-semibold"
-            >
+          <tr>
+            <th scope="col" className={attendanceGridColumnHeaderClassName(density)}>
               Month
             </th>
             {Array.from({ length: 31 }, (_, index) => (
               <th
                 key={index + 1}
                 scope="col"
-                className="min-w-[1.35rem] border-r border-neutral-200 px-0.5 py-1.5 text-center font-semibold last:border-r-0"
+                className={attendanceGridDayHeaderClassName}
               >
                 {index + 1}
               </th>
@@ -49,43 +47,43 @@ export function ReadonlyYearlyAttendanceGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const daysInMonth = new Date(year, row.month, 0).getDate();
+          {rows.map((row, rowIndex) => (
+            <tr
+              key={row.month}
+              className={attendanceGridMonthRowClassName(rowIndex)}
+            >
+              <th
+                scope="row"
+                className={attendanceGridMonthLabelClassName(rowIndex, density)}
+              >
+                {row.monthLabel}
+              </th>
+              {row.days.map((cell, dayIndex) => {
+                const day = dayIndex + 1;
+                const isValidDay = isAttendanceGridDayInMonth(year, row.month, day);
 
-            return (
-              <tr key={row.month} className="border-b border-neutral-200 last:border-b-0">
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 border-r border-neutral-300 bg-neutral-50 px-2 py-1 text-left font-semibold"
-                >
-                  {row.monthLabel}
-                </th>
-                {row.days.map((cell, dayIndex) => {
-                  const day = dayIndex + 1;
-                  const isValidDay = day <= daysInMonth;
-
-                  return (
-                    <td
-                      key={`${row.month}-${day}`}
-                      className={`border-r border-neutral-200 px-0.5 py-1 text-center last:border-r-0 ${cellClassName(
-                        cell,
-                        isValidDay,
-                      )}`}
-                      aria-label={
-                        isValidDay
-                          ? `${row.monthLabel} ${day}: ${cell || "no attendance"}`
-                          : undefined
-                      }
-                    >
-                      {isValidDay ? cell : ""}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
+                return (
+                  <td
+                    key={`${row.month}-${day}`}
+                    className={`${attendanceGridDayCellBaseClassName} ${attendanceGridDayCellClassName(
+                      cell,
+                      isValidDay,
+                    )}`}
+                    aria-disabled={!isValidDay || undefined}
+                    aria-label={
+                      isValidDay
+                        ? `${row.monthLabel} ${day}: ${cell || "no attendance"}`
+                        : `${row.monthLabel} day ${day}: not a valid date`
+                    }
+                  >
+                    {isValidDay ? cell : ""}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
-    </div>
+    </AttendanceCardGridShell>
   );
 }

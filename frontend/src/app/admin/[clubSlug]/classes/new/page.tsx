@@ -45,7 +45,7 @@ export default async function ClubNewClassPage({
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Creates a class template when needed and generates sessions for the
-            next 8 weeks on /book and /attendance.
+            next 8 weeks on the public booking page and /attendance.
           </p>
         </div>
 

@@ -1,4 +1,3 @@
-import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import {
   ClassScheduleSession,
   groupClassScheduleSessionsByDate,
@@ -116,7 +115,9 @@ export function groupSessionsByDate(
   return groupClassScheduleSessionsByDate(sessions);
 }
 
-export async function getUpcomingBookableSessions(): Promise<BookableSession[]> {
+export async function getUpcomingBookableSessions(
+  clubId: string,
+): Promise<BookableSession[]> {
   const { startIso, endIso } = getBookingDateRange();
 
   return loadClassScheduleSessions({
@@ -124,7 +125,7 @@ export async function getUpcomingBookableSessions(): Promise<BookableSession[]> 
     endIso,
     includeCancelled: false,
     activeClassesOnly: true,
-    clubId: ACTIVE_CLUB_ID,
+    clubId,
   });
 }
 

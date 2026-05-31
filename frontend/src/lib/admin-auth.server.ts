@@ -14,7 +14,14 @@ import {
 import type { AdminDashboardAccessSummary } from "@/lib/admin-student-profile.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { getClubBySlug, requireClubBySlug } from "@/lib/clubs.server";
-import { ensureAuthUserForPortalLogin } from "@/lib/portal-auth-user.server";
+import {
+  ensureAuthUserForPortalLogin,
+  linkProfileAfterPortalPasswordSet,
+  loadPortalAuthLinkProfile,
+  profileBlocksUnlinkingAuthUser,
+  resolveProfilePortalLoginEmail,
+} from "@/lib/portal-auth-user.server";
+import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import {
   getSupabaseAuthSessionUser,
   validatePortalPasswordInput,
@@ -589,9 +596,9 @@ export async function signInAdminAccessAndRedirect(formData: FormData) {
 }
 
 export async function getAdminAccessSummaryForUser(userId: string) {
-  const user = await loadUserById(userId);
+  const profile = await loadPortalAuthLinkProfile(userId);
 
-  if (!user) {
+  if (!profile) {
     throw new Error("User not found.");
   }
 
@@ -600,17 +607,22 @@ export async function getAdminAccessSummaryForUser(userId: string) {
     ? await loadAdminMembershipsForUser(userId)
     : [];
   const access = resolveAdminAccessFromMemberships(memberships);
-  const loginEmail = user.email?.trim() || null;
-  const hasAuthLogin = Boolean(user.auth_user_id);
+  const loginEmail = resolveProfilePortalLoginEmail(profile)?.trim() || null;
+  const hasAuthLogin = Boolean(profile.auth_user_id);
   const canManagePassword = Boolean(loginEmail) && hasAdminAccess;
+  const canClearAccess =
+    hasAuthLogin &&
+    hasAdminAccess &&
+    !profileBlocksUnlinkingAuthUser(profile);
 
   return {
     loginEmail,
-    authUserId: user.auth_user_id,
+    portalLoginEmail: profile.portal_login_email,
+    authUserId: profile.auth_user_id,
     hasAuthLogin,
     canSetPassword: canManagePassword,
     canChangePassword: canManagePassword && hasAuthLogin,
-    canClearAccess: hasAuthLogin && hasAdminAccess,
+    canClearAccess,
     isPlatformSuperAdmin: access.isPlatformSuperAdmin,
     isClubAdmin: access.clubAdminMemberships.length > 0,
     showPanel: hasAdminAccess,
@@ -623,7 +635,12 @@ export function createAdminDashboardAccessSummary(input: {
   membershipStatus: string | null;
   summary: Awaited<ReturnType<typeof getAdminAccessSummaryForUser>>;
 }): AdminDashboardAccessSummary {
-  const loginEmail = input.profileEmail?.trim() || input.summary.loginEmail;
+  const loginEmail =
+    resolvePortalLoginEmail(
+      input.summary.portalLoginEmail,
+      input.profileEmail,
+    )?.trim() ||
+    input.summary.loginEmail;
   const hasAuthLogin = input.summary.hasAuthLogin;
   const canSetPassword = Boolean(loginEmail);
 
@@ -670,46 +687,57 @@ export async function setAdminAccessPassword(input: {
 }) {
   validatePortalPasswordInput(input.password, input.confirmPassword);
 
-  const user = await loadUserById(input.userId);
+  const profile = await loadPortalAuthLinkProfile(input.userId);
 
-  if (!user) {
+  if (!profile) {
     throw new Error("User not found.");
   }
 
-  const hadAuthLogin = Boolean(user.auth_user_id);
-  const loginEmail = user.email?.trim();
+  const hadAuthLogin = Boolean(profile.auth_user_id);
+  const loginEmail = resolveProfilePortalLoginEmail(profile)?.trim();
 
   if (!loginEmail) {
-    throw new Error("Add a profile email before setting an admin login password.");
+    throw new Error(
+      "Add a profile or portal login email before setting a login password.",
+    );
   }
 
-  if (!(await userHasAdminLoginAccess(user.id))) {
+  if (!(await userHasAdminLoginAccess(profile.id))) {
     throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
   }
 
   const authUserId = await ensureAuthUserForPortalLogin({
     loginEmail,
     password: input.password,
-    existingAuthUserId: user.auth_user_id,
-    profileUserId: user.id,
+    existingAuthUserId: profile.auth_user_id,
+    profileUserId: profile.id,
   });
 
-  if (user.auth_user_id !== authUserId) {
-    await linkAuthUserIdToProfile(user.id, authUserId);
-  }
+  await linkProfileAfterPortalPasswordSet({
+    userId: profile.id,
+    authUserId,
+    loginEmail,
+  });
 
   return { authUserId, loginEmail, hadAuthLogin };
 }
 
-export async function clearAdminAccessLogin(userId: string) {
-  const user = await loadUserById(userId);
+const CLEAR_ADMIN_AUTH_BLOCKED_MESSAGE =
+  "Cannot clear login while student or instructor portal access uses this Supabase account. The same email and password are shared across admin, student, and instructor sign-in.";
 
-  if (!user) {
+export async function clearAdminAccessLogin(userId: string) {
+  const profile = await loadPortalAuthLinkProfile(userId);
+
+  if (!profile) {
     throw new Error("User not found.");
   }
 
-  if (!user.auth_user_id) {
+  if (!profile.auth_user_id) {
     return;
+  }
+
+  if (profileBlocksUnlinkingAuthUser(profile)) {
+    throw new Error(CLEAR_ADMIN_AUTH_BLOCKED_MESSAGE);
   }
 
   const supabase = getSupabaseAdminClient();
@@ -719,6 +747,6 @@ export async function clearAdminAccessLogin(userId: string) {
     .eq("id", userId);
 
   if (error) {
-    throw new Error(`Failed to clear admin login link: ${error.message}`);
+    throw new Error(`Failed to clear login link: ${error.message}`);
   }
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { requireClubBySlug } from "@/lib/clubs.server";
 import { submitGuestBooking as persistGuestBooking } from "@/lib/guest-booking.server";
 import {
   parseGuestBookingSubmission,
@@ -11,8 +12,10 @@ import {
 export type { GuestBookingResult };
 
 export async function submitGuestBooking(
+  clubSlug: string,
   input: GuestBookingSubmission,
 ): Promise<GuestBookingResult> {
+  const club = await requireClubBySlug(clubSlug);
   const headerStore = await headers();
   const submission = parseGuestBookingSubmission(input);
 
@@ -22,5 +25,6 @@ export async function submitGuestBooking(
       headerStore.get("x-real-ip") ??
       null,
     userAgent: headerStore.get("user-agent"),
+    expectedClubId: club.id,
   });
 }

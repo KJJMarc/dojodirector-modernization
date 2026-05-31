@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { clubBookingPath, KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 
 /**
  * Phase 1 stub links to legacy flat /admin routes until pages move under /admin/[clubSlug].
@@ -21,7 +22,11 @@ export function ClubAdminStubActions() {
       href: "/attendance",
       description: "Mark today's attendance",
     },
-    { label: "Booking Page", href: "/book", description: "Public class booking" },
+    {
+      label: "Booking Page",
+      href: clubBookingPath(KINGSTON_CLUB_SLUG),
+      description: "Public class booking",
+    },
   ] as const;
 
   return (

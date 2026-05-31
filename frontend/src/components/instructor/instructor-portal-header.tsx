@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ACTIVE_CLUB_NAME, PRODUCT_NAME } from "@/lib/branding";
+import { DojoDirectorWordmark } from "@/components/layout/dojo-director-wordmark";
+import { ACTIVE_CLUB_NAME } from "@/lib/branding";
 import { instructorPortalPath } from "@/lib/instructor-portal.shared";
 
 interface InstructorPortalHeaderProps {
@@ -25,9 +26,7 @@ export function InstructorPortalHeader({
           ← Instructor dashboard
         </Link>
       ) : null}
-      <p className="text-4xl font-bold uppercase leading-none tracking-tight text-dojo-red sm:text-5xl">
-        {PRODUCT_NAME}
-      </p>
+      <DojoDirectorWordmark className="text-4xl font-bold uppercase leading-none tracking-tight sm:text-5xl" />
       <p className="mt-2 text-xl font-semibold leading-tight text-dojo-white sm:text-2xl">
         {ACTIVE_CLUB_NAME}
       </p>

@@ -8,6 +8,12 @@ import {
   updateMembershipStatusAction,
 } from "@/app/admin/[clubSlug]/students/[userId]/profile/actions";
 import {
+  ProfileDetailItem,
+  ProfileSectionHeading,
+  profileDetailGridClassName,
+  profileSectionClassName,
+} from "@/components/admin/profile-detail-item";
+import {
   PROFILE_MEMBERSHIP_ROLE_OPTIONS,
   PROFILE_MEMBERSHIP_STATUS_OPTIONS,
   STUDENT_DELETE_CONFIRMATION_TEXT,
@@ -23,7 +29,13 @@ interface StudentProfileMembershipManagerProps {
 }
 
 const fieldClassName =
-  "mt-1 min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2";
+  "mt-1 min-h-[36px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2";
+
+const panelLabelClassName =
+  "text-[11px] font-medium uppercase tracking-wide text-dojo-muted";
+
+const saveButtonClassName =
+  "inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 disabled:cursor-not-allowed disabled:opacity-60";
 
 export function StudentProfileMembershipManager({
   clubSlug,
@@ -104,38 +116,25 @@ export function StudentProfileMembershipManager({
   };
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            PROFILE ACTIONS
-          </h3>
-          <p className="mt-1 text-xs text-dojo-muted">
-            Manage this member&apos;s club role and membership status.
-          </p>
-        </div>
+    <div className="space-y-2">
+      <section className={profileSectionClassName}>
+        <ProfileSectionHeading
+          title="Profile Actions"
+          description="Manage this member's club role and membership status."
+        />
 
-        <dl className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
-              Current role
-            </dt>
-            <dd className="mt-1 text-sm text-dojo-white">{student.role ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
-              Current membership status
-            </dt>
-            <dd className="mt-1 text-sm text-dojo-white">
-              {formatMembershipStatus(student.membershipStatus)}
-            </dd>
-          </div>
+        <dl className={profileDetailGridClassName}>
+          <ProfileDetailItem label="Current role" value={student.role ?? "—"} />
+          <ProfileDetailItem
+            label="Current membership status"
+            value={formatMembershipStatus(student.membershipStatus)}
+          />
         </dl>
 
         {student.canChangeRole ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-3 rounded-lg border border-dojo-border bg-dojo-elevated p-4">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-2 rounded-lg border border-dojo-border bg-dojo-elevated p-2.5">
+              <label className={`block ${panelLabelClassName}`}>
                 Change role
                 <select
                   value={role}
@@ -153,13 +152,13 @@ export function StudentProfileMembershipManager({
                 type="button"
                 disabled={isRolePending}
                 onClick={submitRoleChange}
-                className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 disabled:cursor-not-allowed disabled:opacity-60"
+                className={saveButtonClassName}
               >
                 {isRolePending ? "Saving…" : "Save Role"}
               </button>
               {roleMessage ? (
                 <p
-                  className={`text-sm ${
+                  className={`text-sm leading-snug ${
                     roleMessage.endsWith(".") && !roleMessage.includes("Unable")
                       ? "text-green-400"
                       : "text-dojo-red"
@@ -170,8 +169,8 @@ export function StudentProfileMembershipManager({
               ) : null}
             </div>
 
-            <div className="space-y-3 rounded-lg border border-dojo-border bg-dojo-elevated p-4">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+            <div className="space-y-2 rounded-lg border border-dojo-border bg-dojo-elevated p-2.5">
+              <label className={`block ${panelLabelClassName}`}>
                 Change membership status
                 <select
                   value={status}
@@ -189,13 +188,13 @@ export function StudentProfileMembershipManager({
                 type="button"
                 disabled={isStatusPending}
                 onClick={submitStatusChange}
-                className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 disabled:cursor-not-allowed disabled:opacity-60"
+                className={saveButtonClassName}
               >
                 {isStatusPending ? "Saving…" : "Save Status"}
               </button>
               {statusMessage ? (
                 <p
-                  className={`text-sm ${
+                  className={`text-sm leading-snug ${
                     statusMessage.endsWith(".") && !statusMessage.includes("Unable")
                       ? "text-green-400"
                       : "text-dojo-red"
@@ -207,26 +206,21 @@ export function StudentProfileMembershipManager({
             </div>
           </div>
         ) : (
-          <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-3 text-sm text-dojo-muted">
+          <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm leading-snug text-dojo-muted">
             This member&apos;s role cannot be changed from the profile page.
           </p>
         )}
       </section>
 
-      <section className="space-y-4 rounded-xl border border-dojo-red/40 bg-dojo-red/5 p-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            DELETE STUDENT
-          </h3>
-          <p className="mt-1 text-xs text-dojo-muted">
-            Permanently remove this student&apos;s club membership and related
-            records for this club. This cannot be undone.
-          </p>
-        </div>
+      <section className="space-y-2 rounded-xl border border-dojo-red/40 bg-dojo-red/5 p-3">
+        <ProfileSectionHeading
+          title="Delete Student"
+          description="Permanently remove this student's club membership and related records for this club. This cannot be undone."
+        />
 
         {student.canDelete ? (
-          <div className="space-y-3">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+          <div className="space-y-2">
+            <label className={`block ${panelLabelClassName}`}>
               Type {STUDENT_DELETE_CONFIRMATION_TEXT} to confirm
               <input
                 type="text"
@@ -244,16 +238,16 @@ export function StudentProfileMembershipManager({
                 confirmation.trim() !== STUDENT_DELETE_CONFIRMATION_TEXT
               }
               onClick={submitDelete}
-              className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-[36px] items-center justify-center rounded-md bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isDeletePending ? "Deleting…" : "Delete Student"}
             </button>
             {deleteError ? (
-              <p className="text-sm text-dojo-red">{deleteError}</p>
+              <p className="text-sm leading-snug text-dojo-red">{deleteError}</p>
             ) : null}
           </div>
         ) : (
-          <p className="rounded-lg border border-dojo-red/30 bg-dojo-black/40 px-4 py-3 text-sm text-dojo-red">
+          <p className="rounded-lg border border-dojo-red/30 bg-dojo-black/40 px-3 py-2 text-sm leading-snug text-dojo-red">
             Change this member back to student before deleting.
           </p>
         )}

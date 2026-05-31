@@ -16,7 +16,7 @@ export function StudentPortalView({
   year,
 }: StudentPortalViewProps) {
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <h2 className="text-lg font-semibold text-dojo-white">{pageData.studentName}</h2>
         <p className="text-sm text-dojo-muted">

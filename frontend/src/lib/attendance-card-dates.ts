@@ -18,6 +18,28 @@ export function normalizeToDateKey(
   return match ? match[1] : null;
 }
 
+/** Days in a calendar month (1–12) for the given year; handles leap-year February. */
+export function getDaysInCalendarMonth(year: number, month: number): number {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return 0;
+  }
+
+  return new Date(year, month, 0).getDate();
+}
+
+/** Whether a day column (1–31) exists for that month in the attendance grid. */
+export function isAttendanceGridDayInMonth(
+  year: number,
+  month: number,
+  day: number,
+): boolean {
+  if (!Number.isInteger(day) || day < 1 || day > 31) {
+    return false;
+  }
+
+  return day <= getDaysInCalendarMonth(year, month);
+}
+
 export function isValidCalendarDate(year: number, month: number, day: number) {
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
     return false;

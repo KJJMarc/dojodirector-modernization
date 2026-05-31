@@ -13,6 +13,11 @@ export interface YearlyGridRow {
   days: GridCell[];
 }
 
+export interface AttendanceCardHeaderStats {
+  lifetimeBjjAttendanceCount: number;
+  lastAttendanceDate: string | null;
+}
+
 export interface StudentAttendanceCardData {
   student: UserProfile;
   studentName: string;
@@ -20,6 +25,7 @@ export interface StudentAttendanceCardData {
   year: number;
   rows: YearlyGridRow[];
   totalAttendance: number;
+  headerStats: AttendanceCardHeaderStats;
 }
 
 const MONTH_LABELS = [
@@ -38,16 +44,16 @@ const MONTH_LABELS = [
 ] as const;
 
 export function formatBeltLabel(belt: BeltLevel | null): string | null {
-  if (!belt) {
+  return formatAttendanceCardRankLabel(belt?.name ?? null);
+}
+
+/** Belt name for the card header — strips redundant "(N stripes)" suffixes. */
+export function formatAttendanceCardRankLabel(label: string | null | undefined) {
+  if (!label?.trim()) {
     return null;
   }
 
-  const stripeSuffix =
-    belt.stripe_count && belt.stripe_count > 0
-      ? ` (${belt.stripe_count} stripe${belt.stripe_count === 1 ? "" : "s"})`
-      : "";
-
-  return `${belt.name}${stripeSuffix}`;
+  return label.trim().replace(/\s*\(\d+\s+stripes?\)\s*$/i, "");
 }
 
 export function parseYearParam(value: string | undefined): number {

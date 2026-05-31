@@ -11,55 +11,56 @@ import { clubAdminPath, parseClubSlugFromForm } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import {
   sendInstructorPortalInvite,
-  setInstructorPortalPassword,
   updateInstructorPortalLoginEmail,
 } from "@/lib/instructor-portal-auth.server";
-import {
-  sendStudentPortalInvite,
-  setStudentPortalPassword,
-} from "@/lib/student-portal-auth.server";
+import { setProfileLoginPassword } from "@/lib/profile-login-access.server";
+import { sendStudentPortalInvite } from "@/lib/student-portal-auth.server";
 import { revalidatePath } from "next/cache";
-import {
-  clearAdminAccessLogin,
-  requireAdminAccessForClubSlug,
-  setAdminAccessPassword,
-} from "@/lib/admin-auth.server";
+import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function isInstructorFacingRole(role: string | null | undefined) {
   return role === "instructor" || role === "admin";
 }
 
-export async function setAdminAccessPasswordAction(
+async function loadMembershipRoleForUser(userId: string, clubId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("club_id", clubId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load membership: ${error.message}`);
+  }
+
+  return (data as { role: string | null } | null)?.role ?? null;
+}
+
+export async function setProfileLoginPasswordAction(
   clubSlug: string,
   userId: string,
   formData: FormData,
 ) {
+  const club = await requireClubBySlug(clubSlug);
   await requireAdminAccessForClubSlug(clubSlug);
 
-  const { hadAuthLogin } = await setAdminAccessPassword({
+  const membershipRole = await loadMembershipRoleForUser(userId, club.id);
+  const { hadAuthLogin } = await setProfileLoginPassword({
     userId,
     password: String(formData.get("password") ?? ""),
     confirmPassword: String(formData.get("confirmPassword") ?? ""),
+    membershipRole,
   });
 
   revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
 
   return {
     message: hadAuthLogin
-      ? "Admin dashboard password updated."
-      : "Admin login created and password set.",
-  };
-}
-
-export async function clearAdminAccessLoginAction(clubSlug: string, userId: string) {
-  await requireAdminAccessForClubSlug(clubSlug);
-
-  await clearAdminAccessLogin(userId);
-
-  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
-
-  return {
-    message: "Admin login link cleared from this profile.",
+      ? "Login password updated."
+      : "Login created and password set.",
   };
 }
 
@@ -77,26 +78,6 @@ export async function sendStudentPortalInviteAction(clubSlug: string, userId: st
   return result;
 }
 
-export async function setStudentPortalPasswordAction(
-  clubSlug: string,
-  userId: string,
-  formData: FormData,
-) {
-  await requireClubBySlug(clubSlug);
-
-  await setStudentPortalPassword({
-    userId,
-    password: String(formData.get("password") ?? ""),
-    confirmPassword: String(formData.get("confirmPassword") ?? ""),
-  });
-
-  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
-
-  return {
-    message: "Student portal password updated.",
-  };
-}
-
 export async function sendInstructorPortalInviteAction(clubSlug: string, userId: string) {
   const club = await requireClubBySlug(clubSlug);
 
@@ -108,26 +89,6 @@ export async function sendInstructorPortalInviteAction(clubSlug: string, userId:
   revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
 
   return result;
-}
-
-export async function setInstructorPortalPasswordAction(
-  clubSlug: string,
-  userId: string,
-  formData: FormData,
-) {
-  await requireClubBySlug(clubSlug);
-
-  await setInstructorPortalPassword({
-    userId,
-    password: String(formData.get("password") ?? ""),
-    confirmPassword: String(formData.get("confirmPassword") ?? ""),
-  });
-
-  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
-
-  return {
-    message: "Instructor portal password updated.",
-  };
 }
 
 export async function updateInstructorPortalLoginEmailAction(

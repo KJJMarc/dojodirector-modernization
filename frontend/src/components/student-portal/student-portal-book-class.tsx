@@ -39,7 +39,7 @@ function BookableSessionCard({
 
   return (
     <article className="rounded-lg border border-dojo-border bg-dojo-elevated p-4">
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <h4 className="font-semibold text-dojo-white">{session.className}</h4>
