@@ -3,10 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { revalidateAttendanceImpactPaths } from "@/lib/admin-revalidate.server";
 import { getClubSlugById } from "@/lib/attendance-card-manual.server";
-import { syncAttendanceRecordForStatus } from "@/lib/attendance-records-sync";
+import {
+  syncAttendanceRecordForStatus,
+  type SyncAttendanceStatus,
+} from "@/lib/attendance-records-sync";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
-const VALID_STATUS = new Set(["present", "absent"]);
+const VALID_STATUS = new Set<SyncAttendanceStatus>([
+  "present",
+  "absent",
+  "not_marked",
+]);
 
 interface SessionAttendeeMarkingRow {
   id: string;
@@ -37,9 +44,14 @@ export async function markAttendance(formData: FormData) {
   const attendeeId = String(formData.get("attendeeId") ?? "");
   const attendanceStatus = String(formData.get("attendanceStatus") ?? "");
 
-  if (!attendeeId || !VALID_STATUS.has(attendanceStatus)) {
+  if (
+    !attendeeId ||
+    !VALID_STATUS.has(attendanceStatus as SyncAttendanceStatus)
+  ) {
     throw new Error("Invalid attendance update payload.");
   }
+
+  const nextStatus = attendanceStatus as SyncAttendanceStatus;
 
   const supabase = getSupabaseServerClient();
   const attendee = await getSessionAttendeeForMarking(attendeeId);
@@ -70,7 +82,7 @@ export async function markAttendance(formData: FormData) {
 
   const { error } = await supabase
     .from("session_attendees")
-    .update({ attendance_status: attendanceStatus })
+    .update({ attendance_status: nextStatus })
     .eq("id", attendeeId);
 
   if (error) {
@@ -92,7 +104,7 @@ export async function markAttendance(formData: FormData) {
         classSessionId: attendee.class_session_id,
         attendedOn,
       },
-      attendanceStatus as "present" | "absent",
+      nextStatus,
     );
 
     const clubSlug = await getClubSlugById(classSession.club_id);

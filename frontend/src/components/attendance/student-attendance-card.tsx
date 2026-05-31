@@ -23,7 +23,9 @@ export function StudentAttendanceCard({
 }: StudentAttendanceCardProps) {
   const [isPending, startTransition] = useTransition();
 
-  const submitWithStatus = (nextStatus: "present" | "absent") => {
+  const submitWithStatus = (
+    nextStatus: "present" | "absent" | "not_marked",
+  ) => {
     if (markingDisabled) {
       return;
     }
@@ -38,6 +40,7 @@ export function StudentAttendanceCard({
 
   const isPresent = status === "present";
   const isAbsent = status === "absent";
+  const isUnmarked = !isPresent && !isAbsent;
 
   return (
     <article
@@ -57,7 +60,17 @@ export function StudentAttendanceCard({
         </Link>
       </div>
 
-      <div className="flex shrink-0 gap-1">
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => submitWithStatus("not_marked")}
+          disabled={isPending || markingDisabled || isUnmarked}
+          aria-label={`Clear ${studentName} attendance`}
+          title="Clear attendance"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md border border-dojo-red/40 bg-dojo-elevated text-sm font-semibold leading-none text-dojo-red transition hover:border-dojo-red/60 hover:bg-dojo-red/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
         <button
           type="button"
           onClick={() => submitWithStatus("present")}
