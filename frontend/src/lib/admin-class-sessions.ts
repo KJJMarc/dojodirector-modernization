@@ -131,6 +131,7 @@ function mapAdminSessionRow(
 }
 
 async function loadAdminSessionRows(
+  clubId: string,
   startIso: string,
   endIso: string,
 ): Promise<AdminSessionQueryRow[]> {
@@ -141,7 +142,7 @@ async function loadAdminSessionRows(
     .select(
       "id, class_id, starts_at, ends_at, capacity, status, source, external_id, recurring_schedule_id, classes(id, name, programme_type, description)",
     )
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .gte("starts_at", startIso)
     .lt("starts_at", endIso)
     .order("starts_at", { ascending: true });
@@ -184,15 +185,17 @@ async function getBookedCountsBySessionId(sessionIds: string[]) {
   return counts;
 }
 
-export async function getAdminUpcomingClassSessions(): Promise<AdminClassSessionRow[]> {
+export async function getAdminUpcomingClassSessions(
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<AdminClassSessionRow[]> {
   const { startIso, endIso } = getAttendanceScheduleDateRange();
-  const rows = await loadAdminSessionRows(startIso, endIso);
+  const rows = await loadAdminSessionRows(clubId, startIso, endIso);
   const bookedCounts = await getBookedCountsBySessionId(rows.map((row) => row.id));
 
   return rows.map((row) => mapAdminSessionRow(row, bookedCounts.get(row.id) ?? 0));
 }
 
-async function getAdminSessionById(sessionId: string) {
+async function getAdminSessionById(sessionId: string, clubId: string) {
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
@@ -201,7 +204,7 @@ async function getAdminSessionById(sessionId: string) {
       "id, class_id, starts_at, ends_at, capacity, status, source, external_id, recurring_schedule_id, classes(id, name, programme_type, description)",
     )
     .eq("id", sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .maybeSingle();
 
   if (error) {
@@ -217,8 +220,9 @@ async function getAdminSessionById(sessionId: string) {
 
 export async function getEditableClassSession(
   sessionId: string,
+  clubId: string = ACTIVE_CLUB_ID,
 ): Promise<EditableClassSession> {
-  const row = await getAdminSessionById(sessionId);
+  const row = await getAdminSessionById(sessionId, clubId);
   const classRow = getJoinedClass(row.classes);
   const location = resolveSessionLocationFromRow(row) ?? "";
 
@@ -279,8 +283,11 @@ function resolveExternalIdPrefix(
   return sessionKind === "one_off" ? "admin_one_off" : "admin_recurring";
 }
 
-export async function updateClassSession(input: UpdateClassSessionInput) {
-  const existing = await getEditableClassSession(input.sessionId);
+export async function updateClassSession(
+  input: UpdateClassSessionInput,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
+  const existing = await getEditableClassSession(input.sessionId, clubId);
   const supabase = getSupabaseAdminClient();
 
   const { data: classTemplate, error: classError } = await supabase
@@ -313,7 +320,7 @@ export async function updateClassSession(input: UpdateClassSessionInput) {
   const { data: duplicate, error: duplicateError } = await supabase
     .from("class_sessions")
     .select("id")
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .eq("class_id", existing.classId)
     .eq("starts_at", startsAt)
     .neq("id", input.sessionId)
@@ -364,21 +371,24 @@ export async function updateClassSession(input: UpdateClassSessionInput) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID);
+    .eq("club_id", clubId);
 
   if (sessionUpdateError) {
     throw new Error(`Unable to update class session: ${sessionUpdateError.message}`);
   }
 }
 
-export async function cancelClassSession(sessionId: string) {
+export async function cancelClassSession(
+  sessionId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
   const supabase = getSupabaseAdminClient();
 
   const { data: existing, error: fetchError } = await supabase
     .from("class_sessions")
     .select("id, status")
     .eq("id", sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .maybeSingle();
 
   if (fetchError) {
@@ -404,21 +414,24 @@ export async function cancelClassSession(sessionId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID);
+    .eq("club_id", clubId);
 
   if (updateError) {
     throw new Error(`Unable to cancel class session: ${updateError.message}`);
   }
 }
 
-export async function reinstateClassSession(sessionId: string) {
+export async function reinstateClassSession(
+  sessionId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
   const supabase = getSupabaseAdminClient();
 
   const { data: existing, error: fetchError } = await supabase
     .from("class_sessions")
     .select("id, status, starts_at")
     .eq("id", sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .maybeSingle();
 
   if (fetchError) {
@@ -444,7 +457,7 @@ export async function reinstateClassSession(sessionId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID);
+    .eq("club_id", clubId);
 
   if (updateError) {
     throw new Error(`Unable to reinstate class session: ${updateError.message}`);

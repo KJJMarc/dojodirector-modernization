@@ -36,7 +36,7 @@ export default async function ClubRecurringScheduleBookingsPage({
 
   try {
     [pageData, students] = await Promise.all([
-      getRecurringScheduleBookingsPageData(params.scheduleId),
+      getRecurringScheduleBookingsPageData(params.scheduleId, club.id),
       getBookingStudentOptions(club.id),
     ]);
   } catch (error) {
@@ -52,13 +52,13 @@ export default async function ClubRecurringScheduleBookingsPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Manage bookings" clubName={club.name} />
+      <AppHeader pageTitle="Manage Bookings" clubName={club.name} />
 
       <Link
         href={clubAdminPath(club.slug, "classes")}
         className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >
-        ← Back to classes
+        ← Back to Manage Classes
       </Link>
 
       <RecurringScheduleBookingsManager

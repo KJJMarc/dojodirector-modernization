@@ -150,14 +150,17 @@ async function loadAllFutureSessionsForRecurringSchedule(
   return loadFutureSessionsForRecurringSchedule(schedule, getFarFutureEndIso());
 }
 
-async function loadRecurringScheduleRow(scheduleId: string) {
+async function loadRecurringScheduleRow(
+  scheduleId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
   const supabase = getSupabaseAdminClient();
 
   const { data: schedule, error: scheduleError } = await supabase
     .from("recurring_class_schedules")
     .select("id, club_id, class_id, day_of_week, start_time, location, is_active")
     .eq("id", scheduleId)
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .maybeSingle();
 
   if (scheduleError) {
@@ -186,20 +189,13 @@ interface SessionAttendeeQueryRow {
   booking_status: string | null;
   attendance_status: string | null;
   booked_at: string | null;
-  users:
-    | {
-        id: string;
-        first_name: string | null;
-        last_name: string | null;
-        email: string | null;
-      }
-    | {
-        id: string;
-        first_name: string | null;
-        last_name: string | null;
-        email: string | null;
-      }[]
-    | null;
+}
+
+interface BookingUserRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
 }
 
 interface ClassSessionQueryRow {
@@ -227,14 +223,6 @@ interface ClassSessionQueryRow {
     | null;
 }
 
-function getJoinedUser(users: SessionAttendeeQueryRow["users"]) {
-  if (!users) {
-    return null;
-  }
-
-  return Array.isArray(users) ? users[0] ?? null : users;
-}
-
 function getJoinedClass(classes: ClassSessionQueryRow["classes"]) {
   if (!classes) {
     return null;
@@ -243,8 +231,29 @@ function getJoinedClass(classes: ClassSessionQueryRow["classes"]) {
   return Array.isArray(classes) ? classes[0] ?? null : classes;
 }
 
-function mapAttendeeRow(row: SessionAttendeeQueryRow): SessionBookingAttendee {
-  const user = getJoinedUser(row.users);
+async function loadUsersByIds(userIds: string[]): Promise<Map<string, BookingUserRow>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, first_name, last_name, email")
+    .in("id", userIds);
+
+  if (error) {
+    throw new Error(`Unable to load users: ${error.message}`);
+  }
+
+  return new Map(((data ?? []) as BookingUserRow[]).map((user) => [user.id, user]));
+}
+
+function mapAttendeeRow(
+  row: SessionAttendeeQueryRow,
+  userById: Map<string, BookingUserRow>,
+): SessionBookingAttendee {
+  const user = userById.get(row.user_id);
 
   return {
     id: row.id,
@@ -258,7 +267,10 @@ function mapAttendeeRow(row: SessionAttendeeQueryRow): SessionBookingAttendee {
   };
 }
 
-async function getClassSessionRow(sessionId: string): Promise<ClassSessionQueryRow> {
+async function getClassSessionRow(
+  sessionId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<ClassSessionQueryRow> {
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
@@ -267,7 +279,7 @@ async function getClassSessionRow(sessionId: string): Promise<ClassSessionQueryR
       "id, class_id, club_id, starts_at, ends_at, capacity, status, source, external_id, recurring_schedule_id, classes(id, name, programme_type)",
     )
     .eq("id", sessionId)
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .maybeSingle();
 
   if (error) {
@@ -310,18 +322,17 @@ async function getBookingCounts(sessionId: string) {
 
 export async function getAdminSessionBookingsPageData(
   sessionId: string,
+  clubId: string = ACTIVE_CLUB_ID,
 ): Promise<AdminSessionBookingsView> {
   const supabase = getSupabaseAdminClient();
-  const sessionRow = await getClassSessionRow(sessionId);
+  const sessionRow = await getClassSessionRow(sessionId, clubId);
   const classRow = getJoinedClass(sessionRow.classes);
   const location = resolveSessionLocationFromRow(sessionRow);
 
   const [{ data: attendeeRows, error: attendeesError }, counts] = await Promise.all([
     supabase
       .from("session_attendees")
-      .select(
-        "id, user_id, booking_status, attendance_status, booked_at, users(id, first_name, last_name, email)",
-      )
+      .select("id, user_id, booking_status, attendance_status, booked_at")
       .eq("class_session_id", sessionId)
       .in("booking_status", ["booked", "waitlisted", "walk_in"])
       .order("booked_at", { ascending: true }),
@@ -332,7 +343,10 @@ export async function getAdminSessionBookingsPageData(
     throw new Error(`Unable to load session bookings: ${attendeesError.message}`);
   }
 
-  const attendees = ((attendeeRows ?? []) as SessionAttendeeQueryRow[]).map(mapAttendeeRow);
+  const attendeeList = (attendeeRows ?? []) as SessionAttendeeQueryRow[];
+  const userIds = Array.from(new Set(attendeeList.map((row) => row.user_id)));
+  const userById = await loadUsersByIds(userIds);
+  const attendees = attendeeList.map((row) => mapAttendeeRow(row, userById));
   const status = sessionRow.status;
   const isCancelled = status === "cancelled";
 
@@ -366,7 +380,7 @@ export async function getBookingStudentOptions(
 
   const { data: memberships, error: membershipsError } = await supabase
     .from("memberships")
-    .select("users!inner(id, first_name, last_name, email)")
+    .select("user_id")
     .eq("club_id", clubId)
     .eq("role", "student")
     .eq("status", "active");
@@ -375,29 +389,17 @@ export async function getBookingStudentOptions(
     throw new Error(`Unable to load club members: ${membershipsError.message}`);
   }
 
-  type BookingUserRow = {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-  };
+  const userIds = Array.from(
+    new Set((memberships ?? []).map((membership) => membership.user_id as string)),
+  );
 
-  function normalizeEmbeddedUser(
-    users: BookingUserRow | BookingUserRow[] | null | undefined,
-  ): BookingUserRow | null {
-    if (!users) {
-      return null;
-    }
-
-    return Array.isArray(users) ? (users[0] ?? null) : users;
+  if (userIds.length === 0) {
+    return [];
   }
 
-  const students = (memberships ?? [])
-    .map((membership) =>
-      normalizeEmbeddedUser(
-        (membership as { users: BookingUserRow | BookingUserRow[] | null }).users,
-      ),
-    )
+  const userById = await loadUsersByIds(userIds);
+  const students = userIds
+    .map((userId) => userById.get(userId))
     .filter((user): user is BookingUserRow => Boolean(user));
 
   students.sort((a, b) => {
@@ -485,8 +487,9 @@ export async function adminAddSessionBooking(
   sessionId: string,
   userId: string,
   options: AdminAddSessionBookingOptions = {},
+  clubId: string = ACTIVE_CLUB_ID,
 ) {
-  const sessionRow = await getClassSessionRow(sessionId);
+  const sessionRow = await getClassSessionRow(sessionId, clubId);
 
   if (sessionRow.status === "cancelled") {
     throw new Error("Cannot book students onto a cancelled session.");
@@ -602,8 +605,9 @@ function parseEndDate(endDate: string) {
 
 export async function getRecurringScheduleBookedStudentOptions(
   scheduleId: string,
+  clubId: string = ACTIVE_CLUB_ID,
 ): Promise<BookingStudentOption[]> {
-  const schedule = await loadRecurringScheduleRow(scheduleId);
+  const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
   const sessions = await loadAllFutureSessionsForRecurringSchedule(schedule);
   const sessionIds = sessions.map((session) => session.id);
 
@@ -641,7 +645,7 @@ export async function getRecurringScheduleBookedStudentOptions(
     throw new Error(`Unable to load booked students: ${usersError.message}`);
   }
 
-  return (users ?? []).map((user) => ({
+  return ((users ?? []) as BookingUserRow[]).map((user) => ({
     id: user.id,
     label: getStudentFullName(user.first_name, user.last_name),
     email: user.email,
@@ -657,14 +661,15 @@ interface FutureSessionAttendeeRow {
 
 export async function getRecurringScheduleBookingsPageData(
   scheduleId: string,
+  clubId: string = ACTIVE_CLUB_ID,
 ): Promise<RecurringScheduleBookingsPageData> {
-  const scheduleRow = await getRecurringClassScheduleById(scheduleId);
+  const scheduleRow = await getRecurringClassScheduleById(scheduleId, clubId);
 
   if (!scheduleRow) {
     throw new Error("Recurring class schedule not found.");
   }
 
-  const schedule = await loadRecurringScheduleRow(scheduleId);
+  const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
   const sessions = await loadAllFutureSessionsForRecurringSchedule(schedule);
   const sessionIds = sessions.map((session) => session.id);
   const sessionStartsAtById = new Map(
@@ -689,30 +694,7 @@ export async function getRecurringScheduleBookingsPageData(
     const attendees = (attendeeRows ?? []) as FutureSessionAttendeeRow[];
     const userIds = Array.from(new Set(attendees.map((row) => row.user_id)));
 
-    const userById = new Map<
-      string,
-      {
-        id: string;
-        first_name: string | null;
-        last_name: string | null;
-        email: string | null;
-      }
-    >();
-
-    if (userIds.length > 0) {
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("id, first_name, last_name, email")
-        .in("id", userIds);
-
-      if (usersError) {
-        throw new Error(`Unable to load booked students: ${usersError.message}`);
-      }
-
-      for (const user of users ?? []) {
-        userById.set(user.id, user);
-      }
-    }
+    const userById = await loadUsersByIds(userIds);
 
     const summaryByUserId = new Map<string, RecurringScheduleStudentBookingSummary>();
 
@@ -784,8 +766,10 @@ export async function getRecurringScheduleBookingsPageData(
 export async function adminCancelRecurringScheduleBookings(input: {
   scheduleId: string;
   userId: string;
+  clubId?: string;
 }): Promise<CancelRecurringBookingResult> {
-  const schedule = await loadRecurringScheduleRow(input.scheduleId);
+  const clubId = input.clubId ?? ACTIVE_CLUB_ID;
+  const schedule = await loadRecurringScheduleRow(input.scheduleId, clubId);
   await assertClubMember(input.userId, schedule.club_id);
 
   const sessions = await loadAllFutureSessionsForRecurringSchedule(schedule);
@@ -813,10 +797,12 @@ export async function adminBlockBookRecurringSchedule(input: {
   scheduleId: string;
   userId: string;
   endDate: string;
+  clubId?: string;
 }): Promise<BlockBookingResult> {
   const endDate = parseEndDate(input.endDate);
   const supabase = getSupabaseAdminClient();
-  const schedule = await loadRecurringScheduleRow(input.scheduleId);
+  const clubId = input.clubId ?? ACTIVE_CLUB_ID;
+  const schedule = await loadRecurringScheduleRow(input.scheduleId, clubId);
 
   await assertClubMember(input.userId, schedule.club_id);
 

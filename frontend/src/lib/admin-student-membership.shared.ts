@@ -2,6 +2,7 @@ export const PROFILE_MEMBERSHIP_ROLE_OPTIONS = [
   { value: "student", label: "Student" },
   { value: "instructor", label: "Instructor" },
   { value: "admin", label: "Admin" },
+  { value: "owner", label: "Owner" },
 ] as const;
 
 export const PROFILE_MEMBERSHIP_STATUS_OPTIONS = [

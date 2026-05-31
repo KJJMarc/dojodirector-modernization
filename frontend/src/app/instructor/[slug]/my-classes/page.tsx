@@ -15,7 +15,7 @@ export async function generateMetadata({
   const pageData = await getInstructorMyClassesPageData(params.slug);
 
   return {
-    title: `DojoDirector | My classes | ${pageData.identity.displayName}`,
+    title: `DojoDirector | My Classes | ${pageData.identity.displayName}`,
     description: "View assigned recurring classes and upcoming sessions.",
   };
 }
@@ -30,7 +30,7 @@ export default async function InstructorMyClassesPage({
       <InstructorPortalHeader
         slug={pageData.identity.slug}
         instructorName={pageData.identity.displayName}
-        pageTitle="My classes"
+        pageTitle="My Classes"
         showBackLink
       />
 

@@ -4,7 +4,7 @@ import { clubAdminPath } from "@/lib/clubs.shared";
 function buildActions(clubSlug: string) {
   return [
     {
-      label: "Add student",
+      label: "Add Student",
       href: clubAdminPath(clubSlug, "students/new"),
       description: "Register a new student",
     },
@@ -14,9 +14,9 @@ function buildActions(clubSlug: string) {
       description: "View and manage students",
     },
     {
-      label: "Manage Classes",
-      href: clubAdminPath(clubSlug, "classes"),
-      description: "Recurring classes, events and sessions",
+      label: "Student Retention",
+      href: clubAdminPath(clubSlug, "retention"),
+      description: "Identify students at risk of leaving",
     },
     {
       label: "Instructors",
@@ -24,11 +24,35 @@ function buildActions(clubSlug: string) {
       description: "Manage instructors and class allocation",
     },
     {
-      label: "Attendance register",
+      label: "Messaging",
+      href: clubAdminPath(clubSlug, "messaging"),
+      description: "Send updates to students and instructors",
+    },
+    {
+      label: "Manage Classes",
+      href: clubAdminPath(clubSlug, "classes"),
+      description: "Recurring classes, events and sessions",
+    },
+    {
+      label: "Attendance Register",
       href: "/attendance",
       description: "Mark today's attendance",
     },
-    { label: "Booking page", href: "/book", description: "Public class booking" },
+    {
+      label: "Guest Bookings",
+      href: clubAdminPath(clubSlug, "guest-bookings"),
+      description: "View guest and trial bookings",
+    },
+    {
+      label: "Training Agreements",
+      href: clubAdminPath(clubSlug, "training-agreements"),
+      description: "Manage agreement templates and versions",
+    },
+    {
+      label: "Belt Management",
+      href: clubAdminPath(clubSlug, "belts"),
+      description: "Set belt and attendance requirements",
+    },
   ] as const;
 }
 
@@ -42,7 +66,7 @@ export function AdminQuickActions({ clubSlug }: AdminQuickActionsProps) {
   return (
     <section aria-label="Quick actions">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-dojo-red">
-        Quick actions
+        QUICK ACTIONS
       </h2>
       <div className="grid gap-3 sm:grid-cols-2">
         {actions.map(({ label, href, description }) => (

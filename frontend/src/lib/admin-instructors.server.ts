@@ -826,7 +826,10 @@ export async function adminAssignInstructorToClassSession(input: {
   }
 }
 
-export async function adminDeactivateInstructorAssignment(assignmentId: string) {
+export async function adminDeactivateInstructorAssignment(
+  assignmentId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
   const supabase = getSupabaseAdminClient();
 
   const { error } = await supabase
@@ -835,7 +838,8 @@ export async function adminDeactivateInstructorAssignment(assignmentId: string) 
       is_active: false,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", assignmentId);
+    .eq("id", assignmentId)
+    .eq("club_id", clubId);
 
   if (error) {
     throw new Error(`Unable to remove assignment: ${error.message}`);

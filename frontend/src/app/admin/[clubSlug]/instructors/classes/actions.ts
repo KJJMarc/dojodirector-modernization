@@ -6,11 +6,13 @@ import {
 } from "@/lib/admin-instructors.server";
 import { revalidateInstructorAdminPaths } from "@/lib/admin-revalidate.server";
 import { parseClubSlugFromForm } from "@/lib/clubs.shared";
+import { requireClubBySlug } from "@/lib/clubs.server";
 
 export async function assignInstructorToRecurringScheduleAction(
   formData: FormData,
 ) {
   const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
   const instructorUserId = String(formData.get("instructorUserId") ?? "");
   const recurringScheduleId = String(formData.get("recurringScheduleId") ?? "");
 
@@ -25,6 +27,7 @@ export async function assignInstructorToRecurringScheduleAction(
   await adminAssignInstructorToRecurringSchedule({
     instructorUserId,
     recurringScheduleId,
+    clubId: club.id,
   });
 
   revalidateInstructorAdminPaths(clubSlug);
@@ -32,12 +35,13 @@ export async function assignInstructorToRecurringScheduleAction(
 
 export async function deactivateInstructorAssignmentAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
   const assignmentId = String(formData.get("assignmentId") ?? "");
 
   if (!assignmentId) {
     throw new Error("Missing assignment id.");
   }
 
-  await adminDeactivateInstructorAssignment(assignmentId);
+  await adminDeactivateInstructorAssignment(assignmentId, club.id);
   revalidateInstructorAdminPaths(clubSlug);
 }

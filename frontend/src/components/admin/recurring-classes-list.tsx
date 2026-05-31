@@ -59,7 +59,7 @@ function ScheduleActions({
 
   if (!schedule.isActive) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center">
         <Link
           href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/bookings`)}
           className={RECURRING_ACTION_LINK_CLASS}
@@ -81,7 +81,7 @@ function ScheduleActions({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center">
       <Link
         href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/bookings`)}
         className={RECURRING_ACTION_LINK_CLASS}
@@ -89,17 +89,15 @@ function ScheduleActions({
         Manage Bookings
       </Link>
 
-      <div className="border-t border-dojo-border/70 pt-3">
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => submitAction(deactivateRecurringClassAction)}
-          aria-label={`Deactivate ${schedule.className} on ${formatDayOfWeekLabel(schedule.dayOfWeek)}`}
-          className={RECURRING_DESTRUCTIVE_BUTTON_CLASS}
-        >
-          {isPending ? "Working…" : "Deactivate"}
-        </button>
-      </div>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => submitAction(deactivateRecurringClassAction)}
+        aria-label={`Deactivate ${schedule.className} on ${formatDayOfWeekLabel(schedule.dayOfWeek)}`}
+        className={RECURRING_DESTRUCTIVE_BUTTON_CLASS}
+      >
+        {isPending ? "Working…" : "Deactivate"}
+      </button>
     </div>
   );
 }
@@ -132,7 +130,7 @@ export function RecurringClassesList({
               <th className="px-4 py-3 font-semibold">Capacity</th>
               <th className="px-4 py-3 font-semibold">Venue</th>
               <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="min-w-[12rem] px-4 py-3 font-semibold">Actions</th>
+              <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -159,7 +157,7 @@ export function RecurringClassesList({
                 <td className="px-4 py-3">
                   <ScheduleStatusBadge isActive={schedule.isActive} />
                 </td>
-                <td className="px-4 py-3 align-top">
+                <td className="whitespace-nowrap px-4 py-3 align-middle">
                   <ScheduleActions clubSlug={clubSlug} schedule={schedule} />
                 </td>
               </tr>

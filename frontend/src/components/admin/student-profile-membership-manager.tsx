@@ -108,7 +108,7 @@ export function StudentProfileMembershipManager({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Profile actions
+            PROFILE ACTIONS
           </h3>
           <p className="mt-1 text-xs text-dojo-muted">
             Manage this member&apos;s club role and membership status.
@@ -155,7 +155,7 @@ export function StudentProfileMembershipManager({
                 onClick={submitRoleChange}
                 className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isRolePending ? "Saving…" : "Save role"}
+                {isRolePending ? "Saving…" : "Save Role"}
               </button>
               {roleMessage ? (
                 <p
@@ -191,7 +191,7 @@ export function StudentProfileMembershipManager({
                 onClick={submitStatusChange}
                 className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isStatusPending ? "Saving…" : "Save status"}
+                {isStatusPending ? "Saving…" : "Save Status"}
               </button>
               {statusMessage ? (
                 <p
@@ -216,7 +216,7 @@ export function StudentProfileMembershipManager({
       <section className="space-y-4 rounded-xl border border-dojo-red/40 bg-dojo-red/5 p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Delete student
+            DELETE STUDENT
           </h3>
           <p className="mt-1 text-xs text-dojo-muted">
             Permanently remove this student&apos;s club membership and related
@@ -246,7 +246,7 @@ export function StudentProfileMembershipManager({
               onClick={submitDelete}
               className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isDeletePending ? "Deleting…" : "Delete student"}
+              {isDeletePending ? "Deleting…" : "Delete Student"}
             </button>
             {deleteError ? (
               <p className="text-sm text-dojo-red">{deleteError}</p>

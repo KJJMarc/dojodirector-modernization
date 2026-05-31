@@ -3,10 +3,8 @@ import { toggleManualAttendance } from "@/app/students/[userId]/attendance-card/
 import { AttendanceCardToolbar } from "@/components/attendance/attendance-card-toolbar";
 import { YearlyAttendanceGrid } from "@/components/attendance/yearly-attendance-grid";
 import { AppHeader } from "@/components/layout/app-header";
-import {
-  getStudentAttendanceCardData,
-  parseYearParam,
-} from "@/lib/attendance-card";
+import { parseYearParam } from "@/lib/attendance-card";
+import { getStudentAttendanceCardData } from "@/lib/attendance-card.server";
 
 export const dynamic = "force-dynamic";
 

@@ -13,13 +13,18 @@ import {
 interface BookingSessionCardProps {
   session: BookableSession;
   onBookSession: (classSessionId: string) => void;
+  /** Override primary action label (e.g. guest booking flow). */
+  sessionActionLabel?: string;
 }
 
 export function BookingSessionCard({
   session,
   onBookSession,
+  sessionActionLabel,
 }: BookingSessionCardProps) {
   const isFull = session.spacesAvailable === 0;
+  const actionLabel =
+    sessionActionLabel ?? (isFull ? "Join waiting list" : "Book class");
 
   return (
     <article className="rounded-xl border border-dojo-border bg-dojo-surface p-3">
@@ -55,7 +60,7 @@ export function BookingSessionCard({
               : "bg-green-600 text-white ring-1 ring-green-500 hover:bg-green-500"
           }`}
         >
-          {isFull ? "Join waiting list" : "Book class"}
+          {actionLabel}
         </button>
       </div>
     </article>

@@ -54,7 +54,7 @@ export default async function AttendanceSessionPage({
         href="/attendance"
         className="inline-flex text-sm text-dojo-muted hover:text-dojo-red"
       >
-        ← Back to schedule
+        ← Back to Attendance Register
       </Link>
 
       <section className="rounded-xl border border-dojo-border bg-dojo-surface p-4">

@@ -15,7 +15,7 @@ export async function generateMetadata({
   const pageData = await getInstructorSessionCoverPageData(params.slug);
 
   return {
-    title: `DojoDirector | Session cover | ${pageData.identity.displayName}`,
+    title: `DojoDirector | Session Cover | ${pageData.identity.displayName}`,
     description: "View who is teaching upcoming classes.",
   };
 }
@@ -30,7 +30,7 @@ export default async function InstructorSessionCoverPage({
       <InstructorPortalHeader
         slug={pageData.identity.slug}
         instructorName={pageData.identity.displayName}
-        pageTitle="Session cover"
+        pageTitle="Session Cover"
         showBackLink
       />
 

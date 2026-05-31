@@ -1,9 +1,11 @@
+import Link from "next/link";
 import {
   getAttendanceScheduleSessions,
   groupAttendanceSessionsByMonth,
 } from "@/lib/attendance-schedule";
 import { AttendanceScheduleList } from "@/components/attendance/attendance-schedule-list";
 import { AppHeader } from "@/components/layout/app-header";
+import { clubAdminPath, KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,13 @@ export default async function AttendancePage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Attendance Register" />
+
+      <Link
+        href={clubAdminPath(KINGSTON_CLUB_SLUG)}
+        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
+      >
+        ← Back to Admin Dashboard
+      </Link>
 
       <p className="text-sm text-dojo-muted">
         Upcoming class sessions for the next 8 weeks. Tap a session to mark

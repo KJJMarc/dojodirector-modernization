@@ -1,12 +1,24 @@
 import Link from "next/link";
 import { instructorPortalPath } from "@/lib/instructor-portal.shared";
 
-interface InstructorQuickActionsProps {
-  slug: string;
+export interface InstructorQuickActionItem {
+  label: string;
+  href: string;
+  description: string;
 }
 
-export function InstructorQuickActions({ slug }: InstructorQuickActionsProps) {
-  const actions = [
+interface InstructorQuickActionsProps {
+  slug: string;
+  extraActions?: readonly InstructorQuickActionItem[];
+  sectionTitle?: string;
+}
+
+export function InstructorQuickActions({
+  slug,
+  extraActions = [],
+  sectionTitle = "ACTIONS",
+}: InstructorQuickActionsProps) {
+  const actions: InstructorQuickActionItem[] = [
     {
       label: "Attendance Register",
       href: "/attendance",
@@ -22,12 +34,13 @@ export function InstructorQuickActions({ slug }: InstructorQuickActionsProps) {
       href: instructorPortalPath(slug, "my-classes"),
       description: "View your assigned recurring classes and upcoming sessions.",
     },
-  ] as const;
+    ...extraActions,
+  ];
 
   return (
     <section aria-label="Instructor actions">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-dojo-red">
-        Actions
+        {sectionTitle}
       </h2>
       <div className="grid gap-3">
         {actions.map(({ label, href, description }) => (

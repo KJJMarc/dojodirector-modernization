@@ -24,7 +24,7 @@ export async function generateMetadata({
 
 export default async function ClubAdminPage({ params }: ClubAdminPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const stats = await getAdminDashboardStats();
+  const stats = await getAdminDashboardStats(club.id);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">

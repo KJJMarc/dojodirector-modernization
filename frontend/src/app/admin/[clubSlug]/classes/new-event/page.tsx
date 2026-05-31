@@ -29,19 +29,19 @@ export default async function ClubNewEventPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Add one-off event" clubName={club.name} />
+      <AppHeader pageTitle="Add One-Off Event" clubName={club.name} />
 
       <Link
         href={clubAdminPath(club.slug, "classes")}
         className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >
-        ← Back to classes
+        ← Back to Manage Classes
       </Link>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            One-off event
+            ONE-OFF EVENT
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Creates a single session for seminars, gradings, open mats and other

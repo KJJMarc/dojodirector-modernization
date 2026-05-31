@@ -1,5 +1,8 @@
+import "server-only";
+
 import { getTodayUtcRange } from "@/lib/attendance";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface AdminDashboardStats {
   todaysSessions: number;
@@ -8,20 +11,35 @@ export interface AdminDashboardStats {
   studentsTotal: number;
 }
 
-export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
-  const supabase = getSupabaseServerClient();
+function formatSupabaseError(context: string, error: { message?: string; code?: string; details?: string; hint?: string }) {
+  const message = error.message?.trim();
+
+  if (message) {
+    return `${context}: ${message}`;
+  }
+
+  const details = [error.code, error.details, error.hint].filter(Boolean).join(" — ");
+
+  return details ? `${context}: ${details}` : context;
+}
+
+export async function getAdminDashboardStats(
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<AdminDashboardStats> {
+  const supabase = getSupabaseAdminClient();
   const { startIso, endIso } = getTodayUtcRange();
 
   const { data: todaysSessions, error: sessionsError } = await supabase
     .from("class_sessions")
     .select("id")
+    .eq("club_id", clubId)
     .gte("starts_at", startIso)
     .lt("starts_at", endIso)
     .neq("status", "cancelled");
 
   if (sessionsError) {
     throw new Error(
-      `Failed to load today's sessions: ${sessionsError.message}`,
+      formatSupabaseError("Failed to load today's sessions", sessionsError),
     );
   }
 
@@ -47,13 +65,13 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 
     if (bookedResult.error) {
       throw new Error(
-        `Failed to count today's bookings: ${bookedResult.error.message}`,
+        formatSupabaseError("Failed to count today's bookings", bookedResult.error),
       );
     }
 
     if (presentResult.error) {
       throw new Error(
-        `Failed to count today's attendance: ${presentResult.error.message}`,
+        formatSupabaseError("Failed to count today's attendance", presentResult.error),
       );
     }
 
@@ -61,12 +79,17 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     presentToday = presentResult.count ?? 0;
   }
 
-  const { count: studentsTotal, error: usersError } = await supabase
-    .from("users")
-    .select("id", { count: "exact", head: true });
+  const { count: studentsTotal, error: membershipsError } = await supabase
+    .from("memberships")
+    .select("user_id", { count: "exact", head: true })
+    .eq("club_id", clubId)
+    .eq("role", "student")
+    .eq("status", "active");
 
-  if (usersError) {
-    throw new Error(`Failed to count students: ${usersError.message}`);
+  if (membershipsError) {
+    throw new Error(
+      formatSupabaseError("Failed to count students", membershipsError),
+    );
   }
 
   return {

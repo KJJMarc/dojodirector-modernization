@@ -27,7 +27,7 @@ export default async function ClubAdminInstructorsPage({
   params,
 }: ClubAdminInstructorsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const instructors = await getAdminInstructors();
+  const instructors = await getAdminInstructors(club.id);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -38,14 +38,14 @@ export default async function ClubAdminInstructorsPage({
           href={clubAdminPath(club.slug)}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Back to admin
+          ← Back to Admin Dashboard
         </Link>
         <div className="flex flex-wrap gap-2">
           <Link
             href={clubAdminPath(club.slug, "instructors/classes")}
             className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50"
           >
-            Class allocations
+            Class Allocations
           </Link>
           <Link
             href={clubAdminPath(club.slug, "instructors/new")}
@@ -59,7 +59,7 @@ export default async function ClubAdminInstructorsPage({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Instructor staff
+            INSTRUCTOR STAFF
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Instructors, admins and super admins for this club.

@@ -27,10 +27,35 @@ const SORTABLE_COLUMNS: {
   { key: "first_name", label: "First name" },
   { key: "last_name", label: "Last name" },
   { key: "email", label: "Email" },
-  { key: "belt_level", label: "Belt level" },
+  { key: "belt_level", label: "Belt Level" },
   { key: "attendances", label: "Attendances" },
   { key: "role", label: "Role" },
 ];
+
+function BeltLevelCell({
+  beltLabel,
+  considerPromotion,
+}: {
+  beltLabel: string;
+  considerPromotion: boolean;
+}) {
+  if (!considerPromotion) {
+    return <>{beltLabel}</>;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{beltLabel}</span>
+      <span
+        className="inline-flex rounded-full bg-dojo-red/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dojo-red"
+        title="Consider promotion"
+      >
+        *
+      </span>
+      <span className="sr-only">Consider promotion</span>
+    </span>
+  );
+}
 
 function StudentActions({
   clubSlug,
@@ -201,7 +226,10 @@ export function StudentsList({
                       {student.email ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-dojo-white">
-                      {student.beltLabel}
+                      <BeltLevelCell
+                        beltLabel={student.beltLabel}
+                        considerPromotion={student.considerPromotion}
+                      />
                     </td>
                     <td className="px-4 py-3 tabular-nums text-dojo-white">
                       {student.attendanceTotal}
@@ -239,7 +267,10 @@ export function StudentsList({
                     <p>
                       Belt:{" "}
                       <span className="normal-case text-dojo-white">
-                        {student.beltLabel}
+                        <BeltLevelCell
+                          beltLabel={student.beltLabel}
+                          considerPromotion={student.considerPromotion}
+                        />
                       </span>
                     </p>
                     <p>

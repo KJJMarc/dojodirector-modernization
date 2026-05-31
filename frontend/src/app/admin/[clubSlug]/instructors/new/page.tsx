@@ -35,13 +35,13 @@ export default async function ClubAddInstructorPage({
         href={clubAdminPath(club.slug, "instructors")}
         className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >
-        ← Back to instructors
+        ← Back to Instructors
       </Link>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            New instructor
+            NEW INSTRUCTOR
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Create an instructor profile or promote an existing club member.

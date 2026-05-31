@@ -6,6 +6,12 @@ export interface BeltLevelOption {
 
 export type BeltCategory = "adult" | "junior";
 
+export interface BeltLevelOptionGroup {
+  category: BeltCategory;
+  label: string;
+  options: BeltLevelOption[];
+}
+
 const ADULT_BELT_COLOR_ORDER = [
   "white",
   "blue",
@@ -28,10 +34,42 @@ export function formatBeltOptionLabel(belt: {
   return `${name}, ${stripeCount} Stripe${stripeCount === 1 ? "" : "s"}`;
 }
 
+export function isJuniorBeltCategory(
+  beltCategory: string | null | undefined,
+): boolean {
+  return beltCategory?.trim().toLowerCase() === "junior";
+}
+
+export function isAdultBeltCategory(
+  beltCategory: string | null | undefined,
+): boolean {
+  return beltCategory?.trim().toLowerCase() === "adult";
+}
+
+export function sortBeltLevelsBySortOrder<
+  T extends { sort_order: number; name: string },
+>(belts: T[]): T[] {
+  return [...belts].sort((left, right) => {
+    if (left.sort_order !== right.sort_order) {
+      return left.sort_order - right.sort_order;
+    }
+
+    return left.name.localeCompare(right.name, "en", { sensitivity: "base" });
+  });
+}
+
 export function isJuniorBeltLevel(belt: {
   name: string;
   type?: string | null;
+  belt_category?: string | null;
 }) {
+  if (isJuniorBeltCategory(belt.belt_category)) {
+    return true;
+  }
+
+  if (isAdultBeltCategory(belt.belt_category)) {
+    return false;
+  }
   const normalizedType = belt.type?.trim().toLowerCase();
 
   if (normalizedType === "junior" || normalizedType === "kids") {

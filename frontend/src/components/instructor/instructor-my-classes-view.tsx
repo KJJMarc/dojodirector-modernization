@@ -39,7 +39,7 @@ export function InstructorMyClassesView({
     <div className="space-y-8">
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          Recurring classes
+          RECURRING CLASSES
         </h2>
         {recurringClasses.length === 0 ? (
           <p className="rounded-xl border border-dojo-border bg-dojo-surface px-4 py-6 text-center text-sm text-dojo-muted">
@@ -86,7 +86,7 @@ export function InstructorMyClassesView({
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          Upcoming sessions
+          UPCOMING SESSIONS
         </h2>
         {upcomingSessions.length === 0 ? (
           <p className="rounded-xl border border-dojo-border bg-dojo-surface px-4 py-6 text-center text-sm text-dojo-muted">

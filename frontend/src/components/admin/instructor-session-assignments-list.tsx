@@ -72,7 +72,7 @@ function ReplaceInstructorControl({
         }}
         className={`${RECURRING_REACTIVATE_BUTTON_CLASS} !h-8 !min-h-[32px] !w-auto whitespace-nowrap px-3`}
       >
-        Replace instructor
+        Replace Instructor
       </button>
     );
   }
@@ -243,13 +243,13 @@ export function InstructorSessionAssignmentsList({
           href={clubAdminPath(clubSlug, "instructors/classes")}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Recurring allocations
+          ← Instructor Class Allocation
         </Link>
         <Link
           href={clubAdminPath(clubSlug, "instructors")}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Back to instructors
+          ← Back to Instructors
         </Link>
       </div>
     </div>

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { InstructorSessionAssignmentsList } from "@/components/admin/instructor-session-assignments-list";
 import { AppHeader } from "@/components/layout/app-header";
 import { getInstructorSessionAssignmentsPageData } from "@/lib/admin-instructors.server";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +18,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Session cover`,
+    title: `DojoDirector | ${club.name} Session Cover`,
     description: `Replace instructors for individual class sessions at ${club.name}.`,
   };
 }
@@ -25,11 +27,18 @@ export default async function ClubInstructorSessionsPage({
   params,
 }: ClubInstructorSessionsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const pageData = await getInstructorSessionAssignmentsPageData();
+  const pageData = await getInstructorSessionAssignmentsPageData(club.id);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-4 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Session cover" clubName={club.name} />
+      <AppHeader pageTitle="Session Cover" clubName={club.name} />
+
+      <Link
+        href={clubAdminPath(club.slug, "instructors")}
+        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
+      >
+        ← Back to Instructors
+      </Link>
 
       <p className="text-sm text-dojo-muted">
         Upcoming class sessions for the next 8 weeks. Replace the instructor for

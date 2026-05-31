@@ -178,7 +178,7 @@ export function SessionBookingsManager({
         <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-              Add booking
+              ADD BOOKING
             </h3>
             <p className="mt-1 text-xs text-dojo-muted">
               Search club members and add them to this session manually.
@@ -239,7 +239,7 @@ export function SessionBookingsManager({
               onClick={submitAddBooking}
               className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isPending ? "Adding…" : "Add booking"}
+              {isPending ? "Adding…" : "Add Booking"}
             </button>
           </div>
         </section>
@@ -266,7 +266,7 @@ export function SessionBookingsManager({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Current bookings
+            CURRENT BOOKINGS
           </h3>
           <p className="mt-1 text-xs text-dojo-muted">
             Booked and waitlisted students for this session.
@@ -318,7 +318,7 @@ export function SessionBookingsManager({
                             href={`/students/${attendee.userId}/attendance-card`}
                             className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
                           >
-                            Attendance card
+                            Attendance Card
                           </Link>
                           <button
                             type="button"
@@ -328,7 +328,7 @@ export function SessionBookingsManager({
                             }
                             className="rounded-md border border-dojo-red/40 bg-dojo-elevated px-3 py-1 text-xs font-semibold text-dojo-red transition hover:bg-dojo-red/10 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Cancel booking
+                            Cancel Booking
                           </button>
                         </div>
                       </td>

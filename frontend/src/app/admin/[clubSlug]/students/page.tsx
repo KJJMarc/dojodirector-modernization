@@ -5,10 +5,10 @@ import { StudentsList } from "@/components/admin/students-list";
 import { AppHeader } from "@/components/layout/app-header";
 import {
   filterAdminStudents,
-  getClubStudents,
   parseAdminStudentSort,
   sortAdminStudents,
 } from "@/lib/admin-students";
+import { getClubStudents } from "@/lib/admin-students.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -55,20 +55,28 @@ export default async function ClubAdminStudentsPage({
           href={clubAdminPath(club.slug)}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Back to admin
+          ← Back to Admin Dashboard
         </Link>
-        <Link
-          href={clubAdminPath(club.slug, "students/new")}
-          className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover"
-        >
-          Add Student
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={clubAdminPath(club.slug, "students/promotion-candidates")}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+          >
+            Promotion Candidates
+          </Link>
+          <Link
+            href={clubAdminPath(club.slug, "students/new")}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover"
+          >
+            Add Student
+          </Link>
+        </div>
       </div>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Find students
+            FIND STUDENTS
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Search by first name, last name or email.

@@ -168,7 +168,7 @@ export function RecurringScheduleBookingsManager({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Future bookings by student
+            FUTURE BOOKINGS BY STUDENT
           </h3>
           <p className="mt-1 text-xs text-dojo-muted">
             Active future bookings on this recurring class schedule.
@@ -239,7 +239,7 @@ export function RecurringScheduleBookingsManager({
         <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-              Add booking
+              ADD BOOKING
             </h3>
             <p className="mt-1 text-xs text-dojo-muted">
               Book a student into all future non-cancelled sessions up to the selected
@@ -308,7 +308,7 @@ export function RecurringScheduleBookingsManager({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Cancel booking
+            CANCEL BOOKING
           </h3>
           <p className="mt-1 text-xs text-dojo-muted">
             Cancel future bookings for a student on this recurring class. Past sessions
@@ -347,7 +347,7 @@ export function RecurringScheduleBookingsManager({
             onClick={submitCancel}
             className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-red/40 bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-red transition hover:bg-dojo-red/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? "Cancelling…" : "Cancel future bookings"}
+            {isPending ? "Cancelling…" : "Cancel Future Bookings"}
           </button>
         </div>
       </section>

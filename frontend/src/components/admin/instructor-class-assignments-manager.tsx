@@ -96,14 +96,14 @@ export function InstructorClassAssignmentsManager({
           href={clubAdminPath(clubSlug, "instructors/sessions")}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50"
         >
-          Manage session cover
+          Manage Session Cover
         </Link>
       </div>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Assign instructor
+            ASSIGN INSTRUCTOR
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Assign an instructor to a recurring weekly class. Only one active
@@ -150,7 +150,7 @@ export function InstructorClassAssignmentsManager({
             onClick={submitAssignment}
             className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? "Assigning…" : "Assign instructor"}
+            {isPending ? "Assigning…" : "Assign Instructor"}
           </button>
         </div>
       </section>
@@ -170,7 +170,7 @@ export function InstructorClassAssignmentsManager({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Current allocations
+            CURRENT ALLOCATIONS
           </h2>
         </div>
 
@@ -235,7 +235,7 @@ export function InstructorClassAssignmentsManager({
         href={clubAdminPath(clubSlug, "instructors")}
         className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >
-        ← Back to instructors
+        ← Back to Instructors
       </Link>
     </div>
   );

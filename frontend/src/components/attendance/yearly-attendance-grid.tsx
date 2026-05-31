@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { GridCell, YearlyGridRow } from "@/lib/attendance-card";
 import { isFutureAttendanceDate, formatAttendanceDateKey } from "@/lib/attendance-card-dates";
@@ -66,6 +67,7 @@ export function YearlyAttendanceGrid({
   userId,
   toggleAttendanceAction,
 }: YearlyAttendanceGridProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const handleCellClick = (
@@ -87,6 +89,7 @@ export function YearlyAttendanceGrid({
 
     startTransition(async () => {
       await toggleAttendanceAction(formData);
+      router.refresh();
     });
   };
 

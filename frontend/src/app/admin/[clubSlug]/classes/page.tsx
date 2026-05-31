@@ -30,8 +30,8 @@ export default async function ClubAdminClassesPage({
 }: ClubAdminClassesPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
   const [schedules, sessions] = await Promise.all([
-    getRecurringClassSchedules(),
-    getAdminUpcomingClassSessions(),
+    getRecurringClassSchedules(club.id),
+    getAdminUpcomingClassSessions(club.id),
   ]);
 
   return (
@@ -43,7 +43,7 @@ export default async function ClubAdminClassesPage({
           href={clubAdminPath(club.slug)}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Back to admin
+          ← Back to Admin Dashboard
         </Link>
       </div>
 
@@ -52,20 +52,20 @@ export default async function ClubAdminClassesPage({
           href={clubAdminPath(club.slug, "classes/new")}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50"
         >
-          Add recurring class
+          Add Recurring Class
         </Link>
         <Link
           href={clubAdminPath(club.slug, "classes/new-event")}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover"
         >
-          Add one-off event
+          Add One-Off Event
         </Link>
       </section>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Recurring classes
+            RECURRING CLASSES
             {schedules.length > 0 ? (
               <span className="ml-2 font-normal normal-case text-dojo-muted">
                 ({schedules.length} slots)
@@ -85,7 +85,7 @@ export default async function ClubAdminClassesPage({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Upcoming sessions
+            UPCOMING SESSIONS
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Recurring sessions and one-off events for the next 8 weeks. Cancel,

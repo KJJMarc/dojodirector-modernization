@@ -1,5 +1,5 @@
 import { HomeHeader } from "@/components/layout/home-header";
-import { HomeHeroActions } from "@/components/layout/home-hero-actions";
+import { HomeHeroSection } from "@/components/layout/home-hero-section";
 import { HomeLoginProvider } from "@/components/layout/home-login-context";
 import { PRODUCT_NAME } from "@/lib/branding";
 
@@ -33,41 +33,7 @@ export default function Home() {
         <HomeHeader />
 
         <main>
-          <section className="relative overflow-hidden border-b border-neutral-200 bg-white">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-dojo-red/10 blur-3xl sm:h-96 sm:w-96"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-16 left-0 h-48 w-48 rounded-full bg-neutral-200/80 blur-3xl"
-            />
-
-            <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:py-28">
-              <div className="max-w-3xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-dojo-red">
-                  Academy management platform
-                </p>
-                <h1 className="mt-4 text-5xl font-bold uppercase leading-none tracking-tight text-neutral-950 sm:text-6xl lg:text-7xl">
-                  {PRODUCT_NAME}
-                </h1>
-                <p className="mt-6 text-xl font-semibold leading-snug text-neutral-800 sm:text-2xl">
-                  Martial arts academy management made simple.
-                </p>
-                <p className="mt-5 max-w-2xl text-base leading-relaxed text-neutral-600 sm:text-lg">
-                  Manage students, class bookings, attendance records, instructor
-                  schedules and grading history from one clean, central system.
-                </p>
-                <p className="mt-4 max-w-2xl text-sm leading-relaxed text-neutral-500 sm:text-base">
-                  Built for busy martial arts academies that need a simple way to
-                  keep classes organised, students supported and attendance records
-                  up to date.
-                </p>
-
-                <HomeHeroActions />
-              </div>
-            </div>
-          </section>
+          <HomeHeroSection />
 
           <section className="relative overflow-hidden bg-gradient-to-br from-neutral-950 via-dojo-black to-neutral-900 py-16 sm:py-20">
             <div

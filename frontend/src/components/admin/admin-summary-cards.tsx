@@ -9,17 +9,17 @@ const cards: {
   label: string;
   valueClass?: string;
 }[] = [
-  { key: "todaysSessions", label: "Today's sessions" },
-  { key: "bookedToday", label: "Booked today" },
-  { key: "presentToday", label: "Present today", valueClass: "text-green-500" },
-  { key: "studentsTotal", label: "Students total" },
+  { key: "todaysSessions", label: "Today's Sessions" },
+  { key: "bookedToday", label: "Booked Today" },
+  { key: "presentToday", label: "Present Today", valueClass: "text-green-500" },
+  { key: "studentsTotal", label: "Students Total" },
 ];
 
 export function AdminSummaryCards({ stats }: AdminSummaryCardsProps) {
   return (
     <section aria-label="Dashboard summary">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-dojo-red">
-        Today at a glance
+        TODAY AT A GLANCE
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map(({ key, label, valueClass }) => (

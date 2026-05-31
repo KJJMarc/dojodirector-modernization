@@ -2,6 +2,7 @@
 
 import {
   deactivateRecurringClassSchedule,
+  getRecurringClassScheduleById,
   reactivateRecurringClassSchedule,
 } from "@/lib/admin-recurring-classes.server";
 import { revalidateRecurringClassPaths } from "@/lib/admin-revalidate.server";
@@ -15,27 +16,42 @@ import type {
   CancelRecurringBookingResult,
 } from "@/lib/admin-session-bookings.shared";
 import { parseClubSlugFromForm } from "@/lib/clubs.shared";
+import { requireClubBySlug } from "@/lib/clubs.server";
+
+async function requireScheduleForClub(scheduleId: string, clubId: string) {
+  const schedule = await getRecurringClassScheduleById(scheduleId, clubId);
+
+  if (!schedule) {
+    throw new Error("Recurring class schedule not found.");
+  }
+
+  return schedule;
+}
 
 export async function deactivateRecurringClassAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
   const scheduleId = String(formData.get("scheduleId") ?? "");
 
   if (!scheduleId) {
     throw new Error("Missing recurring class id.");
   }
 
+  await requireScheduleForClub(scheduleId, club.id);
   await deactivateRecurringClassSchedule(scheduleId);
   revalidateRecurringClassPaths(clubSlug, scheduleId);
 }
 
 export async function reactivateRecurringClassAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
   const scheduleId = String(formData.get("scheduleId") ?? "");
 
   if (!scheduleId) {
     throw new Error("Missing recurring class id.");
   }
 
+  await requireScheduleForClub(scheduleId, club.id);
   await reactivateRecurringClassSchedule(scheduleId);
   revalidateRecurringClassPaths(clubSlug, scheduleId);
 }
@@ -44,6 +60,7 @@ export async function blockBookRecurringScheduleAction(
   formData: FormData,
 ): Promise<BlockBookingResult> {
   const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
   const scheduleId = String(formData.get("scheduleId") ?? "");
   const userId = String(formData.get("userId") ?? "");
   const endDate = String(formData.get("endDate") ?? "");
@@ -64,6 +81,7 @@ export async function blockBookRecurringScheduleAction(
     scheduleId,
     userId,
     endDate,
+    clubId: club.id,
   });
 
   revalidateRecurringClassPaths(clubSlug, scheduleId, userId);
@@ -73,18 +91,22 @@ export async function blockBookRecurringScheduleAction(
 
 export async function getRecurringScheduleBookedStudentOptionsAction(
   scheduleId: string,
+  clubSlug: string,
 ) {
   if (!scheduleId) {
     throw new Error("Missing recurring schedule id.");
   }
 
-  return getRecurringScheduleBookedStudentOptions(scheduleId);
+  const club = await requireClubBySlug(clubSlug);
+
+  return getRecurringScheduleBookedStudentOptions(scheduleId, club.id);
 }
 
 export async function cancelRecurringScheduleBookingsAction(
   formData: FormData,
 ): Promise<CancelRecurringBookingResult> {
   const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
   const scheduleId = String(formData.get("scheduleId") ?? "");
   const userId = String(formData.get("userId") ?? "");
 
@@ -99,6 +121,7 @@ export async function cancelRecurringScheduleBookingsAction(
   const result = await adminCancelRecurringScheduleBookings({
     scheduleId,
     userId,
+    clubId: club.id,
   });
 
   revalidateRecurringClassPaths(clubSlug, scheduleId, userId);

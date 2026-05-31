@@ -1,18 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
-import {
-  cancelClassSessionAction,
-  reinstateClassSessionAction,
-} from "@/app/admin/[clubSlug]/classes/actions";
-import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   AdminClassSessionRow,
   formatSessionKindLabel,
 } from "@/lib/admin-class-sessions.shared";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import { formatProgrammeTypeLabel, formatSessionStatusLabel } from "@/lib/admin-programme-types";
 import { formatScheduleCapacitySummary } from "@/lib/class-session-schedule";
+import { SESSION_MANAGE_BUTTON_CLASS } from "@/components/admin/session-manage-actions";
 
 interface AdminClassSessionsListProps {
   clubSlug: string;
@@ -43,33 +39,6 @@ function SessionStatusBadge({ session }: { session: AdminClassSessionRow }) {
   );
 }
 
-function SessionActionButton({
-  label,
-  className,
-  onSubmit,
-}: {
-  label: string;
-  className: string;
-  onSubmit: () => Promise<void>;
-}) {
-  const [isPending, startTransition] = useTransition();
-
-  return (
-    <button
-      type="button"
-      disabled={isPending}
-      onClick={() => {
-        startTransition(async () => {
-          await onSubmit();
-        });
-      }}
-      className={`min-h-[32px] rounded-md px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {label}
-    </button>
-  );
-}
-
 function SessionActions({
   clubSlug,
   session,
@@ -77,48 +46,13 @@ function SessionActions({
   clubSlug: string;
   session: AdminClassSessionRow;
 }) {
-  const submitSessionAction = (action: (formData: FormData) => Promise<void>) => {
-    const formData = new FormData();
-    formData.set("clubSlug", clubSlug);
-    formData.set("sessionId", session.id);
-    return action(formData);
-  };
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Link
-        href={clubAdminPath(clubSlug, `classes/sessions/${session.id}`)}
-        className="text-xs font-semibold text-dojo-red transition hover:text-dojo-red-hover"
-      >
-        Bookings
-      </Link>
-      <Link
-        href={`/attendance/${session.id}`}
-        className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
-      >
-        Register
-      </Link>
-      <Link
-        href={clubAdminPath(clubSlug, `classes/sessions/${session.id}/edit`)}
-        className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
-      >
-        Edit
-      </Link>
-      {session.status === "scheduled" ? (
-        <SessionActionButton
-          label="Cancel"
-          className="border border-dojo-red/40 bg-dojo-elevated text-dojo-red hover:bg-dojo-red/10"
-          onSubmit={() => submitSessionAction(cancelClassSessionAction)}
-        />
-      ) : null}
-      {session.status === "cancelled" ? (
-        <SessionActionButton
-          label="Reinstate"
-          className="border border-green-700/50 bg-dojo-elevated text-green-400 hover:bg-green-500/10"
-          onSubmit={() => submitSessionAction(reinstateClassSessionAction)}
-        />
-      ) : null}
-    </div>
+    <Link
+      href={clubAdminPath(clubSlug, `classes/sessions/${session.id}`)}
+      className={SESSION_MANAGE_BUTTON_CLASS}
+    >
+      Manage
+    </Link>
   );
 }
 
@@ -150,7 +84,7 @@ export function AdminClassSessionsList({
               <th className="px-4 py-3 font-semibold">Venue</th>
               <th className="px-4 py-3 font-semibold">Bookings</th>
               <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
+              <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -183,7 +117,7 @@ export function AdminClassSessionsList({
                 <td className="px-4 py-3">
                   <SessionStatusBadge session={session} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="whitespace-nowrap px-4 py-3 align-middle">
                   <SessionActions clubSlug={clubSlug} session={session} />
                 </td>
               </tr>

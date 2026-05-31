@@ -53,7 +53,7 @@ export function StudentAttendanceCard({
           href={`/students/${userId}/attendance-card`}
           className="text-xs text-dojo-muted hover:text-dojo-red"
         >
-          View attendance card
+          View Attendance Card
         </Link>
       </div>
 

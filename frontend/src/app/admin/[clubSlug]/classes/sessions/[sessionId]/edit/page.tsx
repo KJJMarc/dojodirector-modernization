@@ -19,7 +19,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Edit session`,
+    title: `DojoDirector | ${club.name} Edit Session`,
     description: `Edit a class session for ${club.name}.`,
   };
 }
@@ -31,7 +31,7 @@ export default async function ClubEditClassSessionPage({
   let session;
 
   try {
-    session = await getEditableClassSession(params.sessionId);
+    session = await getEditableClassSession(params.sessionId, club.id);
   } catch (error) {
     if (error instanceof Error && error.message === "Class session not found.") {
       notFound();
@@ -42,19 +42,19 @@ export default async function ClubEditClassSessionPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Edit session" clubName={club.name} />
+      <AppHeader pageTitle="Edit Session" clubName={club.name} />
 
       <Link
         href={clubAdminPath(club.slug, "classes")}
         className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >
-        ← Back to classes
+        ← Back to Manage Classes
       </Link>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Session details
+            SESSION DETAILS
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
             Update date, time, capacity, location, programme type or status.

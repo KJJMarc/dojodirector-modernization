@@ -1,12 +1,16 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import {
+  BJJ_ATTENDANCE_CARD_MANUAL_SOURCES,
+  BJJ_ATTENDANCE_CARD_MANUAL_SOURCE,
+} from "@/lib/attendance-card-manual.shared";
+import { getStudentClubContextForAttendance } from "@/lib/attendance-card-manual.server";
 import {
   formatAttendanceDateKey,
   isFutureAttendanceDate,
   isValidCalendarDate,
 } from "@/lib/attendance-card-dates";
-import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { revalidateAttendanceImpactPaths } from "@/lib/admin-revalidate.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface ToggleManualAttendanceInput {
@@ -69,14 +73,18 @@ async function assertStudentExists(userId: string) {
   }
 }
 
-async function addManualAttendance(userId: string, attendedOn: string) {
+async function addManualAttendance(
+  userId: string,
+  clubId: string,
+  attendedOn: string,
+) {
   const supabase = getSupabaseAdminClient();
 
   const { data: existing, error: fetchError } = await supabase
     .from("attendance_records")
-    .select("id")
+    .select("id, source")
     .eq("user_id", userId)
-    .eq("club_id", ACTIVE_CLUB_ID)
+    .eq("club_id", clubId)
     .eq("attended_on", attendedOn)
     .is("class_session_id", null)
     .maybeSingle();
@@ -86,16 +94,29 @@ async function addManualAttendance(userId: string, attendedOn: string) {
   }
 
   if (existing) {
+    if (existing.source === BJJ_ATTENDANCE_CARD_MANUAL_SOURCE) {
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("attendance_records")
+      .update({ source: BJJ_ATTENDANCE_CARD_MANUAL_SOURCE })
+      .eq("id", existing.id);
+
+    if (updateError) {
+      throw new Error(`Unable to update attendance record: ${updateError.message}`);
+    }
+
     return;
   }
 
   const { error: insertError } = await supabase.from("attendance_records").insert({
     user_id: userId,
-    club_id: ACTIVE_CLUB_ID,
+    club_id: clubId,
     class_session_id: null,
     attended_on: attendedOn,
     attended_at: new Date().toISOString(),
-    source: "manual",
+    source: BJJ_ATTENDANCE_CARD_MANUAL_SOURCE,
   });
 
   if (insertError) {
@@ -103,15 +124,21 @@ async function addManualAttendance(userId: string, attendedOn: string) {
   }
 }
 
-async function removeAttendanceForDate(userId: string, attendedOn: string) {
+async function removeManualAttendanceForDate(
+  userId: string,
+  clubId: string,
+  attendedOn: string,
+) {
   const supabase = getSupabaseAdminClient();
 
   const { error } = await supabase
     .from("attendance_records")
     .delete()
     .eq("user_id", userId)
-    .eq("club_id", ACTIVE_CLUB_ID)
-    .eq("attended_on", attendedOn);
+    .eq("club_id", clubId)
+    .eq("attended_on", attendedOn)
+    .is("class_session_id", null)
+    .in("source", [...BJJ_ATTENDANCE_CARD_MANUAL_SOURCES]);
 
   if (error) {
     throw new Error(`Unable to remove attendance record: ${error.message}`);
@@ -123,13 +150,16 @@ export async function toggleManualAttendance(formData: FormData) {
   assertEditableAttendanceDate(input.year, input.month, input.day, input.mode);
   await assertStudentExists(input.userId);
 
+  const { clubId, clubSlug } = await getStudentClubContextForAttendance(
+    input.userId,
+  );
   const attendedOn = formatAttendanceDateKey(input.year, input.month, input.day);
 
   if (input.mode === "add") {
-    await addManualAttendance(input.userId, attendedOn);
+    await addManualAttendance(input.userId, clubId, attendedOn);
   } else {
-    await removeAttendanceForDate(input.userId, attendedOn);
+    await removeManualAttendanceForDate(input.userId, clubId, attendedOn);
   }
 
-  revalidatePath(`/students/${input.userId}/attendance-card`);
+  revalidateAttendanceImpactPaths(clubSlug, input.userId);
 }

@@ -20,7 +20,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Change belt level`,
+    title: `DojoDirector | ${club.name} Change Belt Level`,
     description: `Award a new belt level for a ${club.name} student.`,
   };
 }
@@ -32,7 +32,7 @@ export default async function ClubChangeBeltPage({
   let pageData;
 
   try {
-    pageData = await getAdminChangeBeltPageData(params.userId);
+    pageData = await getAdminChangeBeltPageData(params.userId, club.id);
   } catch (error) {
     if (error instanceof Error && error.message === "Student not found.") {
       notFound();
@@ -43,14 +43,14 @@ export default async function ClubChangeBeltPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Change belt level" clubName={club.name} />
+      <AppHeader pageTitle="Change Belt Level" clubName={club.name} />
 
       <div className="flex flex-wrap items-center gap-3">
         <Link
-          href={clubAdminPath(club.slug, `students/${params.userId}/profile`)}
+          href={clubAdminPath(club.slug, "students")}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Back to profile
+          ← Back to Students
         </Link>
       </div>
 
@@ -60,8 +60,8 @@ export default async function ClubChangeBeltPage({
             {pageData.studentName}
           </h2>
           <p className="mt-1 text-sm text-dojo-muted">
-            Award a new adult belt level. Previous awards are kept in grading
-            history.
+            Award a new adult or junior belt level. Previous awards are kept in
+            grading history.
           </p>
         </div>
 
@@ -88,14 +88,18 @@ export default async function ClubChangeBeltPage({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Select belt type
+            SELECT BELT TYPE
           </h3>
+          <p className="mt-1 text-xs text-dojo-muted">
+            Choose adult or junior belts, then select the level to award.
+          </p>
         </div>
 
         <ChangeBeltForm
           clubSlug={club.slug}
           userId={pageData.userId}
           adultBeltOptions={pageData.adultBeltOptions}
+          juniorBeltOptions={pageData.juniorBeltOptions}
         />
       </section>
     </main>

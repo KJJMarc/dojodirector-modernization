@@ -138,7 +138,7 @@ export function AddInstructorForm({ clubSlug }: { clubSlug: string }) {
           disabled={isPending}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "Adding…" : "Add instructor"}
+          {isPending ? "Adding…" : "Add Instructor"}
         </button>
         <Link
           href={clubAdminPath(clubSlug, "instructors")}

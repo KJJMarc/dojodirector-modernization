@@ -2,8 +2,11 @@ import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
 import {
+  isAdultBeltCategory,
+  isJuniorBeltCategory,
   isJuniorBeltLevel,
   sortAdultBeltLevels,
+  sortBeltLevelsBySortOrder,
   toBeltLevelOptions,
   type BeltLevelOption,
 } from "@/lib/admin-belt-levels.shared";
@@ -17,6 +20,7 @@ interface BeltLevelRow {
   stripe_count: number | null;
   sort_order: number;
   type: string | null;
+  belt_category: string | null;
 }
 
 interface GradeAwardRow {
@@ -30,6 +34,7 @@ export interface AdminChangeBeltPageData {
   currentBeltLabel: string;
   currentBeltAwardedAt: string | null;
   adultBeltOptions: BeltLevelOption[];
+  juniorBeltOptions: BeltLevelOption[];
 }
 
 async function assertClubMember(userId: string, clubId: string) {
@@ -95,7 +100,7 @@ async function loadBeltLevelById(beltLevelId: string) {
 
   const { data, error } = await supabase
     .from("belt_levels")
-    .select("id, name, stripe_count, sort_order, type")
+    .select("id, name, stripe_count, sort_order, type, belt_category")
     .eq("id", beltLevelId)
     .maybeSingle();
 
@@ -106,23 +111,50 @@ async function loadBeltLevelById(beltLevelId: string) {
   return (data as BeltLevelRow | null) ?? null;
 }
 
-async function loadAdultBeltLevels(clubId: string) {
+function isAdultClubBeltLevel(belt: BeltLevelRow) {
+  if (isJuniorBeltCategory(belt.belt_category)) {
+    return false;
+  }
+
+  if (isAdultBeltCategory(belt.belt_category)) {
+    return true;
+  }
+
+  return !isJuniorBeltLevel(belt);
+}
+
+function isJuniorClubBeltLevel(belt: BeltLevelRow) {
+  if (isJuniorBeltCategory(belt.belt_category)) {
+    return true;
+  }
+
+  if (isAdultBeltCategory(belt.belt_category)) {
+    return false;
+  }
+
+  return isJuniorBeltLevel(belt);
+}
+
+async function loadClubBeltLevelOptions(clubId: string) {
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
     .from("belt_levels")
-    .select("id, name, stripe_count, sort_order, type")
+    .select("id, name, stripe_count, sort_order, type, belt_category")
     .eq("club_id", clubId);
 
   if (error) {
     throw new Error(`Failed to load belt levels: ${error.message}`);
   }
 
-  const adultBelts = ((data ?? []) as BeltLevelRow[]).filter(
-    (belt) => !isJuniorBeltLevel(belt),
-  );
+  const belts = (data ?? []) as BeltLevelRow[];
+  const adultBelts = belts.filter(isAdultClubBeltLevel);
+  const juniorBelts = belts.filter(isJuniorClubBeltLevel);
 
-  return toBeltLevelOptions(sortAdultBeltLevels(adultBelts));
+  return {
+    adultBeltOptions: toBeltLevelOptions(sortAdultBeltLevels(adultBelts)),
+    juniorBeltOptions: toBeltLevelOptions(sortBeltLevelsBySortOrder(juniorBelts)),
+  };
 }
 
 function parseAwardedAt(value: string) {
@@ -139,10 +171,10 @@ export async function getAdminChangeBeltPageData(
 ): Promise<AdminChangeBeltPageData> {
   await assertClubMember(userId, clubId);
 
-  const [studentName, latestAward, adultBeltOptions] = await Promise.all([
+  const [studentName, latestAward, beltOptions] = await Promise.all([
     loadStudentName(userId),
     loadLatestGradeAward(userId, clubId),
-    loadAdultBeltLevels(clubId),
+    loadClubBeltLevelOptions(clubId),
   ]);
 
   const currentBelt = latestAward?.belt_level_id
@@ -154,7 +186,8 @@ export async function getAdminChangeBeltPageData(
     studentName,
     currentBeltLabel: formatAdminBeltLabel(currentBelt),
     currentBeltAwardedAt: latestAward?.awarded_at ?? null,
-    adultBeltOptions,
+    adultBeltOptions: beltOptions.adultBeltOptions,
+    juniorBeltOptions: beltOptions.juniorBeltOptions,
   };
 }
 
@@ -174,7 +207,7 @@ export async function adminAwardBeltLevel(input: {
 
   const { data: beltLevel, error: beltError } = await supabase
     .from("belt_levels")
-    .select("id, name, stripe_count, type")
+    .select("id, name, stripe_count, type, belt_category")
     .eq("id", input.beltLevelId)
     .eq("club_id", clubId)
     .maybeSingle();
@@ -185,10 +218,6 @@ export async function adminAwardBeltLevel(input: {
 
   if (!beltLevel) {
     throw new Error("Selected belt level was not found for this club.");
-  }
-
-  if (isJuniorBeltLevel(beltLevel as BeltLevelRow)) {
-    throw new Error("Junior belt levels are not available yet.");
   }
 
   const notes = input.notes?.trim() ?? "";

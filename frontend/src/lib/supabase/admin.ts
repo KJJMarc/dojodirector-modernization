@@ -46,5 +46,11 @@ export function getSupabaseAdminClient() {
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
+    global: {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+    },
   });
 }

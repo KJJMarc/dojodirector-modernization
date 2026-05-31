@@ -29,6 +29,10 @@ export function formatInstructorRoleLabel(role: string | null) {
     return "Super admin";
   }
 
+  if (role === "owner") {
+    return "Owner";
+  }
+
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 

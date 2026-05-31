@@ -1,0 +1,263 @@
+import "server-only";
+
+import { getStudentFullName } from "@/lib/attendance";
+import { formatBookingDate, getBookingDateRange } from "@/lib/booking";
+import {
+  formatPortalMemberBookingStatus,
+  formatPortalSpacesAvailable,
+} from "@/lib/student-portal-format.shared";
+import {
+  formatScheduleDayLabel,
+  formatScheduleTimeRange,
+  loadClassScheduleSessions,
+} from "@/lib/class-session-schedule";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import type {
+  StudentPortalBookableSession,
+  StudentPortalBookableSessionGroup,
+  StudentPortalMemberBookingStatus,
+} from "@/lib/student-portal.shared";
+
+interface SessionAttendeeStatusRow {
+  class_session_id: string;
+  booking_status: string | null;
+}
+
+interface ClassSessionInstructorRow {
+  id: string;
+  recurring_schedule_id: string | null;
+}
+
+interface InstructorAssignmentRow {
+  instructor_user_id: string;
+  recurring_schedule_id: string | null;
+  class_session_id: string | null;
+}
+
+interface InstructorUserRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+function formatMemberBookingStatusLabel(
+  status: StudentPortalMemberBookingStatus,
+) {
+  return formatPortalMemberBookingStatus(status);
+}
+
+function normalizeMemberBookingStatus(
+  status: string | null,
+): StudentPortalMemberBookingStatus {
+  if (status === "booked" || status === "waitlisted") {
+    return status;
+  }
+
+  return null;
+}
+
+async function loadMemberBookingStatusBySessionId(
+  userId: string,
+  sessionIds: string[],
+): Promise<Map<string, StudentPortalMemberBookingStatus>> {
+  const statusBySessionId = new Map<string, StudentPortalMemberBookingStatus>();
+
+  if (sessionIds.length === 0) {
+    return statusBySessionId;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("session_attendees")
+    .select("class_session_id, booking_status")
+    .eq("user_id", userId)
+    .in("class_session_id", sessionIds);
+
+  if (error) {
+    throw new Error(`Failed to load your booking status: ${error.message}`);
+  }
+
+  for (const row of (data ?? []) as SessionAttendeeStatusRow[]) {
+    statusBySessionId.set(
+      row.class_session_id,
+      normalizeMemberBookingStatus(row.booking_status),
+    );
+  }
+
+  return statusBySessionId;
+}
+
+export async function loadInstructorNameBySessionId(
+  clubId: string,
+  sessionIds: string[],
+): Promise<Map<string, string>> {
+  const instructorNameBySessionId = new Map<string, string>();
+
+  if (sessionIds.length === 0) {
+    return instructorNameBySessionId;
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  const [sessionsResult, assignmentsResult] = await Promise.all([
+    supabase
+      .from("class_sessions")
+      .select("id, recurring_schedule_id")
+      .in("id", sessionIds),
+    supabase
+      .from("instructor_assignments")
+      .select("instructor_user_id, recurring_schedule_id, class_session_id")
+      .eq("club_id", clubId)
+      .eq("is_active", true),
+  ]);
+
+  if (sessionsResult.error) {
+    throw new Error(
+      `Failed to load class sessions for instructors: ${sessionsResult.error.message}`,
+    );
+  }
+
+  if (assignmentsResult.error) {
+    throw new Error(
+      `Failed to load instructor assignments: ${assignmentsResult.error.message}`,
+    );
+  }
+
+  const sessionAssignmentBySessionId = new Map<string, string>();
+  const recurringAssignmentByScheduleId = new Map<string, string>();
+
+  for (const assignment of (assignmentsResult.data ??
+    []) as InstructorAssignmentRow[]) {
+    if (assignment.class_session_id) {
+      sessionAssignmentBySessionId.set(
+        assignment.class_session_id,
+        assignment.instructor_user_id,
+      );
+      continue;
+    }
+
+    if (assignment.recurring_schedule_id) {
+      recurringAssignmentByScheduleId.set(
+        assignment.recurring_schedule_id,
+        assignment.instructor_user_id,
+      );
+    }
+  }
+
+  const instructorUserIds = Array.from(
+    new Set([
+      ...Array.from(sessionAssignmentBySessionId.values()),
+      ...Array.from(recurringAssignmentByScheduleId.values()),
+    ]),
+  );
+
+  const instructorNameByUserId = new Map<string, string>();
+
+  if (instructorUserIds.length > 0) {
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name")
+      .in("id", instructorUserIds);
+
+    if (usersError) {
+      throw new Error(`Failed to load instructors: ${usersError.message}`);
+    }
+
+    for (const user of (users ?? []) as InstructorUserRow[]) {
+      instructorNameByUserId.set(
+        user.id,
+        getStudentFullName(user.first_name, user.last_name),
+      );
+    }
+  }
+
+  for (const session of (sessionsResult.data ?? []) as ClassSessionInstructorRow[]) {
+    const sessionOverrideId = sessionAssignmentBySessionId.get(session.id);
+    const instructorUserId =
+      sessionOverrideId ??
+      (session.recurring_schedule_id
+        ? recurringAssignmentByScheduleId.get(session.recurring_schedule_id)
+        : undefined);
+
+    if (!instructorUserId) {
+      continue;
+    }
+
+    const instructorName = instructorNameByUserId.get(instructorUserId);
+
+    if (instructorName) {
+      instructorNameBySessionId.set(session.id, instructorName);
+    }
+  }
+
+  return instructorNameBySessionId;
+}
+
+export async function loadStudentPortalBookableSessionGroups(
+  userId: string,
+  clubId: string,
+): Promise<StudentPortalBookableSessionGroup[]> {
+  const { startIso, endIso } = getBookingDateRange();
+  const sessions = await loadClassScheduleSessions({
+    startIso,
+    endIso,
+    includeCancelled: false,
+    activeClassesOnly: true,
+  });
+
+  if (sessions.length === 0) {
+    return [];
+  }
+
+  const sessionIds = sessions.map((session) => session.id);
+  const [memberBookingStatusBySessionId, instructorNameBySessionId] =
+    await Promise.all([
+      loadMemberBookingStatusBySessionId(userId, sessionIds),
+      loadInstructorNameBySessionId(clubId, sessionIds),
+    ]);
+
+  const bookableSessions: StudentPortalBookableSession[] = sessions.map(
+    (session) => {
+      const memberBookingStatus =
+        memberBookingStatusBySessionId.get(session.id) ?? null;
+      const locationLabel =
+        session.location?.trim() || "Location TBC";
+
+      return {
+        id: session.id,
+        className: session.className,
+        startsAt: session.startsAt,
+        endsAt: session.endsAt,
+        locationLabel,
+        instructorName: instructorNameBySessionId.get(session.id) ?? null,
+        spacesAvailable: session.spacesAvailable,
+        spacesAvailableLabel: formatPortalSpacesAvailable(session.spacesAvailable),
+        memberBookingStatus,
+        memberBookingStatusLabel:
+          formatMemberBookingStatusLabel(memberBookingStatus),
+        dateLabel: formatBookingDate(session.startsAt),
+        timeLabel: formatScheduleTimeRange(session.startsAt, session.endsAt),
+        isFull: session.spacesAvailable === 0,
+      };
+    },
+  );
+
+  const groups = new Map<string, StudentPortalBookableSessionGroup>();
+
+  for (const session of bookableSessions) {
+    const dateKey = new Date(session.startsAt).toISOString().slice(0, 10);
+
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, {
+        dateKey,
+        dateLabel: session.dateLabel,
+        dayLabel: formatScheduleDayLabel(session.startsAt),
+        sessions: [],
+      });
+    }
+
+    groups.get(dateKey)!.sessions.push(session);
+  }
+
+  return Array.from(groups.values());
+}

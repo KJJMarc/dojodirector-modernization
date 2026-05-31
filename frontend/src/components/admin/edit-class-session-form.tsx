@@ -214,7 +214,7 @@ export function EditClassSessionForm({ clubSlug, session }: EditClassSessionForm
           disabled={isPending}
           className="min-h-[40px] rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "Saving…" : "Save session"}
+          {isPending ? "Saving…" : "Save Session"}
         </button>
         <Link
           href={clubAdminPath(clubSlug, "classes")}

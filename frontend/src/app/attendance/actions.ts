@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateAttendanceImpactPaths } from "@/lib/admin-revalidate.server";
+import { getClubSlugById } from "@/lib/attendance-card-manual.server";
 import { syncAttendanceRecordForStatus } from "@/lib/attendance-records-sync";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -93,7 +95,8 @@ export async function markAttendance(formData: FormData) {
       attendanceStatus as "present" | "absent",
     );
 
-    revalidatePath(`/students/${attendee.user_id}/attendance-card`);
+    const clubSlug = await getClubSlugById(classSession.club_id);
+    revalidateAttendanceImpactPaths(clubSlug, attendee.user_id);
   }
 
   revalidatePath("/attendance");

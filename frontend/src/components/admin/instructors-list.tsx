@@ -57,7 +57,7 @@ export function InstructorsList({ clubSlug, instructors }: InstructorsListProps)
                     href={`${clubAdminPath(clubSlug, "instructors/classes")}?instructorId=${instructor.id}`}
                     className="inline-flex min-h-[32px] items-center rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
                   >
-                    Manage classes
+                    Manage Classes
                   </Link>
                 </td>
               </tr>
@@ -94,7 +94,7 @@ export function InstructorsList({ clubSlug, instructors }: InstructorsListProps)
               href={`${clubAdminPath(clubSlug, "instructors/classes")}?instructorId=${instructor.id}`}
               className="mt-3 inline-flex min-h-[36px] items-center rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
             >
-              Manage classes
+              Manage Classes
             </Link>
           </li>
         ))}

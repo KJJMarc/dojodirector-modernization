@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { clubAdminPath, KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 
 interface AttendanceCardToolbarProps {
   userId: string;
@@ -19,13 +20,13 @@ export function AttendanceCardToolbar({
         href={`${cardPath}?year=${year - 1}`}
         className="rounded-md border border-dojo-border bg-dojo-surface px-3 py-2 text-sm font-medium text-dojo-white hover:bg-dojo-elevated"
       >
-        Previous year
+        Previous Year
       </Link>
       <Link
         href={`${cardPath}?year=${year + 1}`}
         className="rounded-md border border-dojo-border bg-dojo-surface px-3 py-2 text-sm font-medium text-dojo-white hover:bg-dojo-elevated"
       >
-        Next year
+        Next Year
       </Link>
       <button
         type="button"
@@ -36,22 +37,22 @@ export function AttendanceCardToolbar({
       </button>
       <div className="ml-auto flex flex-wrap items-center gap-3">
         <Link
-          href="/attendance"
+          href={clubAdminPath(KINGSTON_CLUB_SLUG)}
           className="text-sm font-medium text-dojo-muted hover:text-dojo-white"
         >
-          Back to register
+          Back to Admin Dashboard
         </Link>
         <Link
           href="/admin/students"
           className="text-sm font-medium text-dojo-muted hover:text-dojo-white"
         >
-          Back to students
+          Back to Students
         </Link>
         <Link
           href={`/admin/students/${userId}/profile`}
           className="text-sm font-medium text-dojo-muted hover:text-dojo-white"
         >
-          Student profile
+          Student Profile
         </Link>
       </div>
     </div>

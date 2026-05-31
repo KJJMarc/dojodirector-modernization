@@ -19,7 +19,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Student profile`,
+    title: `DojoDirector | ${club.name} Student Profile`,
     description: `View student profile for ${club.name}.`,
   };
 }
@@ -42,14 +42,14 @@ export default async function ClubStudentProfilePage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Student profile" clubName={club.name} />
+      <AppHeader pageTitle="Student Profile" clubName={club.name} />
 
       <div className="flex flex-wrap items-center gap-3">
         <Link
           href={clubAdminPath(club.slug, "students")}
           className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
         >
-          ← Back to students
+          ← Back to Students
         </Link>
       </div>
 

@@ -21,6 +21,7 @@ interface ClassRow {
   id: string;
   name: string;
   is_active: boolean | null;
+  club_id: string | null;
 }
 
 interface SessionAttendeeRow {
@@ -54,6 +55,8 @@ export interface LoadClassScheduleSessionsOptions {
   endIso: string;
   includeCancelled?: boolean;
   activeClassesOnly?: boolean;
+  /** When set, only sessions for classes belonging to this club are returned. */
+  clubId?: string;
 }
 
 export function formatScheduleDayLabel(startsAt: string) {
@@ -127,8 +130,13 @@ export async function loadClassScheduleSessions(
   options: LoadClassScheduleSessionsOptions,
 ): Promise<ClassScheduleSession[]> {
   const supabase = getSupabaseServerClient();
-  const { startIso, endIso, includeCancelled = false, activeClassesOnly = false } =
-    options;
+  const {
+    startIso,
+    endIso,
+    includeCancelled = false,
+    activeClassesOnly = false,
+    clubId,
+  } = options;
 
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("class_sessions")
@@ -153,7 +161,7 @@ export async function loadClassScheduleSessions(
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
 
   const [classesResult, attendeesResult] = await Promise.all([
-    supabase.from("classes").select("id, name, is_active").in("id", classIds),
+    supabase.from("classes").select("id, name, is_active, club_id").in("id", classIds),
     supabase
       .from("session_attendees")
       .select("id, class_session_id, booking_status")
@@ -179,9 +187,25 @@ export async function loadClassScheduleSessions(
       .map((row) => row.id),
   );
 
-  const visibleSessions = activeClassesOnly
-    ? sessions.filter((session) => activeClassIds.has(session.class_id))
-    : sessions;
+  const clubClassIds = clubId
+    ? new Set(
+        ((classesResult.data ?? []) as ClassRow[])
+          .filter((row) => row.club_id === clubId)
+          .map((row) => row.id),
+      )
+    : null;
+
+  const visibleSessions = sessions.filter((session) => {
+    if (activeClassesOnly && !activeClassIds.has(session.class_id)) {
+      return false;
+    }
+
+    if (clubClassIds && !clubClassIds.has(session.class_id)) {
+      return false;
+    }
+
+    return true;
+  });
 
   const bookedCountBySession = new Map<string, number>();
 
