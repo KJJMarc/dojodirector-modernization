@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { ClassMetricsView } from "@/components/admin/class-metrics-view";
 import { AppHeader } from "@/components/layout/app-header";
 import { getAdminClassMetricsPageData } from "@/lib/admin-class-metrics.server";
-import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -31,12 +31,9 @@ export default async function ClassDataPage({ params }: ClassDataPageProps) {
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Class Data" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug)}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Admin Dashboard
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+      </AdminNavLinks>
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">

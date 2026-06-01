@@ -6,6 +6,7 @@ import {
   formatBookingTime,
 } from "@/lib/booking";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
+import { assertStudentCanBookClassProgramme } from "@/lib/admin-programmes.server";
 import { clubBookingPath } from "@/lib/clubs.shared";
 import { getClubSlugById } from "@/lib/clubs.server";
 import { resolveStudentBookingCancellation } from "@/lib/student-portal-booking-cancel.shared";
@@ -242,6 +243,12 @@ export async function bookClassSessionForUser(
   if (classSession.status === "cancelled") {
     throw new Error("This class session is no longer available.");
   }
+
+  await assertStudentCanBookClassProgramme({
+    userId,
+    clubId: input.clubId ?? classSession.club_id,
+    classId: classSession.class_id,
+  });
 
   const [className, location, existingBooking] = await Promise.all([
     getClassName(classSession.class_id),

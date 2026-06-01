@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { notFound } from "next/navigation";
 import { CancelSessionBookingsManager } from "@/components/admin/cancel-session-bookings-manager";
 import { AppHeader } from "@/components/layout/app-header";
@@ -45,12 +47,12 @@ export default async function CancelSessionBookingsPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle={pageData.session.className} clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "bookings/cancel")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Cancel Bookings
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "bookings/cancel")} className={adminNavLinkClassName}>
+          ← Back to Cancel Bookings
+        </Link>
+      </AdminNavLinks>
 
       <CancelSessionBookingsManager clubSlug={club.slug} pageData={pageData} />
     </main>

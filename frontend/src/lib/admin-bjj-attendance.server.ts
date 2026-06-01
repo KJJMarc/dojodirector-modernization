@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   ATTENDANCE_RECORDS_BJJ_BULK_SELECT,
-  ATTENDANCE_RECORDS_BJJ_SELECT,
   buildBjjAttendanceSummary,
   isBjjAttendanceRecordWithJoinedSession,
   type BjjAttendanceRecord,
@@ -25,25 +24,35 @@ function chunkIds<T>(ids: T[], batchSize = SUPABASE_IN_BATCH_SIZE): T[][] {
   return chunks;
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
 async function loadAllAttendanceRecordRowsForClub(
   userIds: string[],
   clubId: string,
+  dateRange?: { startDate: string; endDate: string },
 ): Promise<AttendanceRecordRow[]> {
   const supabase = getSupabaseAdminClient();
   const allRecords: AttendanceRecordRow[] = [];
-  const pageSize = 1000;
 
   for (const userIdBatch of chunkIds(userIds)) {
     let from = 0;
 
     while (true) {
-      const { data, error } = await supabase
+      let query = supabase
         .from("attendance_records")
         .select(ATTENDANCE_RECORDS_BJJ_BULK_SELECT)
         .in("user_id", userIdBatch)
         .eq("club_id", clubId)
         .order("attended_on", { ascending: false })
-        .range(from, from + pageSize - 1);
+        .range(from, from + SUPABASE_PAGE_SIZE - 1);
+
+      if (dateRange) {
+        query = query
+          .gte("attended_on", dateRange.startDate)
+          .lte("attended_on", dateRange.endDate);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         throw new Error(`Failed to load attendance records: ${error.message}`);
@@ -52,11 +61,11 @@ async function loadAllAttendanceRecordRowsForClub(
       const page = (data ?? []) as AttendanceRecordRow[];
       allRecords.push(...page);
 
-      if (page.length < pageSize) {
+      if (page.length < SUPABASE_PAGE_SIZE) {
         break;
       }
 
-      from += pageSize;
+      from += SUPABASE_PAGE_SIZE;
     }
   }
 
@@ -64,6 +73,7 @@ async function loadAllAttendanceRecordRowsForClub(
 }
 
 interface AttendanceRecordRow extends AttendanceRecordWithJoinRow {
+  id: string;
   user_id: string;
 }
 
@@ -75,22 +85,23 @@ export async function loadBjjAttendanceRecordsUsingAttendanceCardQuery(
   userId: string,
   clubId: string,
 ): Promise<BjjAttendanceRecord[]> {
-  const supabase = getSupabaseAdminClient();
+  const records = await loadAllAttendanceRecordRowsForClub([userId], clubId);
+  return filterBjjRecordsByUserIdFromJoinedRows(records).get(userId) ?? [];
+}
 
-  const { data, error } = await supabase
-    .from("attendance_records")
-    .select(ATTENDANCE_RECORDS_BJJ_SELECT)
-    .eq("user_id", userId)
-    .eq("club_id", clubId)
-    .order("attended_on", { ascending: false });
+export async function loadBjjAttendanceRecordsForYear(
+  userId: string,
+  clubId: string,
+  year: number,
+): Promise<Array<{ id: string; user_id: string; attended_on: string }>> {
+  const records = await loadAllAttendanceRecordRowsForClub([userId], clubId, {
+    startDate: `${year}-01-01`,
+    endDate: `${year}-12-31`,
+  });
 
-  if (error) {
-    throw new Error(`Failed to load attendance records: ${error.message}`);
-  }
-
-  return ((data ?? []) as AttendanceRecordWithJoinRow[])
+  return records
     .filter((record) => isBjjAttendanceRecordWithJoinedSession(record))
-    .map((record) => ({ attended_on: record.attended_on }));
+    .map(({ id, user_id, attended_on }) => ({ id, user_id, attended_on }));
 }
 
 function filterBjjRecordsByUserIdFromJoinedRows(records: AttendanceRecordRow[]) {

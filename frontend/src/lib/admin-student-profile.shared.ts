@@ -1,4 +1,5 @@
 import type { BeltPromotionAssessment } from "@/lib/admin-belt-promotion.shared";
+import type { StudentBjjFeatureVisibility } from "@/lib/admin-programmes.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import type { SignatoryType } from "@/lib/student-portal-agreements.shared";
 
@@ -88,6 +89,29 @@ export interface ProfileLoginAccessSummary {
   portalAuthStatusLabel: string;
 }
 
+export interface AdminStudentProgrammeAccessItem {
+  programmeId: string;
+  name: string;
+  hasAccess: boolean;
+}
+
+export interface AdminStudentProgrammeAccessSummary {
+  available: boolean;
+  programmes: AdminStudentProgrammeAccessItem[];
+}
+
+export interface AdminStudentProgrammeMembershipItem {
+  programmeId: string;
+  name: string;
+  programmeType: string;
+  isMember: boolean;
+}
+
+export interface AdminStudentProgrammeMembershipSummary {
+  available: boolean;
+  programmes: AdminStudentProgrammeMembershipItem[];
+}
+
 export interface AdminStudentProfilePageData {
   student: AdminStudentProfileDetails;
   loginAccess: ProfileLoginAccessSummary;
@@ -96,6 +120,8 @@ export interface AdminStudentProfilePageData {
   instructorPortalAccess: AdminInstructorPortalAccessSummary | null;
   adminAccess: AdminDashboardAccessSummary | null;
   agreementAccess: AdminStudentAgreementAccessSummary;
+  programmeAccess: AdminStudentProgrammeAccessSummary;
+  bjjFeatureVisibility: StudentBjjFeatureVisibility;
   attendance: AdminStudentProfileAttendanceSummary;
   belt: AdminStudentProfileBeltSummary;
   gradeHistory: AdminStudentProfileGradeHistoryEntry[];
@@ -135,4 +161,26 @@ export function formatMembershipStatus(status: string | null) {
 
 export function formatProfileField(value: string | null) {
   return value?.trim() ? value : "—";
+}
+
+/** Prefix(es) written by legacy import scripts into grade_awards.notes for audit — hidden in UI. */
+const LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX = "legacy_import";
+
+function isLegacyGradeAwardImportNote(notes: string): boolean {
+  return (
+    notes === LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX ||
+    notes.startsWith(`${LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX}:`)
+  );
+}
+
+/** User-facing notes for grading history; import metadata stays in the database. */
+export function formatGradeAwardNotesForDisplay(
+  notes: string | null | undefined,
+): string | null {
+  const trimmed = (notes ?? "").trim();
+  if (!trimmed || isLegacyGradeAwardImportNote(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
 }

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { CancelBookingsScheduleList } from "@/components/admin/cancel-bookings-schedule-list";
 import { AppHeader } from "@/components/layout/app-header";
 import { getAdminCancelBookingsSchedulePageData } from "@/lib/admin-manage-bookings.server";
@@ -31,12 +33,12 @@ export default async function CancelBookingsPage({ params }: CancelBookingsPageP
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Cancel Bookings" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "bookings")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Manage Bookings
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "bookings")} className={adminNavLinkClassName}>
+          ← Back to Manage Bookings
+        </Link>
+      </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
         Upcoming class sessions for the next 8 weeks. Tap a session to view

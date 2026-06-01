@@ -22,6 +22,7 @@ interface SessionBookingsManagerProps {
   clubSlug: string;
   pageData: AdminSessionBookingsView;
   students: BookingStudentOption[];
+  showAttendanceCard?: boolean;
 }
 
 function SessionStatusBadge({ isCancelled }: { isCancelled: boolean }) {
@@ -42,6 +43,7 @@ export function SessionBookingsManager({
   clubSlug,
   pageData,
   students,
+  showAttendanceCard = true,
 }: SessionBookingsManagerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -314,12 +316,14 @@ export function SessionBookingsManager({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link
-                            href={`/students/${attendee.userId}/attendance-card`}
-                            className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
-                          >
-                            Attendance Card
-                          </Link>
+                          {showAttendanceCard ? (
+                            <Link
+                              href={`/students/${attendee.userId}/attendance-card`}
+                              className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
+                            >
+                              Attendance Card
+                            </Link>
+                          ) : null}
                           <button
                             type="button"
                             disabled={isPending}

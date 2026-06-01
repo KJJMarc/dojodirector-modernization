@@ -11,6 +11,7 @@ interface StudentAttendanceCardProps {
   status: AttendanceStatus;
   markAttendanceAction: (formData: FormData) => Promise<void>;
   markingDisabled?: boolean;
+  showAttendanceCardLink?: boolean;
 }
 
 export function StudentAttendanceCard({
@@ -20,6 +21,7 @@ export function StudentAttendanceCard({
   status,
   markAttendanceAction,
   markingDisabled = false,
+  showAttendanceCardLink = true,
 }: StudentAttendanceCardProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -52,12 +54,14 @@ export function StudentAttendanceCard({
         <h3 className="truncate text-sm font-medium leading-tight text-dojo-white">
           {studentName}
         </h3>
-        <Link
-          href={`/students/${userId}/attendance-card`}
-          className="text-xs text-dojo-muted hover:text-dojo-red"
-        >
-          View Attendance Card
-        </Link>
+        {showAttendanceCardLink ? (
+          <Link
+            href={`/students/${userId}/attendance-card`}
+            className="text-xs text-dojo-muted hover:text-dojo-red"
+          >
+            View Attendance Card
+          </Link>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

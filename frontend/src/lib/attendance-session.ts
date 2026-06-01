@@ -1,4 +1,5 @@
 import { sortSessionsByTime } from "@/lib/attendance";
+import type { ProgrammeType } from "@/lib/admin-programme-types";
 import { getSessionLocationMap } from "@/lib/booking";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ClassSession, UserProfile } from "@/types/database";
@@ -21,10 +22,12 @@ interface AttendanceRegisterRow {
 interface ClassSessionMetaRow {
   id: string;
   class_id: string;
+  club_id: string;
   starts_at: string;
   ends_at: string | null;
   capacity: number | null;
   status: string | null;
+  classes: { programme_type: ProgrammeType } | { programme_type: ProgrammeType }[] | null;
 }
 
 export interface AttendanceSessionDetails {
@@ -33,6 +36,8 @@ export interface AttendanceSessionDetails {
   capacity: number | null;
   status: string | null;
   isCancelled: boolean;
+  clubId: string;
+  programmeType: ProgrammeType;
 }
 
 interface SessionAttendeeRow {
@@ -184,7 +189,9 @@ export async function getAttendanceSessionDetails(
 
   const { data: meta, error: metaError } = await supabase
     .from("class_sessions")
-    .select("id, class_id, starts_at, ends_at, capacity, status")
+    .select(
+      "id, class_id, club_id, starts_at, ends_at, capacity, status, classes(programme_type)",
+    )
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -197,6 +204,10 @@ export async function getAttendanceSessionDetails(
   }
 
   const classSessionMeta = meta as ClassSessionMetaRow;
+  const classRow = Array.isArray(classSessionMeta.classes)
+    ? (classSessionMeta.classes[0] ?? null)
+    : classSessionMeta.classes;
+  const programmeType = classRow?.programme_type ?? "bjj";
   const locationBySessionId = await getSessionLocationMap([sessionId]);
 
   const rows = await loadSessionAttendeeRegisterRows(
@@ -220,5 +231,7 @@ export async function getAttendanceSessionDetails(
     capacity: classSessionMeta.capacity,
     status: classSessionMeta.status,
     isCancelled: classSessionMeta.status === "cancelled",
+    clubId: classSessionMeta.club_id,
+    programmeType,
   };
 }

@@ -51,6 +51,8 @@ export function getSupabaseAdminClient() {
         apikey: serviceRoleKey,
         Authorization: `Bearer ${serviceRoleKey}`,
       },
+      // Next.js App Router caches fetch() by default; admin reads must be fresh.
+      fetch: (url, init) => fetch(url, { ...init, cache: "no-store" }),
     },
   });
 }

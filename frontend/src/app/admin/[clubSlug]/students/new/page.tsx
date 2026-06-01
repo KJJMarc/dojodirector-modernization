@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { AddStudentForm } from "@/components/admin/add-student-form";
 import { AppHeader } from "@/components/layout/app-header";
+import { buildAddStudentProgrammeAccessOptions } from "@/lib/admin-programmes.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -31,12 +34,12 @@ export default async function ClubAddStudentPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Add Student" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "students")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Students
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "students")} className={adminNavLinkClassName}>
+          ← Back to BJJ Students
+        </Link>
+      </AdminNavLinks>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
@@ -44,11 +47,14 @@ export default async function ClubAddStudentPage({
             NEW STUDENT
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Creates a user account and club membership.
+            Creates a user account and club membership. Choose programme access below.
           </p>
         </div>
 
-        <AddStudentForm clubSlug={club.slug} />
+        <AddStudentForm
+          clubSlug={club.slug}
+          programmeAccessOptions={buildAddStudentProgrammeAccessOptions("bjj")}
+        />
       </section>
     </main>
   );

@@ -52,6 +52,13 @@ export default async function StudentPortalAttendancePage({
       notFound();
     }
 
+    if (
+      error instanceof Error &&
+      error.message === "Attendance cards are not available."
+    ) {
+      notFound();
+    }
+
     throw error;
   }
 

@@ -22,6 +22,7 @@ interface ClassRow {
   name: string;
   is_active: boolean | null;
   club_id: string | null;
+  programme_id: string | null;
 }
 
 interface SessionAttendeeRow {
@@ -32,7 +33,9 @@ interface SessionAttendeeRow {
 
 export interface ClassScheduleSession {
   id: string;
+  classId: string;
   className: string;
+  programmeId: string | null;
   startsAt: string;
   endsAt: string | null;
   location: string | null;
@@ -73,7 +76,9 @@ export function formatScheduleTimeRange(startsAt: string, endsAt: string | null)
   return `${formatBookingTime(startsAt)} – ${formatBookingTime(endsAt)}`;
 }
 
-export function formatScheduleCapacitySummary(session: ClassScheduleSession) {
+export function formatScheduleCapacitySummary(
+  session: Pick<ClassScheduleSession, "capacity" | "bookedCount">,
+) {
   if (session.capacity === null) {
     return `${session.bookedCount} booked`;
   }
@@ -161,7 +166,10 @@ export async function loadClassScheduleSessions(
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
 
   const [classesResult, attendeesResult] = await Promise.all([
-    supabase.from("classes").select("id, name, is_active, club_id").in("id", classIds),
+    supabase
+      .from("classes")
+      .select("id, name, is_active, club_id, programme_id")
+      .in("id", classIds),
     supabase
       .from("session_attendees")
       .select("id, class_session_id, booking_status")
@@ -178,8 +186,10 @@ export async function loadClassScheduleSessions(
     );
   }
 
-  const classNameById = new Map(
-    ((classesResult.data ?? []) as ClassRow[]).map((row) => [row.id, row.name]),
+  const classRows = (classesResult.data ?? []) as ClassRow[];
+  const classNameById = new Map(classRows.map((row) => [row.id, row.name]));
+  const programmeIdByClassId = new Map(
+    classRows.map((row) => [row.id, row.programme_id]),
   );
   const activeClassIds = new Set(
     ((classesResult.data ?? []) as ClassRow[])
@@ -226,7 +236,9 @@ export async function loadClassScheduleSessions(
 
     return {
       id: session.id,
+      classId: session.class_id,
       className: classNameById.get(session.class_id) ?? "Unnamed class",
+      programmeId: programmeIdByClassId.get(session.class_id) ?? null,
       startsAt: session.starts_at,
       endsAt: session.ends_at,
       location: resolveSessionLocationFromRow(session),

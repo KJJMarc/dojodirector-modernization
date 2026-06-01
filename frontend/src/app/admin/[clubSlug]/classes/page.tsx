@@ -1,7 +1,4 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { ManageClassesHub } from "@/components/admin/manage-classes-hub";
-import { AppHeader } from "@/components/layout/app-header";
+import { redirect } from "next/navigation";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -11,42 +8,10 @@ interface ClubAdminClassesPageProps {
   params: { clubSlug: string };
 }
 
-export async function generateMetadata({
-  params,
-}: ClubAdminClassesPageProps): Promise<Metadata> {
-  const club = await requireClubBySlug(params.clubSlug);
-
-  return {
-    title: `DojoDirector | ${club.name} Manage Classes`,
-    description: `Manage classes and bookings for ${club.name}.`,
-  };
-}
-
+/** Legacy hub route — Manage Classes now opens Edit / Update Classes directly. */
 export default async function ClubAdminClassesPage({
   params,
 }: ClubAdminClassesPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-
-  return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Manage Classes" clubName={club.name} />
-
-      <Link
-        href={clubAdminPath(club.slug)}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Admin Dashboard
-      </Link>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          CLASS MANAGEMENT
-        </h2>
-        <p className="text-sm text-dojo-muted">
-          Update recurring class templates or manage upcoming session bookings.
-        </p>
-        <ManageClassesHub clubSlug={club.slug} />
-      </section>
-    </main>
-  );
+  redirect(clubAdminPath(club.slug, "classes/edit"));
 }

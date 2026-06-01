@@ -5,26 +5,23 @@ import {
   loadPromotionFlagsByUserId,
 } from "@/lib/admin-belt-promotion.server";
 import { loadBjjAttendanceSummariesByUserId } from "@/lib/admin-bjj-attendance.server";
+import type { BjjAttendanceSummary } from "@/lib/admin-bjj-attendance.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import {
   formatAdminBeltLabel,
   type AdminStudent,
 } from "@/lib/admin-students";
+import {
+  loadAdminStudentProfileRowsByIds,
+  loadClubMembershipRows,
+} from "@/lib/admin-club-memberships.server";
+import type { AdminProgramme } from "@/lib/admin-programmes.shared";
+import {
+  loadProgrammeMembershipUserIds,
+  requireClubBjjProgramme,
+} from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-
-interface MembershipRow {
-  user_id: string;
-  role: string | null;
-  status: string | null;
-}
-
-interface UserRow {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-}
 
 interface GradeAwardRow {
   user_id: string;
@@ -74,75 +71,80 @@ function buildCurrentLevelAwardedAtByUserId(
 
 export async function getClubStudents(
   clubId: string = ACTIVE_CLUB_ID,
+  programme?: Pick<AdminProgramme, "id" | "beltsRanksEnabled" | "promotionCandidatesEnabled">,
 ): Promise<AdminStudent[]> {
-  const supabase = getSupabaseAdminClient();
-
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("memberships")
-    .select("user_id, role, status")
-    .eq("club_id", clubId);
-
-  if (membershipsError) {
-    throw new Error(`Failed to load students: ${membershipsError.message}`);
-  }
-
-  const membershipRows = (memberships ?? []) as MembershipRow[];
+  const membershipRows = await loadClubMembershipRows(clubId);
 
   if (membershipRows.length === 0) {
     return [];
   }
 
-  const userIds = Array.from(
-    new Set(membershipRows.map((membership) => membership.user_id)),
-  );
+  let scopedMembershipRows = membershipRows;
 
-  const { data: users, error: usersError } = await supabase
-    .from("users")
-    .select("id, first_name, last_name, email")
-    .in("id", userIds);
+  if (programme) {
+    const programmeUserIds = new Set(
+      await loadProgrammeMembershipUserIds(programme.id),
+    );
 
-  if (usersError) {
-    throw new Error(`Failed to load student profiles: ${usersError.message}`);
+    scopedMembershipRows = membershipRows.filter((membership) =>
+      programmeUserIds.has(membership.user_id),
+    );
   }
 
-  const latestGradeAwardByUserId = await loadLatestGradeAwardsByUserId(
-    userIds,
-    clubId,
-  );
-  const awardedAtByUserId = buildCurrentLevelAwardedAtByUserId(
-    latestGradeAwardByUserId,
+  if (scopedMembershipRows.length === 0) {
+    return [];
+  }
+
+  const userIds = Array.from(
+    new Set(scopedMembershipRows.map((membership) => membership.user_id)),
   );
 
-  const bjjAttendanceByUserId = await loadBjjAttendanceSummariesByUserId(
-    userIds,
-    clubId,
-    awardedAtByUserId,
-  );
+  const userById = await loadAdminStudentProfileRowsByIds(userIds);
+  const useBjjEnrichment = programme?.beltsRanksEnabled !== false;
 
-  const promotionFlags = await loadPromotionFlagsByUserId(
-    userIds,
-    clubId,
-    latestGradeAwardByUserId,
-    bjjAttendanceByUserId,
-  );
+  let latestGradeAwardByUserId = new Map<string, GradeAwardRow>();
+  let bjjAttendanceByUserId = new Map<string, BjjAttendanceSummary>();
+  let promotionFlags = new Map<string, boolean>();
+  let beltLevelById = new Map<string, BeltLevelRow>();
 
-  const beltLevelIds = Array.from(
-    new Set(
-      Array.from(latestGradeAwardByUserId.values())
-        .map((award) => award.belt_level_id)
-        .filter((beltLevelId): beltLevelId is string => Boolean(beltLevelId)),
-    ),
-  );
+  if (useBjjEnrichment) {
+    latestGradeAwardByUserId = await loadLatestGradeAwardsByUserId(
+      userIds,
+      clubId,
+    );
+    const awardedAtByUserId = buildCurrentLevelAwardedAtByUserId(
+      latestGradeAwardByUserId,
+    );
 
-  const beltLevelById = await getBeltLevelsById(beltLevelIds);
+    bjjAttendanceByUserId = await loadBjjAttendanceSummariesByUserId(
+      userIds,
+      clubId,
+      awardedAtByUserId,
+    );
 
-  const userById = new Map(
-    ((users ?? []) as UserRow[]).map((user) => [user.id, user]),
-  );
+    if (programme?.promotionCandidatesEnabled !== false) {
+      promotionFlags = await loadPromotionFlagsByUserId(
+        userIds,
+        clubId,
+        latestGradeAwardByUserId,
+        bjjAttendanceByUserId,
+      );
+    }
+
+    const beltLevelIds = Array.from(
+      new Set(
+        Array.from(latestGradeAwardByUserId.values())
+          .map((award) => award.belt_level_id)
+          .filter((beltLevelId): beltLevelId is string => Boolean(beltLevelId)),
+      ),
+    );
+
+    beltLevelById = await getBeltLevelsById(beltLevelIds);
+  }
 
   const students: AdminStudent[] = [];
 
-  for (const membership of membershipRows) {
+  for (const membership of scopedMembershipRows) {
     const user = userById.get(membership.user_id);
 
     if (!user) {
@@ -161,12 +163,20 @@ export async function getClubStudents(
       lastName: user.last_name,
       email: user.email,
       role: membership.role,
-      beltLabel: formatAdminBeltLabel(beltLevel),
-      beltSortOrder: beltLevel?.sort_order ?? null,
+      beltLabel: useBjjEnrichment ? formatAdminBeltLabel(beltLevel) : "—",
+      beltSortOrder: useBjjEnrichment ? (beltLevel?.sort_order ?? null) : null,
       attendanceTotal: bjjAttendance?.lifetimeBjjAttendanceCount ?? 0,
-      considerPromotion: promotionFlags.get(user.id) === true,
+      considerPromotion:
+        useBjjEnrichment && promotionFlags.get(user.id) === true,
     });
   }
 
   return students;
+}
+
+export async function getBjjProgrammeStudents(
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<AdminStudent[]> {
+  const bjjProgramme = await requireClubBjjProgramme(clubId);
+  return getClubStudents(clubId, bjjProgramme);
 }

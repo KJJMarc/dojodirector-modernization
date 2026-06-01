@@ -39,23 +39,25 @@ export async function getStudentClubContextForAttendance(
     .from("memberships")
     .select("club_id, clubs(slug)")
     .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
+    .order("club_id", { ascending: true });
 
   if (error) {
     throw new Error(`Unable to load student club: ${error.message}`);
   }
 
-  if (!data?.club_id) {
+  const rows = (data ?? []) as MembershipClubRow[];
+  const preferred =
+    rows.find((row) => row.club_id === ACTIVE_CLUB_ID) ?? rows[0] ?? null;
+
+  if (!preferred?.club_id) {
     return { clubId: ACTIVE_CLUB_ID, clubSlug: KINGSTON_CLUB_SLUG };
   }
 
-  const membership = data as MembershipClubRow;
-  const clubs = membership.clubs;
+  const clubs = preferred.clubs;
   const club = Array.isArray(clubs) ? (clubs[0] ?? null) : clubs;
 
   return {
-    clubId: membership.club_id,
+    clubId: preferred.club_id,
     clubSlug: club?.slug ?? KINGSTON_CLUB_SLUG,
   };
 }

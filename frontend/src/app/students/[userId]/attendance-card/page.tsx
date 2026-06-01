@@ -9,6 +9,7 @@ import { YearlyAttendanceGrid } from "@/components/attendance/yearly-attendance-
 import { attendanceCardSectionClassName } from "@/components/attendance/yearly-attendance-grid.shared";
 import { AppHeader } from "@/components/layout/app-header";
 import { parseYearParam } from "@/lib/attendance-card";
+import { loadStudentBjjFeatureVisibility } from "@/lib/admin-programmes.server";
 import { getStudentAttendanceCardData } from "@/lib/attendance-card.server";
 import { getStudentClubContextForAttendance } from "@/lib/attendance-card-manual.server";
 import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
@@ -27,9 +28,16 @@ export default async function AttendanceCardPage({
 }: AttendanceCardPageProps) {
   const year = parseYearParam(searchParams.year);
 
+  const { clubId } = await getStudentClubContextForAttendance(params.userId);
+  const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, params.userId);
+
+  if (!bjjFeatures.showAttendanceCard) {
+    notFound();
+  }
+
   let cardData;
   try {
-    cardData = await getStudentAttendanceCardData(params.userId, year);
+    cardData = await getStudentAttendanceCardData(params.userId, year, clubId);
   } catch (error) {
     if (error instanceof Error && error.message === "Student not found.") {
       notFound();
@@ -37,7 +45,6 @@ export default async function AttendanceCardPage({
     throw error;
   }
 
-  const { clubId } = await getStudentClubContextForAttendance(params.userId);
   const clubSlug = (await getClubSlugById(clubId)) ?? KINGSTON_CLUB_SLUG;
   const club = await requireClubBySlug(clubSlug);
 

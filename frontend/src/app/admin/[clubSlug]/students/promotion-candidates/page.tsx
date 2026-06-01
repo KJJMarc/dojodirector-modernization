@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { PromotionCandidatesList } from "@/components/admin/promotion-candidates-list";
 import { PromotionCandidatesSearchForm } from "@/components/admin/promotion-candidates-search-form";
 import { AppHeader } from "@/components/layout/app-header";
 import { filterPromotionCandidates } from "@/lib/admin-belt-promotion.shared";
 import { loadPromotionCandidates } from "@/lib/admin-belt-promotion.server";
-import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -39,14 +39,9 @@ export default async function PromotionCandidatesPage({
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Promotion Candidates" clubName={club.name} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href={clubAdminPath(club.slug)}
-          className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-        >
-          ← Back to Admin Dashboard
-        </Link>
-      </div>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+      </AdminNavLinks>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>

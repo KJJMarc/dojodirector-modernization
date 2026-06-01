@@ -125,7 +125,11 @@ export function revalidateInstructorAdminPaths(clubSlug: string) {
 
 export function revalidateBeltManagementPaths(clubSlug: string) {
   revalidateStudentAdminPaths(clubSlug);
-  revalidatePath(clubAdminPath(clubSlug, "belts"));
+  revalidatePath(clubAdminPath(clubSlug, "belt-management"), "layout");
+  revalidateUniquePaths([
+    clubAdminPath(clubSlug, "belts"),
+    clubAdminPath(clubSlug, "programmes"),
+  ]);
 }
 
 export function revalidateMembershipAdminPaths(

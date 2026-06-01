@@ -101,6 +101,7 @@ export function buildAdminStudentsListHref(options: {
   sort: AdminStudentSortKey;
   dir: AdminStudentSortDir;
   searchQuery?: string;
+  studentsPath?: string;
 }) {
   const params = new URLSearchParams();
   params.set("sort", options.sort);
@@ -110,7 +111,8 @@ export function buildAdminStudentsListHref(options: {
     params.set("q", options.searchQuery);
   }
 
-  return `${clubAdminPath(options.clubSlug, "students")}?${params.toString()}`;
+  const section = options.studentsPath ?? "students";
+  return `${clubAdminPath(options.clubSlug, section)}?${params.toString()}`;
 }
 
 export function formatAdminBeltLabel(

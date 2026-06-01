@@ -19,8 +19,13 @@ import {
   canDeleteStudentMembership,
 } from "@/lib/admin-student-membership.shared";
 import type { AdminStudentProfilePageData } from "@/lib/admin-student-profile.shared";
+import { formatGradeAwardNotesForDisplay } from "@/lib/admin-student-profile.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { getAdminStudentAgreementSummary } from "@/lib/student-portal-agreements.server";
+import {
+  loadStudentBjjFeatureVisibility,
+  loadStudentProgrammeAccessForProfile,
+} from "@/lib/admin-programmes.server";
 import { membershipGrantsAdminDashboardPanel } from "@/lib/admin-auth.shared";
 import {
   buildAdminDashboardAccessForProfile,
@@ -153,6 +158,8 @@ export async function getAdminStudentProfilePageData(
     portalAccess,
     agreementAccess,
     loginAccess,
+    programmeAccess,
+    bjjFeatureVisibility,
   ] = await Promise.all([
     loadUserProfileRow(userId),
     loadMembershipRow(userId, clubId),
@@ -163,6 +170,8 @@ export async function getAdminStudentProfilePageData(
     getAdminStudentPortalAuthSummary(userId),
     getAdminStudentAgreementSummary(userId),
     getProfileLoginAccessSummary(userId),
+    loadStudentProgrammeAccessForProfile(clubId, userId),
+    loadStudentBjjFeatureVisibility(clubId, userId),
   ]);
 
   const instructorPortalAccess = isInstructorPortalMembershipRole(membership.role)
@@ -260,6 +269,8 @@ export async function getAdminStudentProfilePageData(
     showAdminDashboardAccess,
     adminAccess,
     agreementAccess,
+    programmeAccess,
+    bjjFeatureVisibility,
     attendance,
     belt: {
       currentBeltLabel: formatAdminBeltLabel(currentBelt),
@@ -275,7 +286,7 @@ export async function getAdminStudentProfilePageData(
           : null,
       ),
       awardedAt: award.awarded_at,
-      notes: award.notes,
+      notes: formatGradeAwardNotesForDisplay(award.notes),
     })),
   };
 }

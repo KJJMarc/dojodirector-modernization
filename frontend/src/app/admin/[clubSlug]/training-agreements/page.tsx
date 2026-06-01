@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { TrainingAgreementsOverview } from "@/components/admin/training-agreements-overview";
 import { AppHeader } from "@/components/layout/app-header";
 import {
   CLUB_AGREEMENT_TEMPLATES_NOT_CONFIGURED_MESSAGE,
   loadTrainingAgreementsAdminOverview,
 } from "@/lib/club-agreement-templates.server";
-import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -37,12 +37,9 @@ export default async function TrainingAgreementsPage({
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Training Agreements" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug)}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Admin Dashboard
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+      </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
         Manage agreement templates used when members sign in to the student portal

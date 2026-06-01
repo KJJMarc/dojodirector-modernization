@@ -10,7 +10,9 @@ import {
   formatScheduleDayLabel,
   formatScheduleTimeRange,
   loadClassScheduleSessions,
+  type ClassScheduleSession,
 } from "@/lib/class-session-schedule";
+import { loadStudentActiveProgrammeIdsForBooking } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   StudentPortalBookableSession,
@@ -209,31 +211,56 @@ export async function loadInstructorNameBySessionId(
   return instructorNameBySessionId;
 }
 
+function filterSessionsByStudentProgrammeMembership(
+  sessions: ClassScheduleSession[],
+  allowedProgrammeIds: Set<string> | null,
+) {
+  if (!allowedProgrammeIds) {
+    return sessions;
+  }
+
+  return sessions.filter((session) => {
+    if (!session.programmeId) {
+      return true;
+    }
+
+    return allowedProgrammeIds.has(session.programmeId);
+  });
+}
+
 export async function loadStudentPortalBookableSessionGroups(
   userId: string,
   clubId: string,
 ): Promise<StudentPortalBookableSessionGroup[]> {
   const { startIso, endIso } = getBookingDateRange();
-  const sessions = await loadClassScheduleSessions({
-    startIso,
-    endIso,
-    includeCancelled: false,
-    activeClassesOnly: true,
-    clubId,
-  });
+  const [sessions, allowedProgrammeIds] = await Promise.all([
+    loadClassScheduleSessions({
+      startIso,
+      endIso,
+      includeCancelled: false,
+      activeClassesOnly: true,
+      clubId,
+    }),
+    loadStudentActiveProgrammeIdsForBooking(userId, clubId),
+  ]);
 
-  if (sessions.length === 0) {
+  const bookableClubSessions = filterSessionsByStudentProgrammeMembership(
+    sessions,
+    allowedProgrammeIds,
+  );
+
+  if (bookableClubSessions.length === 0) {
     return [];
   }
 
-  const sessionIds = sessions.map((session) => session.id);
+  const sessionIds = bookableClubSessions.map((session) => session.id);
   const [memberBookingDetailsBySessionId, instructorNameBySessionId] =
     await Promise.all([
       loadMemberBookingDetailsBySessionId(userId, sessionIds),
       loadInstructorNameBySessionId(clubId, sessionIds),
     ]);
 
-  const bookableSessions: StudentPortalBookableSession[] = sessions.map(
+  const bookableSessions: StudentPortalBookableSession[] = bookableClubSessions.map(
     (session) => {
       const bookingDetails = memberBookingDetailsBySessionId.get(session.id);
       const memberBookingStatus = bookingDetails?.status ?? null;

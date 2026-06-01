@@ -1,5 +1,6 @@
 import "server-only";
 
+import { loadStudentBjjFeatureVisibility } from "@/lib/admin-programmes.server";
 import { getAdminStudentProfilePageData } from "@/lib/admin-student-profile.server";
 import { formatBookingDate, formatBookingTime } from "@/lib/booking";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
@@ -193,10 +194,14 @@ export async function getStudentPortalPageData(
 ): Promise<StudentPortalPageData> {
   const { clubId } = await getStudentClubContextForAttendance(userId);
 
-  const [profile, attendanceCard, agreementStatus] = await Promise.all([
+  const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, userId);
+
+  const [profile, agreementStatus, attendanceCard] = await Promise.all([
     getAdminStudentProfilePageData(userId, clubId),
-    getStudentAttendanceCardData(userId, year, clubId),
     getStudentAgreementStatus(userId),
+    bjjFeatures.showAttendanceCard
+      ? getStudentAttendanceCardData(userId, year, clubId)
+      : Promise.resolve(null),
   ]);
 
   return {
@@ -204,11 +209,17 @@ export async function getStudentPortalPageData(
     membershipStatus: profile.student.membershipStatus,
     currentBeltLabel: profile.belt.currentBeltLabel,
     agreementStatus,
-    attendanceCardYear: attendanceCard.year,
-    attendanceRows: attendanceCard.rows,
-    totalAttendanceForYear: attendanceCard.totalAttendance,
-    attendanceBeltLabel: attendanceCard.beltLabel,
-    attendanceHeaderStats: attendanceCard.headerStats,
+    showBjjAttendanceCard: bjjFeatures.showAttendanceCard,
+    showCurrentBelt: bjjFeatures.showBeltSummary,
+    ...(attendanceCard
+      ? {
+          attendanceCardYear: attendanceCard.year,
+          attendanceRows: attendanceCard.rows,
+          totalAttendanceForYear: attendanceCard.totalAttendance,
+          attendanceBeltLabel: attendanceCard.beltLabel,
+          attendanceHeaderStats: attendanceCard.headerStats,
+        }
+      : {}),
   };
 }
 
@@ -217,6 +228,12 @@ export async function getStudentPortalAttendancePageData(
   year: number,
 ): Promise<StudentPortalAttendancePageData> {
   const { clubId } = await getStudentClubContextForAttendance(userId);
+
+  const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, userId);
+
+  if (!bjjFeatures.showAttendanceCard) {
+    throw new Error("Attendance cards are not available.");
+  }
 
   const [profile, attendanceCard] = await Promise.all([
     getAdminStudentProfilePageData(userId, clubId),

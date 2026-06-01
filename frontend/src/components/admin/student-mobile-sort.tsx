@@ -11,6 +11,8 @@ interface StudentMobileSortProps {
   clubSlug: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
+  studentsPath?: string;
+  showBjjColumns?: boolean;
 }
 
 const SORT_OPTIONS: { key: AdminStudentSortKey; label: string }[] = [
@@ -39,8 +41,17 @@ export function StudentMobileSort({
   clubSlug,
   currentSort,
   searchQuery,
+  studentsPath = "students",
+  showBjjColumns = true,
 }: StudentMobileSortProps) {
   const router = useRouter();
+  const sortOptions = SORT_OPTIONS.filter(({ key }) => {
+    if (!showBjjColumns && (key === "belt_level" || key === "attendances")) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <div className="sm:hidden">
@@ -61,12 +72,13 @@ export function StudentMobileSort({
               sort: nextSort.key,
               dir: nextSort.dir,
               searchQuery,
+              studentsPath,
             }),
           );
         }}
         className="min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2"
       >
-        {SORT_OPTIONS.flatMap(({ key, label }) => [
+        {sortOptions.flatMap(({ key, label }) => [
           <option key={`${key}:asc`} value={`${key}:asc`}>
             {label}
           </option>,

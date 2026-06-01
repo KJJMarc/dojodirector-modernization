@@ -1,11 +1,11 @@
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
-import { isBjjAttendanceCardManualSource } from "@/lib/attendance-card-manual.shared";
+import { isBjjAttendanceCardManualSource, isLegacyImportAttendanceSource } from "@/lib/attendance-card-manual.shared";
 
 export const ATTENDANCE_RECORDS_BJJ_SELECT =
   "attended_on, class_session_id, source, class_sessions(class_id, classes(programme_type))";
 
 export const ATTENDANCE_RECORDS_BJJ_BULK_SELECT =
-  "user_id, attended_on, class_session_id, source, class_sessions(class_id, classes(programme_type))";
+  "id, user_id, attended_on, class_session_id, source, class_sessions(class_id, classes(programme_type))";
 
 export interface BjjAttendanceRecord {
   attended_on: string;
@@ -54,6 +54,10 @@ export function isBjjAttendanceByProgrammeType(
     }
 
     if (isBjjAttendanceCardManualSource(source)) {
+      return true;
+    }
+
+    if (isLegacyImportAttendanceSource(source)) {
       return true;
     }
 

@@ -17,6 +17,7 @@ import { setProfileLoginPassword } from "@/lib/profile-login-access.server";
 import { sendStudentPortalInvite } from "@/lib/student-portal-auth.server";
 import { revalidatePath } from "next/cache";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
+import { updateStudentProgrammeMemberships } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function isInstructorFacingRole(role: string | null | undefined) {
@@ -142,6 +143,28 @@ export async function updateMembershipStatusAction(formData: FormData) {
 
   revalidateMembershipAdminPaths(clubSlug, userId);
 }
+
+export async function updateStudentProgrammeAccessAction(
+  clubSlug: string,
+  userId: string,
+  programmeIds: string[],
+) {
+  const club = await requireClubBySlug(clubSlug);
+  await requireAdminAccessForClubSlug(clubSlug);
+
+  await updateStudentProgrammeMemberships({
+    clubId: club.id,
+    userId,
+    programmeIds,
+  });
+
+  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
+  revalidatePath(clubAdminPath(clubSlug, "students"));
+  revalidatePath(clubAdminPath(clubSlug, "programmes"));
+}
+
+/** @deprecated Use updateStudentProgrammeAccessAction */
+export const updateStudentProgrammeMembershipAction = updateStudentProgrammeAccessAction;
 
 export async function deleteStudentAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);

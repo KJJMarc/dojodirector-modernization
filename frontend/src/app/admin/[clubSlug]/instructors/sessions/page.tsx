@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { InstructorSessionAssignmentsList } from "@/components/admin/instructor-session-assignments-list";
 import { AppHeader } from "@/components/layout/app-header";
 import { getInstructorSessionAssignmentsPageData } from "@/lib/admin-instructors.server";
@@ -33,12 +35,12 @@ export default async function ClubInstructorSessionsPage({
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-4 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Session Cover" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "instructors")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Instructors
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "instructors")} className={adminNavLinkClassName}>
+          ← Back to Instructors
+        </Link>
+      </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
         Upcoming class sessions for the next 8 weeks. Replace the instructor for

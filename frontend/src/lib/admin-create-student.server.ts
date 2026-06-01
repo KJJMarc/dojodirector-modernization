@@ -9,6 +9,11 @@ import {
   normalizeStudentEmail,
 } from "@/lib/admin-create-student.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import type { StudentPortalAccessProgrammeType } from "@/lib/admin-programmes.shared";
+import {
+  ensureProgrammeAccessForUser,
+  requireClubProgrammeBySlug,
+} from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function parseRequiredText(value: string, fieldLabel: string) {
@@ -153,11 +158,28 @@ async function createUser(input: CreateAdminStudentInput) {
   return data.id as string;
 }
 
+export interface CreateAdminStudentOptions {
+  /** Redirect context only; does not grant programme access. */
+  programmeSlug?: string;
+  /** Programme access types selected on the form (membership + portal booking). */
+  programmeAccessTypes: StudentPortalAccessProgrammeType[];
+}
+
 export async function createAdminStudent(
   rawInput: CreateAdminStudentInput,
   clubId: string = ACTIVE_CLUB_ID,
+  options: CreateAdminStudentOptions,
 ): Promise<{ userId: string; createdUser: boolean }> {
   const input = parseCreateAdminStudentInput(rawInput);
+
+  if (options.programmeAccessTypes.length === 0) {
+    throw new Error("Select at least one programme for programme access.");
+  }
+
+  if (options.programmeSlug) {
+    await requireClubProgrammeBySlug(clubId, options.programmeSlug);
+  }
+
   const existingUserId = await findUserIdByEmail(input.email);
 
   if (existingUserId) {
@@ -176,6 +198,12 @@ export async function createAdminStudent(
       role: input.role,
       status: input.membershipStatus,
     });
+    await ensureProgrammeAccessForUser({
+      clubId,
+      userId: existingUserId,
+      programmeTypes: options.programmeAccessTypes,
+      status: input.membershipStatus,
+    });
 
     return { userId: existingUserId, createdUser: false };
   }
@@ -186,6 +214,12 @@ export async function createAdminStudent(
     userId,
     clubId,
     role: input.role,
+    status: input.membershipStatus,
+  });
+  await ensureProgrammeAccessForUser({
+    clubId,
+    userId,
+    programmeTypes: options.programmeAccessTypes,
     status: input.membershipStatus,
   });
 

@@ -13,6 +13,8 @@ interface StudentSearchFormProps {
   initialQuery?: string;
   sortKey: AdminStudentSortKey;
   sortDir: AdminStudentSortDir;
+  studentsPath?: string;
+  searchLabel?: string;
 }
 
 export function StudentSearchForm({
@@ -20,6 +22,8 @@ export function StudentSearchForm({
   initialQuery = "",
   sortKey,
   sortDir,
+  studentsPath = "students",
+  searchLabel = "Search BJJ students",
 }: StudentSearchFormProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -36,13 +40,13 @@ export function StudentSearchForm({
       params.set("q", trimmedQuery);
     }
 
-    router.push(`${clubAdminPath(clubSlug, "students")}?${params.toString()}`);
+    router.push(`${clubAdminPath(clubSlug, studentsPath)}?${params.toString()}`);
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
       <label className="sr-only" htmlFor="student-search">
-        Search students
+        {searchLabel}
       </label>
       <input
         id="student-search"

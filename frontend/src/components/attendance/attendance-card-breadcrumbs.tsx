@@ -41,7 +41,7 @@ export function AttendanceCardBreadcrumbs({
             href={studentsHref}
             className="font-medium text-dojo-muted transition hover:text-dojo-white"
           >
-            Students
+            BJJ Students
           </Link>
         </li>
         <li className="flex items-center gap-1.5">

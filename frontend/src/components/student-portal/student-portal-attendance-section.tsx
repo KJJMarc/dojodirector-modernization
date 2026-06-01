@@ -21,6 +21,10 @@ export function StudentPortalAttendanceSection({
   pageData,
   year,
 }: StudentPortalAttendanceSectionProps) {
+  if (!pageData.attendanceRows || !pageData.attendanceHeaderStats) {
+    return null;
+  }
+
   const basePath = `/student-portal/${userId}`;
 
   return (
@@ -43,8 +47,8 @@ export function StudentPortalAttendanceSection({
         <AttendanceCardCompactHeader
           studentName={pageData.studentName}
           year={year}
-          rankLabel={pageData.attendanceBeltLabel}
-          totalClasses={pageData.totalAttendanceForYear}
+          rankLabel={pageData.attendanceBeltLabel ?? null}
+          totalClasses={pageData.totalAttendanceForYear ?? 0}
           headerStats={pageData.attendanceHeaderStats}
         />
         <AttendanceCardLegend />

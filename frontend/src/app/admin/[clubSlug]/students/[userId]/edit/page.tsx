@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { notFound } from "next/navigation";
 import { EditStudentForm } from "@/components/admin/edit-student-form";
 import { AppHeader } from "@/components/layout/app-header";
@@ -44,12 +46,12 @@ export default async function ClubEditStudentPage({ params }: ClubEditStudentPag
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Edit Student" clubName={club.name} />
 
-      <Link
-        href={profilePath}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Student Profile
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={profilePath} className={adminNavLinkClassName}>
+          ← Back to Student Profile
+        </Link>
+      </AdminNavLinks>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>

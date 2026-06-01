@@ -1,7 +1,10 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
-import { loadBjjAttendanceSummary } from "@/lib/admin-bjj-attendance.server";
+import {
+  loadBjjAttendanceSummary,
+  loadBjjAttendanceRecordsForYear,
+} from "@/lib/admin-bjj-attendance.server";
 import {
   buildYearlyGrid,
   formatBeltLabel,
@@ -9,21 +12,24 @@ import {
   type StudentAttendanceCardData,
 } from "@/lib/attendance-card";
 import {
-  ATTENDANCE_RECORDS_BJJ_SELECT,
-  isBjjAttendanceRecordWithJoinedSession,
-  type BjjAttendanceRecordRow,
-} from "@/lib/admin-bjj-attendance.shared";
+  buildAttendanceCardGradingDiagnostics,
+  filterGradeAwardsForAttendanceCardYear,
+  logAttendanceCardGradingDiagnostics,
+  type GradeAwardGradingMarkerInput,
+} from "@/lib/attendance-card-grading.shared";
 import { getStudentClubContextForAttendance } from "@/lib/attendance-card-manual.server";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { AttendanceRecord, BeltLevel, UserProfile } from "@/types/database";
+import { BeltLevel, UserProfile } from "@/types/database";
 
-interface GradeAwardRow {
+interface GradeAwardRow extends GradeAwardGradingMarkerInput {
   id: string;
   user_id: string;
   awarded_at: string;
   belt_level_id: string | null;
 }
+
+const GRADE_AWARDS_PAGE_SIZE = 1000;
 
 async function getStudentProfile(userId: string): Promise<UserProfile> {
   const supabase = getSupabaseAdminClient();
@@ -49,59 +55,40 @@ async function getAttendanceRecordsForYear(
   year: number,
   clubId: string,
 ) {
-  const supabase = getSupabaseAdminClient();
-  const startDate = `${year}-01-01`;
-  const endDate = `${year}-12-31`;
-
-  const { data, error } = await supabase
-    .from("attendance_records")
-    .select(`id, user_id, ${ATTENDANCE_RECORDS_BJJ_SELECT}`)
-    .eq("user_id", userId)
-    .eq("club_id", clubId)
-    .gte("attended_on", startDate)
-    .lte("attended_on", endDate);
-
-  if (error) {
-    throw new Error(`Failed to load attendance records: ${error.message}`);
-  }
-
-  return ((data ?? []) as Array<AttendanceRecord & BjjAttendanceRecordRow>)
-    .filter((record) => isBjjAttendanceRecordWithJoinedSession(record))
-    .map(({ id, user_id, attended_on }) => ({ id, user_id, attended_on }));
+  return loadBjjAttendanceRecordsForYear(userId, clubId, year);
 }
 
 async function getAllGradeAwards(userId: string, clubId: string) {
   const supabase = getSupabaseAdminClient();
+  const allAwards: GradeAwardRow[] = [];
+  let from = 0;
 
-  const { data, error } = await supabase
-    .from("grade_awards")
-    .select("id, user_id, awarded_at, belt_level_id")
-    .eq("user_id", userId)
-    .eq("club_id", clubId)
-    .order("awarded_at", { ascending: false });
+  while (true) {
+    const { data, error } = await supabase
+      .from("grade_awards")
+      .select(
+        "id, user_id, awarded_at, belt_level_id, belt_levels(name, type)",
+      )
+      .eq("user_id", userId)
+      .eq("club_id", clubId)
+      .order("awarded_at", { ascending: false })
+      .range(from, from + GRADE_AWARDS_PAGE_SIZE - 1);
 
-  if (error) {
-    throw new Error(`Failed to load grade awards: ${error.message}`);
+    if (error) {
+      throw new Error(`Failed to load grade awards: ${error.message}`);
+    }
+
+    const page = (data ?? []) as GradeAwardRow[];
+    allAwards.push(...page);
+
+    if (page.length < GRADE_AWARDS_PAGE_SIZE) {
+      break;
+    }
+
+    from += GRADE_AWARDS_PAGE_SIZE;
   }
 
-  return (data ?? []) as GradeAwardRow[];
-}
-
-function getGradeAwardsForYear(awards: GradeAwardRow[], year: number) {
-  return awards
-    .map((award) => {
-      const awardedOn = normalizeToDateKey(award.awarded_at);
-
-      if (!awardedOn) {
-        return null;
-      }
-
-      return { ...award, awarded_at: awardedOn };
-    })
-    .filter(
-      (award): award is GradeAwardRow =>
-        Boolean(award && award.awarded_at.startsWith(`${year}-`)),
-    );
+  return allAwards;
 }
 
 async function getBeltLevelById(
@@ -169,7 +156,21 @@ export async function getStudentAttendanceCardData(
     getAllGradeAwards(userId, resolvedClubId),
   ]);
 
-  const gradeAwards = getGradeAwardsForYear(allGradeAwards, year);
+  const gradeAwards = filterGradeAwardsForAttendanceCardYear(
+    allGradeAwards,
+    year,
+  );
+
+  logAttendanceCardGradingDiagnostics(
+    buildAttendanceCardGradingDiagnostics({
+      userId,
+      year,
+      clubId: resolvedClubId,
+      allGradeAwards,
+      gradeAwardsInYear: gradeAwards,
+    }),
+  );
+
   const beltAwardAtYearEnd = getLatestAwardOnOrBeforeYearEnd(
     allGradeAwards,
     year,

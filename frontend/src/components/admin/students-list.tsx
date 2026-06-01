@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProgrammeStudentRowActions } from "@/components/admin/programme-student-row-actions";
 import { StudentMobileSort } from "@/components/admin/student-mobile-sort";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
@@ -16,6 +17,16 @@ interface StudentsListProps {
   totalCount: number;
   searchQuery?: string;
   currentSort: AdminStudentSort;
+  memberLabel?: string;
+  memberLabelPlural?: string;
+  listAriaLabel?: string;
+  showBjjColumns?: boolean;
+  showAttendanceCard?: boolean;
+  studentsPath?: string;
+  emptyMessage?: string;
+  showProgrammeMembershipActions?: boolean;
+  programmeSlug?: string;
+  programmeName?: string;
 }
 
 const ATTENDANCE_CARD_YEAR = 2026;
@@ -61,10 +72,12 @@ function StudentActions({
   clubSlug,
   studentId,
   compact = false,
+  showAttendanceCard = true,
 }: {
   clubSlug: string;
   studentId: string;
   compact?: boolean;
+  showAttendanceCard?: boolean;
 }) {
   const buttonClassName = compact
     ? "inline-flex min-h-[32px] shrink-0 items-center whitespace-nowrap rounded-md border border-dojo-border bg-dojo-elevated px-2 py-1 text-[11px] font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
@@ -80,14 +93,16 @@ function StudentActions({
           : "flex flex-wrap gap-2"
       }
     >
-      <Link
-        href={`/students/${studentId}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
-        className={buttonClassName}
-        title="Attendance Card"
-        aria-label="Attendance Card"
-      >
-        {attendanceCardLabel}
-      </Link>
+      {showAttendanceCard ? (
+        <Link
+          href={`/students/${studentId}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
+          className={buttonClassName}
+          title="Attendance Card"
+          aria-label="Attendance Card"
+        >
+          {attendanceCardLabel}
+        </Link>
+      ) : null}
       <Link
         href={clubAdminPath(clubSlug, `students/${studentId}/profile`)}
         className={buttonClassName}
@@ -97,6 +112,12 @@ function StudentActions({
         Profile
       </Link>
     </div>
+  );
+}
+
+function formatStudentDisplayName(student: AdminStudent) {
+  return (
+    [student.firstName, student.lastName].filter(Boolean).join(" ") || "this student"
   );
 }
 
@@ -123,12 +144,14 @@ function SortableHeader({
   label,
   currentSort,
   searchQuery,
+  studentsPath,
 }: {
   clubSlug: string;
   columnKey: AdminStudentSortKey;
   label: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
+  studentsPath?: string;
 }) {
   const nextDir = getNextAdminStudentSortDir(currentSort, columnKey);
   const href = buildAdminStudentsListHref({
@@ -136,6 +159,7 @@ function SortableHeader({
     sort: columnKey,
     dir: nextDir,
     searchQuery,
+    studentsPath,
   });
   const isActive = currentSort.key === columnKey;
 
@@ -170,27 +194,49 @@ export function StudentsList({
   totalCount,
   searchQuery,
   currentSort,
+  memberLabel = "student",
+  memberLabelPlural = "students",
+  listAriaLabel = "BJJ Students list",
+  showBjjColumns = true,
+  showAttendanceCard = true,
+  studentsPath = "students",
+  emptyMessage,
+  showProgrammeMembershipActions = false,
+  programmeSlug,
+  programmeName,
 }: StudentsListProps) {
+  const visibleColumns = SORTABLE_COLUMNS.filter(({ key }) => {
+    if (!showBjjColumns && (key === "belt_level" || key === "attendances")) {
+      return false;
+    }
+
+    return true;
+  });
+
   const countLabel =
     searchQuery && students.length !== totalCount
-      ? `${students.length} of ${totalCount} students`
-      : `${totalCount} student${totalCount === 1 ? "" : "s"}`;
+      ? `${students.length} of ${totalCount} ${memberLabelPlural}`
+      : `${totalCount} ${totalCount === 1 ? memberLabel : memberLabelPlural}`;
+
+  const defaultEmptyMessage = `No ${memberLabelPlural} found for this programme.`;
 
   return (
-    <section aria-label="Students list" className="space-y-3">
+    <section aria-label={listAriaLabel} className="space-y-3">
       <p className="text-sm text-dojo-muted">{countLabel}</p>
 
       <StudentMobileSort
         clubSlug={clubSlug}
         currentSort={currentSort}
         searchQuery={searchQuery}
+        studentsPath={studentsPath}
+        showBjjColumns={showBjjColumns}
       />
 
       {students.length === 0 ? (
         <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
           {searchQuery
-            ? "No students match your search."
-            : "No students found for this club."}
+            ? `No ${memberLabelPlural} match your search.`
+            : (emptyMessage ?? defaultEmptyMessage)}
         </div>
       ) : (
         <>
@@ -198,7 +244,7 @@ export function StudentsList({
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="border-b border-dojo-border bg-dojo-elevated text-[10px] uppercase tracking-wide">
                 <tr>
-                  {SORTABLE_COLUMNS.map(({ key, label }) => (
+                  {visibleColumns.map(({ key, label }) => (
                     <SortableHeader
                       key={key}
                       clubSlug={clubSlug}
@@ -206,6 +252,7 @@ export function StudentsList({
                       label={label}
                       currentSort={currentSort}
                       searchQuery={searchQuery}
+                      studentsPath={studentsPath}
                     />
                   ))}
                   <th className="w-[1%] whitespace-nowrap px-3 py-3 align-middle font-semibold text-dojo-muted">
@@ -225,20 +272,43 @@ export function StudentsList({
                     <td className="px-4 py-3 text-dojo-muted">
                       {student.email ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-dojo-white">
-                      <BeltLevelCell
-                        beltLabel={student.beltLabel}
-                        considerPromotion={student.considerPromotion}
-                      />
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-dojo-white">
-                      {student.attendanceTotal}
-                    </td>
+                    {showBjjColumns ? (
+                      <>
+                        <td className="px-4 py-3 text-dojo-white">
+                          <BeltLevelCell
+                            beltLabel={student.beltLabel}
+                            considerPromotion={student.considerPromotion}
+                          />
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-dojo-white">
+                          {student.attendanceTotal}
+                        </td>
+                      </>
+                    ) : null}
                     <td className="px-4 py-3 text-dojo-white">
                       {formatStudentRole(student.role)}
                     </td>
                     <td className="w-[1%] whitespace-nowrap px-3 py-3">
-                      <StudentActions clubSlug={clubSlug} studentId={student.id} compact />
+                      {showProgrammeMembershipActions &&
+                      programmeSlug &&
+                      programmeName ? (
+                        <ProgrammeStudentRowActions
+                          clubSlug={clubSlug}
+                          programmeSlug={programmeSlug}
+                          programmeName={programmeName}
+                          studentId={student.id}
+                          studentName={formatStudentDisplayName(student)}
+                          compact
+                          showAttendanceCard={showAttendanceCard}
+                        />
+                      ) : (
+                        <StudentActions
+                          clubSlug={clubSlug}
+                          studentId={student.id}
+                          compact
+                          showAttendanceCard={showAttendanceCard}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -257,36 +327,57 @@ export function StudentsList({
                     <p className="text-base font-semibold text-dojo-white">
                       {[student.firstName, student.lastName]
                         .filter(Boolean)
-                        .join(" ") || "Unknown student"}
+                        .join(" ") || "Unknown member"}
                     </p>
                     <p className="text-sm text-dojo-muted">
                       {student.email ?? "No email"}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs uppercase tracking-wide text-dojo-muted">
-                    <p>
-                      Belt:{" "}
-                      <span className="normal-case text-dojo-white">
-                        <BeltLevelCell
-                          beltLabel={student.beltLabel}
-                          considerPromotion={student.considerPromotion}
-                        />
-                      </span>
-                    </p>
-                    <p>
-                      Attendances:{" "}
-                      <span className="tabular-nums text-dojo-white">
-                        {student.attendanceTotal}
-                      </span>
-                    </p>
-                    <p className="col-span-2">
+                    {showBjjColumns ? (
+                      <>
+                        <p>
+                          Belt:{" "}
+                          <span className="normal-case text-dojo-white">
+                            <BeltLevelCell
+                              beltLabel={student.beltLabel}
+                              considerPromotion={student.considerPromotion}
+                            />
+                          </span>
+                        </p>
+                        <p>
+                          Attendances:{" "}
+                          <span className="tabular-nums text-dojo-white">
+                            {student.attendanceTotal}
+                          </span>
+                        </p>
+                      </>
+                    ) : null}
+                    <p className={showBjjColumns ? "col-span-2" : "col-span-2"}>
                       Role:{" "}
                       <span className="text-dojo-white">
                         {formatStudentRole(student.role)}
                       </span>
                     </p>
                   </div>
-                  <StudentActions clubSlug={clubSlug} studentId={student.id} />
+                  {showProgrammeMembershipActions &&
+                  programmeSlug &&
+                  programmeName ? (
+                    <ProgrammeStudentRowActions
+                      clubSlug={clubSlug}
+                      programmeSlug={programmeSlug}
+                      programmeName={programmeName}
+                      studentId={student.id}
+                      studentName={formatStudentDisplayName(student)}
+                      showAttendanceCard={showAttendanceCard}
+                    />
+                  ) : (
+                    <StudentActions
+                      clubSlug={clubSlug}
+                      studentId={student.id}
+                      showAttendanceCard={showAttendanceCard}
+                    />
+                  )}
                 </div>
               </li>
             ))}

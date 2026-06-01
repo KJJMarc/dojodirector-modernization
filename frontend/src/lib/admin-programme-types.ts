@@ -2,6 +2,7 @@ export const PROGRAMME_TYPES = [
   "bjj",
   "muay_thai",
   "strength_conditioning",
+  "custom",
 ] as const;
 
 export type ProgrammeType = (typeof PROGRAMME_TYPES)[number];
@@ -20,6 +21,8 @@ export function formatProgrammeTypeLabel(programmeType: ProgrammeType) {
       return "Muay Thai";
     case "strength_conditioning":
       return "Strength & Conditioning";
+    case "custom":
+      return "Custom";
     default:
       return programmeType;
   }

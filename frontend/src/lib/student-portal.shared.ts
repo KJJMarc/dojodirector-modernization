@@ -52,11 +52,15 @@ export interface StudentPortalPageData {
   membershipStatus: string | null;
   currentBeltLabel: string;
   agreementStatus: StudentAgreementStatusSummary;
-  attendanceCardYear: number;
-  attendanceRows: YearlyGridRow[];
-  totalAttendanceForYear: number;
-  attendanceBeltLabel: string | null;
-  attendanceHeaderStats: AttendanceCardHeaderStats;
+  /** Show BJJ attendance card section (programme access + attendance cards enabled). */
+  showBjjAttendanceCard: boolean;
+  /** Show current belt in portal header (BJJ access + belts/ranks enabled). */
+  showCurrentBelt: boolean;
+  attendanceCardYear?: number;
+  attendanceRows?: YearlyGridRow[];
+  totalAttendanceForYear?: number;
+  attendanceBeltLabel?: string | null;
+  attendanceHeaderStats?: AttendanceCardHeaderStats;
 }
 
 export interface StudentPortalAttendancePageData {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { GuestBookingsSearchForm } from "@/components/admin/guest-bookings-search-form";
 import { GuestBookingsTable } from "@/components/admin/guest-bookings-table";
 import { AppHeader } from "@/components/layout/app-header";
@@ -7,7 +8,6 @@ import {
   GUEST_BOOKINGS_NOT_CONFIGURED_MESSAGE,
   loadAdminGuestBookings,
 } from "@/lib/guest-booking.server";
-import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -43,12 +43,9 @@ export default async function GuestBookingsPage({
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Guest Bookings" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug)}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Admin Dashboard
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+      </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
         View guest and trial bookings from the public booking page.

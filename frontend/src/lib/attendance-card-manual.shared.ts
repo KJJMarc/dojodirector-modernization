@@ -2,6 +2,7 @@
 export const BJJ_ATTENDANCE_CARD_MANUAL_SOURCES = [
   "manual_attendance_card",
   "manual",
+  "legacy_import",
 ] as const;
 
 export type BjjAttendanceCardManualSource =
@@ -20,4 +21,10 @@ export function isBjjAttendanceCardManualSource(
   return (BJJ_ATTENDANCE_CARD_MANUAL_SOURCES as readonly string[]).includes(
     source,
   );
+}
+
+export function isLegacyImportAttendanceSource(
+  source: string | null | undefined,
+): boolean {
+  return (source ?? "").trim() === "legacy_import";
 }

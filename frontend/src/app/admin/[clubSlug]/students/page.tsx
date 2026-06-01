@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { StudentSearchForm } from "@/components/admin/student-search-form";
 import { StudentsList } from "@/components/admin/students-list";
 import { AppHeader } from "@/components/layout/app-header";
+import { clubProgrammeStudentAreasPath } from "@/lib/admin-programmes.shared";
+import { requireClubBjjProgramme } from "@/lib/admin-programmes.server";
 import {
   filterAdminStudents,
   parseAdminStudentSort,
   sortAdminStudents,
 } from "@/lib/admin-students";
-import { getClubStudents } from "@/lib/admin-students.server";
+import { getBjjProgrammeStudents } from "@/lib/admin-students.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -25,8 +29,8 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Students`,
-    description: `View students for ${club.name}.`,
+    title: `DojoDirector | ${club.name} BJJ Students`,
+    description: `View BJJ students for ${club.name}.`,
   };
 }
 
@@ -35,12 +39,13 @@ export default async function ClubAdminStudentsPage({
   searchParams,
 }: ClubAdminStudentsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
+  const bjjProgramme = await requireClubBjjProgramme(club.id);
   const searchQuery = searchParams.q?.trim();
   const currentSort = parseAdminStudentSort(
     searchParams.sort,
     searchParams.dir,
   );
-  const allStudents = await getClubStudents(club.id);
+  const allStudents = await getBjjProgrammeStudents(club.id);
   const students = sortAdminStudents(
     filterAdminStudents(allStudents, searchQuery),
     currentSort,
@@ -48,22 +53,27 @@ export default async function ClubAdminStudentsPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Students" clubName={club.name} />
+      <AppHeader pageTitle="BJJ Students" clubName={club.name} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href={clubAdminPath(club.slug)}
-          className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-        >
-          ← Back to Admin Dashboard
-        </Link>
-        <div className="flex flex-wrap gap-2">
+        <AdminNavLinks>
+          <AdminBackLink clubSlug={club.slug} />
           <Link
-            href={clubAdminPath(club.slug, "students/promotion-candidates")}
-            className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+            href={clubProgrammeStudentAreasPath(club.slug)}
+            className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
           >
-            Promotion Candidates
+            ← Back to Student Area
           </Link>
+        </AdminNavLinks>
+        <div className="flex flex-wrap gap-2">
+          {bjjProgramme.promotionCandidatesEnabled ? (
+            <Link
+              href={clubAdminPath(club.slug, "students/promotion-candidates")}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+            >
+              Promotion Candidates
+            </Link>
+          ) : null}
           <Link
             href={clubAdminPath(club.slug, "students/new")}
             className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover"
@@ -76,10 +86,11 @@ export default async function ClubAdminStudentsPage({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            FIND STUDENTS
+            FIND BJJ STUDENTS
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Search by first name, last name or email.
+            Search by first name, last name or email. Attendance and grading on
+            this list are scoped to Brazilian Jiu Jitsu classes.
           </p>
         </div>
         <StudentSearchForm
@@ -96,6 +107,10 @@ export default async function ClubAdminStudentsPage({
         totalCount={allStudents.length}
         searchQuery={searchQuery}
         currentSort={currentSort}
+        memberLabel="BJJ student"
+        memberLabelPlural="BJJ students"
+        listAriaLabel="BJJ Students list"
+        showAttendanceCard={bjjProgramme.attendanceCardsEnabled}
       />
     </main>
   );

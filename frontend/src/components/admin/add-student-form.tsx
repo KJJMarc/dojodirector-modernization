@@ -1,26 +1,78 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { createAdminStudentAction } from "@/app/admin/[clubSlug]/students/new/actions";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   MEMBERSHIP_ROLE_OPTIONS,
   MEMBERSHIP_STATUS_OPTIONS,
 } from "@/lib/admin-create-student.shared";
+import type {
+  AddStudentProgrammeAccessOption,
+  StudentPortalAccessProgrammeType,
+} from "@/lib/admin-programmes.shared";
 
-export function AddStudentForm({ clubSlug }: { clubSlug: string }) {
+interface AddStudentFormProps {
+  clubSlug: string;
+  programmeSlug?: string;
+  cancelHref?: string;
+  programmeAccessOptions: AddStudentProgrammeAccessOption[];
+}
+
+export function AddStudentForm({
+  clubSlug,
+  programmeSlug,
+  cancelHref,
+  programmeAccessOptions,
+}: AddStudentFormProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const defaultSelectedAccess = useMemo(
+    () =>
+      new Set(
+        programmeAccessOptions
+          .filter((option) => option.defaultChecked)
+          .map((option) => option.programmeType),
+      ),
+    [programmeAccessOptions],
+  );
+  const [selectedAccess, setSelectedAccess] = useState(defaultSelectedAccess);
 
   const fieldClassName =
     "mt-1 w-full rounded-md border border-dojo-border bg-dojo-black px-3 py-2 text-sm text-dojo-white outline-none focus:border-dojo-red";
+
+  const toggleProgrammeAccess = (
+    programmeType: StudentPortalAccessProgrammeType,
+    checked: boolean,
+  ) => {
+    setSelectedAccess((current) => {
+      const next = new Set(current);
+
+      if (checked) {
+        next.add(programmeType);
+      } else {
+        next.delete(programmeType);
+      }
+
+      return next;
+    });
+  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
 
+    if (selectedAccess.size === 0) {
+      setErrorMessage("Select at least one programme for programme access.");
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
+
+    for (const programmeType of Array.from(selectedAccess)) {
+      formData.append("programmeAccessTypes", programmeType);
+    }
 
     startTransition(async () => {
       try {
@@ -38,6 +90,9 @@ export function AddStudentForm({ clubSlug }: { clubSlug: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <input type="hidden" name="clubSlug" value={clubSlug} />
+      {programmeSlug ? (
+        <input type="hidden" name="programmeSlug" value={programmeSlug} />
+      ) : null}
       {errorMessage ? (
         <p className="rounded-md border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-red">
           {errorMessage}
@@ -167,6 +222,38 @@ export function AddStudentForm({ clubSlug }: { clubSlug: string }) {
         </div>
       </div>
 
+      <fieldset className="space-y-2 rounded-lg border border-dojo-border bg-dojo-elevated p-3">
+        <legend className="px-1 text-sm font-medium text-dojo-white">
+          Programme access
+        </legend>
+        <p className="text-xs text-dojo-muted">
+          Choose which programmes this student belongs to and can book through the
+          student portal.
+        </p>
+        <ul className="space-y-2">
+          {programmeAccessOptions.map((option) => {
+            const checked = selectedAccess.has(option.programmeType);
+
+            return (
+              <li key={option.programmeType}>
+                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dojo-border bg-dojo-surface px-3 py-2 text-sm text-dojo-white transition hover:border-dojo-red/30">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-dojo-border bg-dojo-black text-dojo-red focus:ring-dojo-red"
+                    checked={checked}
+                    disabled={isPending}
+                    onChange={(event) =>
+                      toggleProgrammeAccess(option.programmeType, event.target.checked)
+                    }
+                  />
+                  <span>{option.label}</span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </fieldset>
+
       <div className="flex flex-wrap gap-3">
         <button
           type="submit"
@@ -176,7 +263,7 @@ export function AddStudentForm({ clubSlug }: { clubSlug: string }) {
           {isPending ? "Adding…" : "Add Student"}
         </button>
         <Link
-          href={clubAdminPath(clubSlug, "students")}
+          href={cancelHref ?? clubAdminPath(clubSlug, "students")}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50"
         >
           Cancel

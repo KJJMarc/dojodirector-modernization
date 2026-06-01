@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminStudent } from "@/lib/admin-create-student.server";
 import type { CreateAdminStudentInput } from "@/lib/admin-create-student.shared";
+import { parseProgrammeAccessTypes } from "@/lib/admin-programmes.shared";
 
 function revalidateStudentPaths(userId: string) {
   revalidatePath("/admin/students");
@@ -24,7 +25,13 @@ export async function createAdminStudentAction(formData: FormData) {
     ) as CreateAdminStudentInput["membershipStatus"],
   };
 
-  const { userId } = await createAdminStudent(input);
+  const programmeAccessTypes = parseProgrammeAccessTypes(
+    formData.getAll("programmeAccessTypes").map(String),
+  );
+
+  const { userId } = await createAdminStudent(input, undefined, {
+    programmeAccessTypes,
+  });
 
   revalidateStudentPaths(userId);
   redirect(`/admin/students/${userId}/profile`);

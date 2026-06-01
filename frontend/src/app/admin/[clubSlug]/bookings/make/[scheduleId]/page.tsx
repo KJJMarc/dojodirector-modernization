@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { notFound } from "next/navigation";
 import { RecurringScheduleBookingsManager } from "@/components/admin/recurring-schedule-bookings-manager";
 import { AppHeader } from "@/components/layout/app-header";
@@ -54,12 +56,12 @@ export default async function MakeBookingsSchedulePage({
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Make Bookings" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "bookings/make")}
-        className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Make Bookings
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "bookings/make")} className={adminNavLinkClassName}>
+          ← Back to Make Bookings
+        </Link>
+      </AdminNavLinks>
 
       <RecurringScheduleBookingsManager
         clubSlug={club.slug}

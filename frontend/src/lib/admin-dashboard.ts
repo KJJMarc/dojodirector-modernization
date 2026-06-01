@@ -2,6 +2,7 @@ import "server-only";
 
 import { getTodayUtcRange } from "@/lib/attendance";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { requireClubBjjProgramme } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface AdminDashboardStats {
@@ -79,23 +80,13 @@ export async function getAdminDashboardStats(
     presentToday = presentResult.count ?? 0;
   }
 
-  const { count: studentsTotal, error: membershipsError } = await supabase
-    .from("memberships")
-    .select("user_id", { count: "exact", head: true })
-    .eq("club_id", clubId)
-    .eq("role", "student")
-    .eq("status", "active");
-
-  if (membershipsError) {
-    throw new Error(
-      formatSupabaseError("Failed to count students", membershipsError),
-    );
-  }
+  const bjjProgramme = await requireClubBjjProgramme(clubId);
+  const studentsTotal = bjjProgramme.studentCount;
 
   return {
     todaysSessions: todaysSessionsCount,
     bookedToday,
     presentToday,
-    studentsTotal: studentsTotal ?? 0,
+    studentsTotal,
   };
 }

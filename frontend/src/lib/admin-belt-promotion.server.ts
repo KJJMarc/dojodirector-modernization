@@ -24,7 +24,14 @@ import {
   type LatestGradeAwardInput,
   type PromotionCandidate,
 } from "@/lib/admin-belt-promotion.shared";
+import {
+  loadAdminStudentProfileRowsByIds,
+  loadClubMembershipRows,
+} from "@/lib/admin-club-memberships.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+/** KJJ test/dev — promotion candidate debug focus user. */
+const CLARE_BARTON_FOCUS_USER_ID = "b3092955-e688-43c0-bb0c-adbfae7e7b62";
 
 type LatestGradeAwardRow = LatestGradeAwardInput;
 
@@ -151,6 +158,99 @@ export async function loadGradingRequirementsByTargetBeltId() {
   );
 }
 
+function buildJuniorRequirementsMapFromTargetModel(
+  juniorBelts: BeltLevelProgressionRow[],
+  targetRequirements: {
+    id: string;
+    belt_level_id: string;
+    minimum_attendances: number | null;
+    required_attendance?: number | null;
+    required_weeks: number;
+  }[],
+) {
+  const sorted = [...juniorBelts].sort(
+    (left, right) => left.sort_order - right.sort_order,
+  );
+  const beltById = new Map(sorted.map((belt) => [belt.id, belt]));
+  const requirements = new Map<string, JuniorGradingRequirementRow>();
+
+  for (const requirement of targetRequirements) {
+    const toBelt = beltById.get(requirement.belt_level_id);
+
+    if (!toBelt) {
+      continue;
+    }
+
+    const toIndex = sorted.findIndex((belt) => belt.id === toBelt.id);
+    const fromBelt = toIndex > 0 ? sorted[toIndex - 1] : null;
+
+    if (!fromBelt) {
+      continue;
+    }
+
+    requirements.set(fromBelt.id, {
+      id: requirement.id,
+      from_belt_level_id: fromBelt.id,
+      to_belt_level_id: toBelt.id,
+      required_attendance:
+        requirement.required_attendance ?? requirement.minimum_attendances ?? 0,
+      required_weeks: requirement.required_weeks,
+    });
+  }
+
+  return requirements;
+}
+
+async function loadJuniorGradingRequirementsFromTargetModel(clubId: string) {
+  const supabase = getPromotionAdminSupabaseClient();
+  const juniorBelts = await loadJuniorBeltLevelsForClubFromAdmin(clubId, supabase);
+  const beltIds = new Set(juniorBelts.map((belt) => belt.id));
+  const targetRequirements: {
+    id: string;
+    belt_level_id: string;
+    minimum_attendances: number | null;
+    required_weeks: number;
+  }[] = [];
+  let from = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("junior_grading_requirements")
+      .select("id, belt_level_id, minimum_attendances, required_weeks")
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      return buildJuniorGradingRequirementsFromBeltLevels(juniorBelts);
+    }
+
+    const page = (data ?? []) as {
+      id: string;
+      belt_level_id: string;
+      minimum_attendances: number | null;
+      required_weeks: number;
+    }[];
+
+    for (const requirement of page) {
+      if (beltIds.has(requirement.belt_level_id)) {
+        targetRequirements.push(requirement);
+      }
+    }
+
+    if (page.length < pageSize) {
+      break;
+    }
+
+    from += pageSize;
+  }
+
+  if (targetRequirements.length === 0) {
+    return buildJuniorGradingRequirementsFromBeltLevels(juniorBelts);
+  }
+
+  return buildJuniorRequirementsMapFromTargetModel(juniorBelts, targetRequirements);
+}
+
 export async function loadJuniorGradingRequirementsByFromBeltId(clubId: string) {
   const supabase = getPromotionAdminSupabaseClient();
   const allRequirements: JuniorGradingRequirementRow[] = [];
@@ -175,9 +275,7 @@ export async function loadJuniorGradingRequirementsByFromBeltId(clubId: string) 
         return buildJuniorGradingRequirementsFromBeltLevels(juniorBelts);
       }
 
-      throw new Error(
-        `Failed to load junior grading requirements: ${error.message}`,
-      );
+      return loadJuniorGradingRequirementsFromTargetModel(clubId);
     }
 
     const page = (data ?? []) as JuniorGradingRequirementRow[];
@@ -188,6 +286,10 @@ export async function loadJuniorGradingRequirementsByFromBeltId(clubId: string) 
     }
 
     from += pageSize;
+  }
+
+  if (allRequirements.length === 0) {
+    return loadJuniorGradingRequirementsFromTargetModel(clubId);
   }
 
   return new Map(
@@ -263,11 +365,6 @@ export async function loadPromotionFlagsByUserId(
   return flags;
 }
 
-interface MembershipRow {
-  user_id: string;
-  role: string | null;
-  status: string | null;
-}
 
 interface UserRow {
   id: string;
@@ -278,6 +375,7 @@ interface UserRow {
 
 interface PromotionEvaluationContext {
   userIds: string[];
+  membershipRoleByUserId: Map<string, string | null>;
   userById: Map<string, UserRow>;
   latestAwardByUserId: Map<string, LatestGradeAwardRow>;
   beltLevels: BeltLevelProgressionRow[];
@@ -331,27 +429,7 @@ export async function loadLatestGradeAwardsByUserId(
 }
 
 async function loadUsersByIds(userIds: string[]) {
-  if (userIds.length === 0) {
-    return new Map<string, UserRow>();
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const users: UserRow[] = [];
-
-  for (const batch of chunkIds(userIds)) {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, first_name, last_name, email")
-      .in("id", batch);
-
-    if (error) {
-      throw new Error(`Failed to load student profiles: ${error.message}`);
-    }
-
-    users.push(...((data ?? []) as UserRow[]));
-  }
-
-  return new Map(users.map((user) => [user.id, user]));
+  return loadAdminStudentProfileRowsByIds(userIds);
 }
 
 function isBillyBloggsFocusUser(user: UserRow | undefined): boolean {
@@ -414,6 +492,48 @@ function resolvePromotionCandidateSkipBranch(input: {
   }
 
   return "INCLUDE:assessment.isEligible_true";
+}
+
+function logClareBartonPromotionDebug(input: {
+  clubId: string;
+  loadedInPromotionScope: boolean;
+  membershipRole: string | null;
+  userId: string;
+  user: UserRow | null;
+  assessment: BeltPromotionAssessment | null;
+  profileAttendance: BjjAttendanceSummary | null;
+  skipBranch: string;
+  inCandidates: boolean;
+  exclusionReason: string | null;
+}) {
+  const payload = {
+    focus: "CLARE_BARTON_PROMOTION",
+    clubId: input.clubId,
+    userId: input.userId,
+    name: input.user
+      ? getStudentFullName(input.user.first_name, input.user.last_name)
+      : null,
+    email: input.user?.email ?? null,
+    membershipRole: input.membershipRole,
+    loadedInPromotionScope: input.loadedInPromotionScope,
+    currentBelt: input.assessment?.currentBeltLabel ?? null,
+    nextBelt: input.assessment?.nextBeltLabel ?? null,
+    attendanceSinceCurrentLevel: input.assessment?.attendanceSinceAward ?? null,
+    requiredAttendance: input.assessment?.requiredAttendance ?? null,
+    timeSinceCurrentLevel: input.assessment?.timeSinceAward ?? null,
+    requiredTime: input.assessment?.requiredTime ?? null,
+    timeUnit: input.assessment?.timeUnit ?? null,
+    eligible: input.assessment?.isEligible === true,
+    considerPromotion: isStudentEligibleForPromotion(input.assessment),
+    skipBranch: input.skipBranch,
+    inCandidates: input.inCandidates,
+    exclusionReason: input.exclusionReason,
+    profileLifetimeBjjCount: input.profileAttendance?.lifetimeBjjAttendanceCount ?? null,
+    profileAttendanceSinceLevel:
+      input.profileAttendance?.attendanceSinceCurrentLevel ?? null,
+  };
+
+  console.log("[promotion-candidates][CLARE_BARTON]", JSON.stringify(payload));
 }
 
 async function logBillyBloggsAssertionDebug(input: {
@@ -529,26 +649,18 @@ function logPromotionCandidateDiagnostics(input: {
 async function loadPromotionEvaluationContext(
   clubId: string,
 ): Promise<PromotionEvaluationContext> {
-  const supabase = getSupabaseAdminClient();
+  const membershipRows = await loadClubMembershipRows(clubId);
 
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("memberships")
-    .select("user_id, role, status")
-    .eq("club_id", clubId)
-    .eq("status", "active")
-    .eq("role", "student");
-
-  if (membershipsError) {
-    throw new Error(`Failed to load memberships: ${membershipsError.message}`);
-  }
-
+  // Same membership scope as admin Students list (all roles/statuses) so red-star
+  // flags and Promotion Candidates stay aligned — e.g. admin/instructor members who train.
   const userIds = Array.from(
-    new Set(((memberships ?? []) as MembershipRow[]).map((row) => row.user_id)),
+    new Set(membershipRows.map((row) => row.user_id)),
   );
 
   if (userIds.length === 0) {
     return {
       userIds: [],
+      membershipRoleByUserId: new Map(),
       userById: new Map(),
       latestAwardByUserId: new Map(),
       beltLevels: [],
@@ -559,6 +671,10 @@ async function loadPromotionEvaluationContext(
       beltLevelById: new Map(),
     };
   }
+
+  const membershipRoleByUserId = new Map(
+    membershipRows.map((row) => [row.user_id, row.role]),
+  );
 
   const [userById, latestAwardByUserId] = await Promise.all([
     loadUsersByIds(userIds),
@@ -580,6 +696,7 @@ async function loadPromotionEvaluationContext(
 
   return {
     userIds,
+    membershipRoleByUserId,
     userById,
     latestAwardByUserId,
     beltLevels,
@@ -610,7 +727,7 @@ export async function loadPromotionCandidates(
       billyUserId: billyBloggsUserId,
       assessment: null,
       profileAttendance: null,
-      skipBranch: "SKIP:empty_active_student_membership_list",
+      skipBranch: "SKIP:empty_club_membership_list",
       inCandidates: false,
     });
     return [];
@@ -621,14 +738,24 @@ export async function loadPromotionCandidates(
   let billyLoopAssessment: BeltPromotionAssessment | null = null;
   let billyLoopAttendance: BjjAttendanceSummary | null = null;
   let billySkipBranch = "SKIP:not_processed_in_loop";
+  let clareLoopAssessment: BeltPromotionAssessment | null = null;
+  let clareLoopAttendance: BjjAttendanceSummary | null = null;
+  let clareSkipBranch = "SKIP:not_processed_in_loop";
+  let clareInCandidates = false;
 
   for (const userId of context.userIds) {
     const isBilly = billyBloggsUserId !== null && userId === billyBloggsUserId;
+    const isClare = userId === CLARE_BARTON_FOCUS_USER_ID;
     let user = context.userById.get(userId);
     const latestAward = context.latestAwardByUserId.get(userId);
     const bulkAttendance = context.bjjAttendanceByUserId.get(userId);
     const { assessment, profileAttendance } =
-      await buildProfileAlignedPromotionAssessment(userId, clubId, context, isBilly);
+      await buildProfileAlignedPromotionAssessment(
+        userId,
+        clubId,
+        context,
+        isBilly || isClare,
+      );
     const isEligible = assessment?.isEligible === true;
     const considerPromotion = isStudentEligibleForPromotion(assessment);
     const skipBranch = resolvePromotionCandidateSkipBranch({ isEligible });
@@ -637,6 +764,12 @@ export async function loadPromotionCandidates(
       billyLoopAssessment = assessment;
       billyLoopAttendance = profileAttendance;
       billySkipBranch = skipBranch;
+    }
+
+    if (isClare) {
+      clareLoopAssessment = assessment;
+      clareLoopAttendance = profileAttendance;
+      clareSkipBranch = skipBranch;
     }
 
     const entry: Record<string, unknown> = {
@@ -676,6 +809,10 @@ export async function loadPromotionCandidates(
           billySkipBranch = "SKIP:missing_user_row_after_reload";
         }
 
+        if (isClare) {
+          clareSkipBranch = "SKIP:missing_user_row_after_reload";
+        }
+
         continue;
       }
 
@@ -698,8 +835,11 @@ export async function loadPromotionCandidates(
       currentBeltSortOrder: currentBelt?.sort_order ?? Number.MAX_SAFE_INTEGER,
       assessment,
     });
-  }
 
+    if (isClare) {
+      clareInCandidates = true;
+    }
+  }
   if (billyBloggsUserId) {
     const billyInCandidates = candidates.some(
       (candidate) => candidate.id === billyBloggsUserId,
@@ -750,6 +890,40 @@ export async function loadPromotionCandidates(
       }
     }
   }
+
+  const clareLoadedInScope = context.userIds.includes(CLARE_BARTON_FOCUS_USER_ID);
+  let clareExclusionReason: string | null = null;
+
+  if (!clareLoadedInScope) {
+    clareExclusionReason = "SKIP:not_in_promotion_scope_user_ids";
+    clareSkipBranch = clareExclusionReason;
+  } else if (!clareInCandidates) {
+    if (!clareLoopAssessment) {
+      clareExclusionReason = "SKIP:no_assessment";
+    } else if (clareLoopAssessment.isEligible !== true) {
+      clareExclusionReason = "SKIP:assessment.isEligible_not_true";
+    } else {
+      clareExclusionReason = "SKIP:eligible_but_not_in_candidates_array";
+    }
+  }
+
+  const clareUser =
+    context.userById.get(CLARE_BARTON_FOCUS_USER_ID) ??
+    (await loadUserRowById(CLARE_BARTON_FOCUS_USER_ID));
+
+  logClareBartonPromotionDebug({
+    clubId,
+    loadedInPromotionScope: clareLoadedInScope,
+    membershipRole:
+      context.membershipRoleByUserId.get(CLARE_BARTON_FOCUS_USER_ID) ?? null,
+    userId: CLARE_BARTON_FOCUS_USER_ID,
+    user: clareUser,
+    assessment: clareLoopAssessment,
+    profileAttendance: clareLoopAttendance,
+    skipBranch: clareSkipBranch,
+    inCandidates: clareInCandidates,
+    exclusionReason: clareExclusionReason,
+  });
 
   logPromotionCandidateDiagnostics({
     clubId,

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { InstructorsList } from "@/components/admin/instructors-list";
 import { AppHeader } from "@/components/layout/app-header";
 import { getAdminInstructors } from "@/lib/admin-instructors.server";
@@ -34,12 +36,9 @@ export default async function ClubAdminInstructorsPage({
       <AppHeader pageTitle="Instructors" clubName={club.name} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href={clubAdminPath(club.slug)}
-          className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-        >
-          ← Back to Admin Dashboard
-        </Link>
+        <AdminNavLinks>
+          <AdminBackLink clubSlug={club.slug} />
+        </AdminNavLinks>
         <div className="flex flex-wrap gap-2">
           <Link
             href={clubAdminPath(club.slug, "instructors/classes")}

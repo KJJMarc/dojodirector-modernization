@@ -1,5 +1,6 @@
 "use server";
 
+import { loadStudentBjjFeatureVisibility } from "@/lib/admin-programmes.server";
 import {
   BJJ_ATTENDANCE_CARD_MANUAL_SOURCES,
   BJJ_ATTENDANCE_CARD_MANUAL_SOURCE,
@@ -153,6 +154,13 @@ export async function toggleManualAttendance(formData: FormData) {
   const { clubId, clubSlug } = await getStudentClubContextForAttendance(
     input.userId,
   );
+
+  const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, input.userId);
+
+  if (!bjjFeatures.showAttendanceCard) {
+    throw new Error("Attendance cards are not available.");
+  }
+
   const attendedOn = formatAttendanceDateKey(input.year, input.month, input.day);
 
   if (input.mode === "add") {

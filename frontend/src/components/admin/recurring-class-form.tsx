@@ -64,6 +64,9 @@ export function RecurringClassForm({
   const fieldClassName =
     "mt-1 w-full rounded-md border border-dojo-border bg-dojo-black px-3 py-2 text-sm text-dojo-white outline-none focus:border-dojo-red";
 
+  const controlClassName =
+    "mt-1 h-12 w-full rounded-lg border border-dojo-border bg-dojo-black px-4 text-base text-dojo-white outline-none focus:border-dojo-red";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {errorMessage ? (
@@ -113,8 +116,8 @@ export function RecurringClassForm({
         </select>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="w-full">
           <label htmlFor="dayOfWeek" className="text-sm font-medium text-dojo-white">
             Day of week
           </label>
@@ -123,7 +126,7 @@ export function RecurringClassForm({
             name="dayOfWeek"
             required
             defaultValue={schedule?.dayOfWeek ?? 1}
-            className={fieldClassName}
+            className={controlClassName}
           >
             {DAY_OF_WEEK_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -133,7 +136,7 @@ export function RecurringClassForm({
           </select>
         </div>
 
-        <div>
+        <div className="w-full">
           <label htmlFor="capacity" className="text-sm font-medium text-dojo-white">
             Capacity
           </label>
@@ -145,13 +148,13 @@ export function RecurringClassForm({
             step={1}
             required
             defaultValue={schedule?.capacity ?? 30}
-            className={fieldClassName}
+            className={controlClassName}
           />
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="w-full">
           <label htmlFor="startTime" className="text-sm font-medium text-dojo-white">
             Start time
           </label>
@@ -161,11 +164,11 @@ export function RecurringClassForm({
             type="time"
             required
             defaultValue={schedule?.startTime}
-            className={fieldClassName}
+            className={controlClassName}
           />
         </div>
 
-        <div>
+        <div className="w-full">
           <label htmlFor="endTime" className="text-sm font-medium text-dojo-white">
             End time
           </label>
@@ -175,7 +178,7 @@ export function RecurringClassForm({
             type="time"
             required
             defaultValue={schedule?.endTime}
-            className={fieldClassName}
+            className={controlClassName}
           />
         </div>
       </div>

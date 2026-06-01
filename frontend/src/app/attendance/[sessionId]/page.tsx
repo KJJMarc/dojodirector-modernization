@@ -4,6 +4,7 @@ import { markAttendance } from "@/app/attendance/actions";
 import { AttendanceSummary } from "@/components/attendance/attendance-summary";
 import { SessionAttendanceSection } from "@/components/attendance/session-attendance-section";
 import { AppHeader } from "@/components/layout/app-header";
+import { getProgrammeAttendanceCardsEnabled } from "@/lib/admin-programmes.server";
 import {
   formatAttendanceCapacitySummary,
   formatAttendanceDayLabel,
@@ -30,11 +31,18 @@ export default async function AttendanceSessionPage({
     notFound();
   }
 
-  const { session, endsAt, capacity, isCancelled, status } = details;
+  const { session, endsAt, capacity, isCancelled, status, clubId, programmeType } =
+    details;
+  const showAttendanceCardLink = await getProgrammeAttendanceCardsEnabled(
+    clubId,
+    programmeType,
+  );
   const markingDisabled = isCancelled || status === "completed";
   const scheduleSession = {
     id: session.id,
+    classId: session.class_id,
     className: session.class_name,
+    programmeId: null,
     startsAt: session.starts_at,
     endsAt,
     location: session.location,
@@ -105,6 +113,7 @@ export default async function AttendanceSessionPage({
             session={session}
             markAttendanceAction={markAttendance}
             markingDisabled={markingDisabled}
+            showAttendanceCardLink={showAttendanceCardLink}
           />
         </>
       )}

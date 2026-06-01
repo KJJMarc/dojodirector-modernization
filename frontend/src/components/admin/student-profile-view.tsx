@@ -8,6 +8,7 @@ import {
   profileSectionClassName,
 } from "@/components/admin/profile-detail-item";
 import { StudentProfileMembershipManager } from "@/components/admin/student-profile-membership-manager";
+import { StudentProgrammeAccessPanel } from "@/components/admin/student-programme-access-panel";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   formatPromotionProgressLabel,
@@ -62,7 +63,10 @@ function ActionButton({
   );
 }
 
-export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewProps) {
+export function StudentProfileView({
+  clubSlug,
+  pageData,
+}: StudentProfileViewProps) {
   const {
     student,
     loginAccess,
@@ -71,6 +75,8 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
     showAdminDashboardAccess,
     adminAccess,
     agreementAccess,
+    programmeAccess,
+    bjjFeatureVisibility,
     attendance,
     belt,
     gradeHistory,
@@ -123,6 +129,12 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
 
       <StudentProfileMembershipManager clubSlug={clubSlug} student={student} />
 
+      <StudentProgrammeAccessPanel
+        clubSlug={clubSlug}
+        userId={student.id}
+        programmeAccess={programmeAccess}
+      />
+
       <LoginAccessPanel
         clubSlug={clubSlug}
         userId={student.id}
@@ -139,33 +151,39 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
         adminAccess={adminAccess}
       />
 
-      <section className={profileSectionClassName}>
-        <ProfileSectionHeading title="Attendance Summary" />
+      {bjjFeatureVisibility.showAttendanceSummary ? (
+        <section className={profileSectionClassName}>
+          <ProfileSectionHeading title="Attendance Summary" />
 
-        <dl className={profileDetailGridClassName}>
-          <ProfileDetailItem
-            label="Lifetime BJJ attendance"
-            value={String(attendance.lifetimeBjjCount)}
-          />
-          <ProfileDetailItem
-            label="Last attendance"
-            value={formatProfileDate(attendance.lastAttendanceDate)}
-          />
-        </dl>
+          <dl className={profileDetailGridClassName}>
+            <ProfileDetailItem
+              label="Lifetime BJJ attendance"
+              value={String(attendance.lifetimeBjjCount)}
+            />
+            <ProfileDetailItem
+              label="Last attendance"
+              value={formatProfileDate(attendance.lastAttendanceDate)}
+            />
+          </dl>
 
-        <div className="flex flex-wrap gap-2">
-          <ActionButton
-            href={`/students/${student.id}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
-            label="Attendance Card"
-          />
-          <PlaceholderButton label="Attendance History" />
-        </div>
-      </section>
+          <div className="flex flex-wrap gap-2">
+            {bjjFeatureVisibility.showAttendanceCard ? (
+              <ActionButton
+                href={`/students/${student.id}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
+                label="Attendance Card"
+              />
+            ) : null}
+            <PlaceholderButton label="Attendance History" />
+          </div>
+        </section>
+      ) : null}
 
+      {bjjFeatureVisibility.showBeltSummary ? (
       <section className={profileSectionClassName}>
         <ProfileSectionHeading title="Belt / Level Summary" />
 
-        {belt.promotion?.isEligible ? (
+        {belt.promotion?.isEligible &&
+        bjjFeatureVisibility.promotionCandidatesEnabled ? (
           <div className="rounded-lg border border-dojo-red/30 bg-dojo-red/10 p-2.5">
             <p className="text-sm font-semibold leading-snug text-dojo-white">
               Consider belt promotion
@@ -196,7 +214,9 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
             label="Next belt level"
             value={belt.nextBeltLabel ?? "—"}
           />
-          {belt.promotion && !belt.promotion.isEligible ? (
+          {belt.promotion &&
+          !belt.promotion.isEligible &&
+          bjjFeatureVisibility.promotionCandidatesEnabled ? (
             <>
               <ProfileDetailItem
                 label="Attendance since level"
@@ -214,14 +234,20 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
         </dl>
 
         <div className="flex flex-wrap gap-2">
-          <ActionButton
-            href={clubAdminPath(clubSlug, `students/${student.id}/change-belt`)}
-            label="Change Belt Level"
-          />
-          <ActionButton href="#grading-history" label="Grading History" variant="secondary" />
+          {bjjFeatureVisibility.gradingSystemEnabled ? (
+            <ActionButton
+              href={clubAdminPath(clubSlug, `students/${student.id}/change-belt`)}
+              label="Change Belt Level"
+            />
+          ) : null}
+          {bjjFeatureVisibility.showGradingHistory ? (
+            <ActionButton href="#grading-history" label="Grading History" variant="secondary" />
+          ) : null}
         </div>
       </section>
+      ) : null}
 
+      {bjjFeatureVisibility.showGradingHistory ? (
       <section id="grading-history" className={profileSectionClassName}>
         <ProfileSectionHeading
           title="Grading History"
@@ -255,7 +281,7 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
                       {formatProfileDate(entry.awardedAt)}
                     </td>
                     <td className="px-3 py-1.5 leading-snug text-dojo-muted">
-                      {entry.notes?.trim() ? entry.notes : "—"}
+                      {formatProfileField(entry.notes)}
                     </td>
                   </tr>
                 ))}
@@ -264,6 +290,7 @@ export function StudentProfileView({ clubSlug, pageData }: StudentProfileViewPro
           </div>
         )}
       </section>
+      ) : null}
     </div>
   );
 }

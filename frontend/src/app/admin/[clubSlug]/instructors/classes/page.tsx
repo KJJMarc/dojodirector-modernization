@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { InstructorClassAssignmentsManager } from "@/components/admin/instructor-class-assignments-manager";
 import { AppHeader } from "@/components/layout/app-header";
 import { getInstructorClassAssignmentsPageData } from "@/lib/admin-instructors.server";
@@ -35,12 +37,12 @@ export default async function ClubInstructorClassesPage({
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Instructor Class Allocation" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "instructors")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Instructors
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "instructors")} className={adminNavLinkClassName}>
+          ← Back to Instructors
+        </Link>
+      </AdminNavLinks>
 
       <InstructorClassAssignmentsManager
         clubSlug={club.slug}

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { notFound } from "next/navigation";
 import { TrainingAgreementEditForm } from "@/components/admin/training-agreement-edit-form";
 import { AppHeader } from "@/components/layout/app-header";
@@ -55,12 +57,12 @@ export default async function TrainingAgreementEditPage({
         clubName={club.name}
       />
 
-      <Link
-        href={clubAdminPath(club.slug, "training-agreements")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Training Agreements
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "training-agreements")} className={adminNavLinkClassName}>
+          ← Back to Training Agreements
+        </Link>
+      </AdminNavLinks>
 
       {!editState.templatesTableAvailable ? (
         <section

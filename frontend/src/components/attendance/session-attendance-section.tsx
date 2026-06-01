@@ -11,12 +11,14 @@ interface SessionAttendanceSectionProps {
   session: ClassSession;
   markAttendanceAction: (formData: FormData) => Promise<void>;
   markingDisabled?: boolean;
+  showAttendanceCardLink?: boolean;
 }
 
 export function SessionAttendanceSection({
   session,
   markAttendanceAction,
   markingDisabled = false,
+  showAttendanceCardLink = true,
 }: SessionAttendanceSectionProps) {
   const getUser = (users: ClassSession["session_attendees"][number]["users"]) =>
     Array.isArray(users) ? users[0] ?? null : users;
@@ -55,6 +57,7 @@ export function SessionAttendanceSection({
             )}
             markAttendanceAction={markAttendanceAction}
             markingDisabled={markingDisabled}
+            showAttendanceCardLink={showAttendanceCardLink}
           />
         ))}
       </div>

@@ -1,4 +1,5 @@
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
+import { collectGradingMarkerDates } from "@/lib/attendance-card-grading.shared";
 import {
   AttendanceRecord,
   BeltLevel,
@@ -73,21 +74,13 @@ export function buildYearlyGrid(
   year: number,
 ): { rows: YearlyGridRow[]; totalAttendance: number } {
   const attendedDays = new Set<string>();
-  const gradingDays = new Set<string>();
+  const gradingDays = new Set(collectGradingMarkerDates(gradeAwards));
 
   for (const record of attendances) {
     const attendedOn = normalizeToDateKey(record.attended_on);
 
     if (attendedOn) {
       attendedDays.add(attendedOn);
-    }
-  }
-
-  for (const award of gradeAwards) {
-    const awardedOn = normalizeToDateKey(award.awarded_at);
-
-    if (awardedOn) {
-      gradingDays.add(awardedOn);
     }
   }
 

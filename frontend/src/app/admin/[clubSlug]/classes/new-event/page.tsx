@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { OneOffEventForm } from "@/components/admin/one-off-event-form";
 import { AppHeader } from "@/components/layout/app-header";
 import { clubAdminPath } from "@/lib/clubs.shared";
@@ -31,12 +33,12 @@ export default async function ClubNewEventPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Add One-Off Event" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "classes/edit")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Manage Classes
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "classes/edit")} className={adminNavLinkClassName}>
+          ← Back to Edit / Update Classes
+        </Link>
+      </AdminNavLinks>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>

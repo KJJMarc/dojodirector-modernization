@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { notFound } from "next/navigation";
 import { StudentProfileView } from "@/components/admin/student-profile-view";
 import { AppHeader } from "@/components/layout/app-header";
@@ -44,12 +46,12 @@ export default async function ClubStudentProfilePage({
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-2 px-3 py-3 pb-20 sm:px-5">
       <AppHeader pageTitle="Student Profile" clubName={club.name} />
 
-      <Link
-        href={clubAdminPath(club.slug, "students")}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Students
-      </Link>
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "students")} className={adminNavLinkClassName}>
+          ← Back to BJJ Students
+        </Link>
+      </AdminNavLinks>
 
       <StudentProfileView clubSlug={club.slug} pageData={pageData} />
     </main>

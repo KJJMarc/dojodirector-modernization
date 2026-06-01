@@ -6,7 +6,7 @@ import { clubBookingPath, KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
  */
 export function ClubAdminStubActions() {
   const actions = [
-    { label: "Students", href: "/admin/students", description: "View and manage students" },
+    { label: "Students", href: "/admin/students/programmes", description: "Programme student areas" },
     {
       label: "Manage Classes",
       href: "/admin/classes",

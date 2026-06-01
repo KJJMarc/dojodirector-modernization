@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminBackLink } from "@/components/admin/admin-back-link";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { notFound } from "next/navigation";
 import { ChangeBeltForm } from "@/components/admin/change-belt-form";
 import { AppHeader } from "@/components/layout/app-header";
 import { formatProfileDate } from "@/lib/admin-student-profile.shared";
 import { getAdminChangeBeltPageData } from "@/lib/admin-change-belt.server";
+import { loadStudentBjjFeatureVisibility } from "@/lib/admin-programmes.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -29,6 +32,12 @@ export default async function ClubChangeBeltPage({
   params,
 }: ClubChangeBeltPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
+  const bjjFeatures = await loadStudentBjjFeatureVisibility(club.id, params.userId);
+
+  if (!bjjFeatures.gradingSystemEnabled || !bjjFeatures.hasProgrammeAccess) {
+    notFound();
+  }
+
   let pageData;
 
   try {
@@ -45,14 +54,12 @@ export default async function ClubChangeBeltPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Change Belt Level" clubName={club.name} />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={clubAdminPath(club.slug, "students")}
-          className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-        >
-          ← Back to Students
+      <AdminNavLinks>
+        <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "students")} className={adminNavLinkClassName}>
+          ← Back to BJJ Students
         </Link>
-      </div>
+      </AdminNavLinks>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
