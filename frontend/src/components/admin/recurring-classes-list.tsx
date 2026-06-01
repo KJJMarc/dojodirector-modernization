@@ -1,11 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
-import {
-  deactivateRecurringClassAction,
-  reactivateRecurringClassAction,
-} from "@/app/admin/[clubSlug]/classes/recurring-schedule-actions";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   formatDayOfWeekLabel,
@@ -13,11 +8,7 @@ import {
   formatScheduleTimeLabel,
   type RecurringClassScheduleRow,
 } from "@/lib/admin-recurring-classes.shared";
-import {
-  RECURRING_ACTION_LINK_CLASS,
-  RECURRING_DESTRUCTIVE_BUTTON_CLASS,
-  RECURRING_REACTIVATE_BUTTON_CLASS,
-} from "@/components/admin/recurring-class-action-styles";
+import { RECURRING_ACTION_LINK_CLASS } from "@/components/admin/recurring-class-action-styles";
 
 interface RecurringClassesListProps {
   clubSlug: string;
@@ -38,67 +29,21 @@ function ScheduleStatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-function ScheduleActions({
+function EditScheduleButton({
   clubSlug,
   schedule,
 }: {
   clubSlug: string;
   schedule: RecurringClassScheduleRow;
 }) {
-  const [isPending, startTransition] = useTransition();
-
-  const submitAction = (action: (formData: FormData) => Promise<void>) => {
-    const formData = new FormData();
-    formData.set("clubSlug", clubSlug);
-    formData.set("scheduleId", schedule.id);
-
-    startTransition(async () => {
-      await action(formData);
-    });
-  };
-
-  if (!schedule.isActive) {
-    return (
-      <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center">
-        <Link
-          href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/bookings`)}
-          className={RECURRING_ACTION_LINK_CLASS}
-        >
-          Manage Bookings
-        </Link>
-
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => submitAction(reactivateRecurringClassAction)}
-          aria-label={`Reactivate ${schedule.className} on ${formatDayOfWeekLabel(schedule.dayOfWeek)}`}
-          className={RECURRING_REACTIVATE_BUTTON_CLASS}
-        >
-          {isPending ? "Working…" : "Reactivate"}
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center">
-      <Link
-        href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/bookings`)}
-        className={RECURRING_ACTION_LINK_CLASS}
-      >
-        Manage Bookings
-      </Link>
-
-      <button
-        type="button"
-        disabled={isPending}
-        onClick={() => submitAction(deactivateRecurringClassAction)}
-        aria-label={`Deactivate ${schedule.className} on ${formatDayOfWeekLabel(schedule.dayOfWeek)}`}
-        className={RECURRING_DESTRUCTIVE_BUTTON_CLASS}
-      >
-        {isPending ? "Working…" : "Deactivate"}
-      </button>
-    </div>
+    <Link
+      href={clubAdminPath(clubSlug, `classes/recurring/${schedule.id}/edit`)}
+      className={RECURRING_ACTION_LINK_CLASS}
+      aria-label={`Edit ${schedule.className}`}
+    >
+      Edit
+    </Link>
   );
 }
 
@@ -158,7 +103,7 @@ export function RecurringClassesList({
                   <ScheduleStatusBadge isActive={schedule.isActive} />
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 align-middle">
-                  <ScheduleActions clubSlug={clubSlug} schedule={schedule} />
+                  <EditScheduleButton clubSlug={clubSlug} schedule={schedule} />
                 </td>
               </tr>
             ))}
@@ -204,7 +149,7 @@ export function RecurringClassesList({
                 <dd className="mt-0.5 text-dojo-white">{schedule.location}</dd>
               </div>
             </dl>
-            <ScheduleActions clubSlug={clubSlug} schedule={schedule} />
+            <EditScheduleButton clubSlug={clubSlug} schedule={schedule} />
           </article>
         ))}
       </div>

@@ -6,6 +6,9 @@ export const RECURRING_ACTION_LINK_CLASS = RECURRING_ACTION_BUTTON_CLASS;
 export const RECURRING_DESTRUCTIVE_BUTTON_CLASS =
   "inline-flex h-9 w-[8.75rem] shrink-0 items-center justify-center rounded-md border border-amber-600/60 bg-amber-500/15 px-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60";
 
+export const RECURRING_HARD_DELETE_BUTTON_CLASS =
+  "inline-flex h-9 w-[8.75rem] shrink-0 items-center justify-center rounded-md bg-dojo-red px-2 text-xs font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60";
+
 export const RECURRING_REACTIVATE_BUTTON_CLASS =
   "inline-flex h-9 w-[8.75rem] shrink-0 items-center justify-center rounded-md border border-green-600/60 bg-green-500/15 px-2 text-xs font-semibold text-green-300 transition hover:bg-green-500/25 disabled:cursor-not-allowed disabled:opacity-60";
 

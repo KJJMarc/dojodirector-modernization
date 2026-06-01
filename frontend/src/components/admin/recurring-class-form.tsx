@@ -4,11 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createRecurringClassAction } from "@/app/admin/[clubSlug]/classes/actions";
+import { updateRecurringClassAction } from "@/app/admin/[clubSlug]/classes/recurring-schedule-actions";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { PROGRAMME_TYPES, formatProgrammeTypeLabel } from "@/lib/admin-programme-types";
-import { DAY_OF_WEEK_OPTIONS } from "@/lib/admin-recurring-classes.shared";
+import {
+  DAY_OF_WEEK_OPTIONS,
+  type RecurringClassScheduleRow,
+} from "@/lib/admin-recurring-classes.shared";
 
-export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
+interface RecurringClassFormProps {
+  clubSlug: string;
+  schedule?: RecurringClassScheduleRow;
+  instructorLabel?: string | null;
+}
+
+export function RecurringClassForm({
+  clubSlug,
+  schedule,
+  instructorLabel,
+}: RecurringClassFormProps) {
+  const isEdit = Boolean(schedule);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -20,16 +35,27 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
     const formData = new FormData(event.currentTarget);
     formData.set("clubSlug", clubSlug);
 
+    if (schedule) {
+      formData.set("scheduleId", schedule.id);
+    }
+
     startTransition(async () => {
       try {
-        await createRecurringClassAction(formData);
-        router.push(clubAdminPath(clubSlug, "classes"));
+        if (schedule) {
+          await updateRecurringClassAction(formData);
+        } else {
+          await createRecurringClassAction(formData);
+        }
+
+        router.push(clubAdminPath(clubSlug, "classes/edit"));
         router.refresh();
       } catch (error) {
         setErrorMessage(
           error instanceof Error
             ? error.message
-            : "Unable to create recurring class.",
+            : isEdit
+              ? "Unable to update recurring class."
+              : "Unable to create recurring class.",
         );
       }
     });
@@ -46,6 +72,10 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
         </p>
       ) : null}
 
+      {schedule ? (
+        <input type="hidden" name="scheduleId" value={schedule.id} />
+      ) : null}
+
       <div>
         <label htmlFor="className" className="text-sm font-medium text-dojo-white">
           Class name
@@ -55,6 +85,7 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
           name="className"
           type="text"
           required
+          defaultValue={schedule?.className}
           className={fieldClassName}
           placeholder="All-Levels Jiu Jitsu"
         />
@@ -71,7 +102,7 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
           id="programmeType"
           name="programmeType"
           required
-          defaultValue="bjj"
+          defaultValue={schedule?.programmeType ?? "bjj"}
           className={fieldClassName}
         >
           {PROGRAMME_TYPES.map((programmeType) => (
@@ -91,7 +122,7 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
             id="dayOfWeek"
             name="dayOfWeek"
             required
-            defaultValue="1"
+            defaultValue={schedule?.dayOfWeek ?? 1}
             className={fieldClassName}
           >
             {DAY_OF_WEEK_OPTIONS.map((option) => (
@@ -113,7 +144,7 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
             min={1}
             step={1}
             required
-            defaultValue={30}
+            defaultValue={schedule?.capacity ?? 30}
             className={fieldClassName}
           />
         </div>
@@ -129,6 +160,7 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
             name="startTime"
             type="time"
             required
+            defaultValue={schedule?.startTime}
             className={fieldClassName}
           />
         </div>
@@ -142,6 +174,7 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
             name="endTime"
             type="time"
             required
+            defaultValue={schedule?.endTime}
             className={fieldClassName}
           />
         </div>
@@ -156,19 +189,35 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
           name="location"
           type="text"
           required
+          defaultValue={schedule?.location}
           className={fieldClassName}
           placeholder="Tiffin Sports Centre"
         />
+      </div>
+
+      <div className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-2.5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+          Instructor
+        </p>
+        <p className="mt-1 text-sm text-dojo-white">
+          {instructorLabel ?? "Unassigned"}
+        </p>
+        <Link
+          href={clubAdminPath(clubSlug, "instructors/classes")}
+          className="mt-2 inline-block text-xs font-semibold text-dojo-muted transition hover:text-dojo-red"
+        >
+          Assign or change instructor
+        </Link>
       </div>
 
       <label className="flex items-center gap-2 text-sm text-dojo-white">
         <input
           type="checkbox"
           name="isActive"
-          defaultChecked
+          defaultChecked={schedule?.isActive ?? true}
           className="h-4 w-4 rounded border-dojo-border bg-dojo-black text-dojo-red focus:ring-dojo-red"
         />
-        Active by default
+        {isEdit ? "Active (generates future sessions)" : "Active by default"}
       </label>
 
       <div className="flex flex-wrap gap-3 pt-2">
@@ -177,10 +226,16 @@ export function RecurringClassForm({ clubSlug }: { clubSlug: string }) {
           disabled={isPending}
           className="min-h-[40px] rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "Creating…" : "Create recurring class"}
+          {isPending
+            ? isEdit
+              ? "Saving…"
+              : "Creating…"
+            : isEdit
+              ? "Save changes"
+              : "Create recurring class"}
         </button>
         <Link
-          href={clubAdminPath(clubSlug, "classes")}
+          href={clubAdminPath(clubSlug, "classes/edit")}
           className="inline-flex min-h-[40px] items-center rounded-md border border-dojo-border px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-elevated"
         >
           Cancel

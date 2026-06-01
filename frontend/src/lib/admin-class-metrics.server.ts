@@ -1,0 +1,668 @@
+import "server-only";
+
+import { getStudentFullName } from "@/lib/attendance";
+import type { AdminClassMetricsPageData } from "@/lib/admin-class-metrics.shared";
+import type {
+  ClassPopularityRow,
+  ClassTrendRow,
+  DayTimePopularityRow,
+  InstructorMetricRow,
+  NoShowStudentRow,
+} from "@/lib/admin-class-metrics.shared";
+import {
+  formatDayOfWeekLabel,
+  formatScheduleTimeLabel,
+} from "@/lib/admin-recurring-classes.shared";
+import { formatBookingTime, formatSessionLocation } from "@/lib/booking";
+import {
+  formatScheduleDayLabel,
+  resolveSessionLocationFromRow,
+  resolveSessionSlotTimeFromRow,
+} from "@/lib/class-session-schedule";
+import { loadInstructorNameBySessionId } from "@/lib/student-portal-booking.server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+interface InstructorAssignmentRow {
+  instructor_user_id: string;
+  recurring_schedule_id: string | null;
+  class_session_id: string | null;
+}
+
+async function loadInstructorUserIdBySessionId(clubId: string, sessionIds: string[]) {
+  const instructorUserIdBySessionId = new Map<string, string>();
+
+  if (sessionIds.length === 0) {
+    return instructorUserIdBySessionId;
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  const [sessionsResult, assignmentsResult] = await Promise.all([
+    supabase
+      .from("class_sessions")
+      .select("id, recurring_schedule_id")
+      .in("id", sessionIds),
+    supabase
+      .from("instructor_assignments")
+      .select("instructor_user_id, recurring_schedule_id, class_session_id")
+      .eq("club_id", clubId)
+      .eq("is_active", true),
+  ]);
+
+  if (sessionsResult.error || assignmentsResult.error) {
+    return instructorUserIdBySessionId;
+  }
+
+  const sessionAssignmentBySessionId = new Map<string, string>();
+  const recurringAssignmentByScheduleId = new Map<string, string>();
+
+  for (const assignment of (assignmentsResult.data ??
+    []) as InstructorAssignmentRow[]) {
+    if (assignment.class_session_id) {
+      sessionAssignmentBySessionId.set(
+        assignment.class_session_id,
+        assignment.instructor_user_id,
+      );
+      continue;
+    }
+
+    if (assignment.recurring_schedule_id) {
+      recurringAssignmentByScheduleId.set(
+        assignment.recurring_schedule_id,
+        assignment.instructor_user_id,
+      );
+    }
+  }
+
+  for (const session of sessionsResult.data ?? []) {
+    const sessionOverrideId = sessionAssignmentBySessionId.get(session.id);
+    const instructorUserId =
+      sessionOverrideId ??
+      (session.recurring_schedule_id
+        ? recurringAssignmentByScheduleId.get(session.recurring_schedule_id)
+        : undefined);
+
+    if (instructorUserId) {
+      instructorUserIdBySessionId.set(session.id, instructorUserId);
+    }
+  }
+
+  return instructorUserIdBySessionId;
+}
+
+const METRICS_LOOKBACK_DAYS = 90;
+const RECENT_NO_SHOW_DAYS = 30;
+
+const BOOKING_STATUSES = new Set(["booked", "walk_in", "waitlisted"]);
+
+interface MetricsSessionRow {
+  id: string;
+  class_id: string;
+  starts_at: string;
+  ends_at: string | null;
+  capacity: number | null;
+  recurring_schedule_id: string | null;
+  status: string | null;
+  source: string | null;
+  external_id: string | null;
+}
+
+interface MetricsAttendeeRow {
+  id: string;
+  class_session_id: string;
+  user_id: string;
+  booking_status: string | null;
+  attendance_status: string | null;
+}
+
+interface ClassNameRow {
+  id: string;
+  name: string;
+}
+
+interface RecurringScheduleRow {
+  id: string;
+  class_id: string;
+  day_of_week: number;
+  start_time: string;
+  location: string | null;
+}
+
+interface UserRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+}
+
+interface ClassSlotAggregate {
+  classId: string;
+  className: string;
+  scheduleKey: string;
+  scheduleLabel: string;
+  dayLabel: string;
+  timeLabel: string;
+  locationLabel: string;
+  instructorLabels: Map<string, number>;
+  totalBookings: number;
+  attendanceCount: number;
+  totalCapacity: number;
+  capacityKnownSessions: number;
+  sessionCount: number;
+  noShowCount: number;
+}
+
+function getMetricsDateRange() {
+  const now = new Date();
+  const end = new Date(now);
+  end.setUTCDate(end.getUTCDate() + 14);
+
+  const start = new Date(now);
+  start.setUTCDate(start.getUTCDate() - METRICS_LOOKBACK_DAYS);
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    nowIso: now.toISOString(),
+    recentNoShowCutoffIso: new Date(
+      now.getTime() - RECENT_NO_SHOW_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+  };
+}
+
+function countsAsBooking(status: string | null) {
+  return status != null && BOOKING_STATUSES.has(status);
+}
+
+function isPresent(attendanceStatus: string | null) {
+  return attendanceStatus === "present";
+}
+
+function isNoShow(
+  bookingStatus: string | null,
+  attendanceStatus: string | null,
+  sessionStarted: boolean,
+) {
+  return (
+    sessionStarted &&
+    (bookingStatus === "booked" || bookingStatus === "walk_in") &&
+    !isPresent(attendanceStatus)
+  );
+}
+
+function formatUtilisationPercent(numerator: number, denominator: number) {
+  if (denominator <= 0) {
+    return null;
+  }
+
+  return Math.round((numerator / denominator) * 100);
+}
+
+function getSlotKey(session: MetricsSessionRow) {
+  return `${session.class_id}:${session.recurring_schedule_id ?? "adhoc"}`;
+}
+
+function pickTopInstructor(instructorCounts: Map<string, number>) {
+  let topName = "—";
+  let topCount = 0;
+
+  for (const [name, count] of Array.from(instructorCounts.entries())) {
+    if (count > topCount) {
+      topCount = count;
+      topName = name;
+    }
+  }
+
+  return topName;
+}
+
+function buildScheduleLabel(
+  className: string,
+  dayLabel: string,
+  timeLabel: string,
+) {
+  return `${className} · ${dayLabel} ${timeLabel}`;
+}
+
+export async function getAdminClassMetricsPageData(
+  clubId: string,
+): Promise<AdminClassMetricsPageData> {
+  const supabase = getSupabaseAdminClient();
+  const { startIso, endIso, nowIso, recentNoShowCutoffIso } = getMetricsDateRange();
+
+  const { data: sessionRows, error: sessionsError } = await supabase
+    .from("class_sessions")
+    .select(
+      "id, class_id, starts_at, ends_at, capacity, recurring_schedule_id, status, source, external_id",
+    )
+    .eq("club_id", clubId)
+    .gte("starts_at", startIso)
+    .lt("starts_at", endIso)
+    .neq("status", "cancelled");
+
+  if (sessionsError) {
+    throw new Error(`Unable to load class sessions: ${sessionsError.message}`);
+  }
+
+  const sessions = (sessionRows ?? []) as MetricsSessionRow[];
+
+  if (sessions.length === 0) {
+    return {
+      periodLabel: `Last ${METRICS_LOOKBACK_DAYS} days`,
+      totalNoShows: 0,
+      popularClasses: [],
+      instructorMetrics: [],
+      noShowStudents: [],
+      trends: {
+        mostAttended: [],
+        leastAttended: [],
+        poorUtilisation: [],
+        repeatedNoShows: [],
+        popularDayTimes: [],
+      },
+      hasSessionData: false,
+      trackedClassSlots: 0,
+    };
+  }
+
+  const sessionIds = sessions.map((session) => session.id);
+  const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
+  const scheduleIds = Array.from(
+    new Set(
+      sessions
+        .map((session) => session.recurring_schedule_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  const [
+    attendeesResult,
+    classesResult,
+    schedulesResult,
+    instructorNameBySessionId,
+    instructorUserIdBySessionId,
+  ] = await Promise.all([
+      supabase
+        .from("session_attendees")
+        .select("id, class_session_id, user_id, booking_status, attendance_status")
+        .in("class_session_id", sessionIds),
+      supabase.from("classes").select("id, name").in("id", classIds),
+      scheduleIds.length > 0
+        ? supabase
+            .from("recurring_class_schedules")
+            .select("id, class_id, day_of_week, start_time, location")
+            .in("id", scheduleIds)
+        : Promise.resolve({ data: [], error: null }),
+      loadInstructorNameBySessionId(clubId, sessionIds),
+      loadInstructorUserIdBySessionId(clubId, sessionIds),
+    ]);
+
+  if (attendeesResult.error) {
+    throw new Error(`Unable to load bookings: ${attendeesResult.error.message}`);
+  }
+
+  if (classesResult.error) {
+    throw new Error(`Unable to load classes: ${classesResult.error.message}`);
+  }
+
+  if (schedulesResult.error) {
+    throw new Error(
+      `Unable to load recurring schedules: ${schedulesResult.error.message}`,
+    );
+  }
+
+  const classNameById = new Map(
+    ((classesResult.data ?? []) as ClassNameRow[]).map((row) => [row.id, row.name]),
+  );
+  const scheduleById = new Map(
+    ((schedulesResult.data ?? []) as RecurringScheduleRow[]).map((row) => [
+      row.id,
+      row,
+    ]),
+  );
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+  const attendees = (attendeesResult.data ?? []) as MetricsAttendeeRow[];
+
+  const slotAggregates = new Map<string, ClassSlotAggregate>();
+  const instructorAggregates = new Map<
+    string,
+    {
+      instructorUserId: string;
+      instructorName: string;
+      totalBookings: number;
+      attendanceCount: number;
+      sessionIds: Set<string>;
+    }
+  >();
+  const noShowByUser = new Map<
+    string,
+    { total: number; recent: number; lastAt: string | null }
+  >();
+  const dayTimeAggregates = new Map<
+    string,
+    { dayLabel: string; timeLabel: string; bookings: number; attendance: number }
+  >();
+
+  let totalNoShows = 0;
+
+  for (const session of sessions) {
+    const className = classNameById.get(session.class_id) ?? "Unnamed class";
+    const schedule = session.recurring_schedule_id
+      ? scheduleById.get(session.recurring_schedule_id)
+      : null;
+    const slotKey = getSlotKey(session);
+    const dayLabel = schedule
+      ? formatDayOfWeekLabel(schedule.day_of_week)
+      : formatScheduleDayLabel(session.starts_at);
+    const timeLabel = schedule
+      ? formatScheduleTimeLabel(schedule.start_time)
+      : formatBookingTime(session.starts_at);
+    const locationLabel = formatSessionLocation(
+      schedule?.location ??
+        resolveSessionLocationFromRow(session) ??
+        null,
+    );
+    const instructorName =
+      instructorNameBySessionId.get(session.id) ?? "Unassigned";
+    const scheduleLabel = buildScheduleLabel(className, dayLabel, timeLabel);
+    const sessionStarted = session.starts_at < nowIso;
+
+    if (!slotAggregates.has(slotKey)) {
+      slotAggregates.set(slotKey, {
+        classId: session.class_id,
+        className,
+        scheduleKey: slotKey,
+        scheduleLabel,
+        dayLabel,
+        timeLabel,
+        locationLabel,
+        instructorLabels: new Map(),
+        totalBookings: 0,
+        attendanceCount: 0,
+        totalCapacity: 0,
+        capacityKnownSessions: 0,
+        sessionCount: 0,
+        noShowCount: 0,
+      });
+    }
+
+    const slot = slotAggregates.get(slotKey)!;
+    slot.sessionCount += 1;
+
+    if (session.capacity != null && session.capacity > 0) {
+      slot.totalCapacity += session.capacity;
+      slot.capacityKnownSessions += 1;
+    }
+
+    slot.instructorLabels.set(
+      instructorName,
+      (slot.instructorLabels.get(instructorName) ?? 0) + 1,
+    );
+
+    const dayTimeKey = `${dayLabel}|${timeLabel}`;
+    if (!dayTimeAggregates.has(dayTimeKey)) {
+      dayTimeAggregates.set(dayTimeKey, {
+        dayLabel,
+        timeLabel,
+        bookings: 0,
+        attendance: 0,
+      });
+    }
+  }
+
+  for (const attendee of attendees) {
+    const session = sessionById.get(attendee.class_session_id);
+
+    if (!session) {
+      continue;
+    }
+
+    const className = classNameById.get(session.class_id) ?? "Unnamed class";
+    const schedule = session.recurring_schedule_id
+      ? scheduleById.get(session.recurring_schedule_id)
+      : null;
+    const slotKey = getSlotKey(session);
+    const slot = slotAggregates.get(slotKey);
+
+    if (!slot) {
+      continue;
+    }
+
+    const sessionStarted = session.starts_at < nowIso;
+    const instructorUserId = instructorUserIdBySessionId.get(session.id);
+    const instructorName =
+      instructorNameBySessionId.get(session.id) ?? "Unassigned";
+    const dayLabel = schedule
+      ? formatDayOfWeekLabel(schedule.day_of_week)
+      : formatScheduleDayLabel(session.starts_at);
+    const timeLabel = schedule
+      ? formatScheduleTimeLabel(schedule.start_time)
+      : resolveSessionSlotTimeFromRow(session);
+    const dayTimeKey = `${dayLabel}|${timeLabel}`;
+    const dayTime = dayTimeAggregates.get(dayTimeKey);
+
+    if (countsAsBooking(attendee.booking_status)) {
+      slot.totalBookings += 1;
+
+      if (dayTime) {
+        dayTime.bookings += 1;
+      }
+
+      if (instructorUserId) {
+        const instructorEntry = instructorAggregates.get(instructorUserId) ?? {
+          instructorUserId,
+          instructorName,
+          totalBookings: 0,
+          attendanceCount: 0,
+          sessionIds: new Set<string>(),
+        };
+
+        instructorEntry.totalBookings += 1;
+        instructorEntry.sessionIds.add(session.id);
+        instructorAggregates.set(instructorUserId, instructorEntry);
+      }
+    }
+
+    if (isPresent(attendee.attendance_status)) {
+      slot.attendanceCount += 1;
+
+      if (dayTime) {
+        dayTime.attendance += 1;
+      }
+
+      if (instructorUserId) {
+        const instructorEntry = instructorAggregates.get(instructorUserId);
+
+        if (instructorEntry) {
+          instructorEntry.attendanceCount += 1;
+        }
+      }
+    }
+
+    if (isNoShow(attendee.booking_status, attendee.attendance_status, sessionStarted)) {
+      totalNoShows += 1;
+      slot.noShowCount += 1;
+
+      const existing = noShowByUser.get(attendee.user_id) ?? {
+        total: 0,
+        recent: 0,
+        lastAt: null,
+      };
+
+      existing.total += 1;
+
+      if (session.starts_at >= recentNoShowCutoffIso) {
+        existing.recent += 1;
+      }
+
+      if (!existing.lastAt || session.starts_at > existing.lastAt) {
+        existing.lastAt = session.starts_at;
+      }
+
+      noShowByUser.set(attendee.user_id, existing);
+    }
+  }
+
+  const popularClasses: ClassPopularityRow[] = Array.from(slotAggregates.values())
+    .sort((left, right) => right.totalBookings - left.totalBookings)
+    .slice(0, 12)
+    .map((slot, index) => ({
+      rank: index + 1,
+      classId: slot.classId,
+      className: slot.className,
+      scheduleLabel: slot.scheduleLabel,
+      dayLabel: slot.dayLabel,
+      timeLabel: slot.timeLabel,
+      locationLabel: slot.locationLabel,
+      instructorLabel: pickTopInstructor(slot.instructorLabels),
+      totalBookings: slot.totalBookings,
+      attendanceCount: slot.attendanceCount,
+      utilisationPercent: formatUtilisationPercent(
+        slot.totalBookings,
+        slot.totalCapacity,
+      ),
+      sessionCount: slot.sessionCount,
+    }));
+
+  const instructorMetrics: InstructorMetricRow[] = Array.from(
+    instructorAggregates.values(),
+  )
+    .sort((left, right) => right.totalBookings - left.totalBookings)
+    .map((row, index) => {
+      let instructorCapacity = 0;
+
+      for (const sessionId of Array.from(row.sessionIds)) {
+        const taughtSession = sessionById.get(sessionId);
+
+        if (taughtSession?.capacity != null && taughtSession.capacity > 0) {
+          instructorCapacity += taughtSession.capacity;
+        }
+      }
+
+      return {
+        rank: index + 1,
+        instructorUserId: row.instructorUserId,
+        instructorName: row.instructorName,
+        totalBookings: row.totalBookings,
+        attendanceCount: row.attendanceCount,
+        sessionsTaught: row.sessionIds.size,
+        averageAttendancePerSession:
+          row.sessionIds.size > 0
+            ? Math.round((row.attendanceCount / row.sessionIds.size) * 10) / 10
+            : null,
+        utilisationPercent: formatUtilisationPercent(
+          row.totalBookings,
+          instructorCapacity,
+        ),
+      };
+    });
+
+  const noShowUserIds = Array.from(noShowByUser.keys());
+
+  const userById = new Map<string, UserRow>();
+
+  if (noShowUserIds.length > 0) {
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email")
+      .in("id", noShowUserIds);
+
+    if (usersError) {
+      throw new Error(`Unable to load students: ${usersError.message}`);
+    }
+
+    for (const user of (users ?? []) as UserRow[]) {
+      userById.set(user.id, user);
+    }
+  }
+
+  const noShowStudents: NoShowStudentRow[] = Array.from(noShowByUser.entries())
+    .map(([userId, stats]) => {
+      const user = userById.get(userId);
+
+      return {
+        userId,
+        studentName: getStudentFullName(user?.first_name ?? null, user?.last_name ?? null),
+        email: user?.email ?? null,
+        totalNoShows: stats.total,
+        recentNoShows: stats.recent,
+        isRepeatOffender: stats.total >= 2,
+        lastNoShowDate: stats.lastAt,
+      };
+    })
+    .sort((left, right) => right.totalNoShows - left.totalNoShows);
+
+  const slotsByAttendance = Array.from(slotAggregates.values()).filter(
+    (slot) => slot.attendanceCount > 0,
+  );
+
+  const toTrendRow = (
+    slot: ClassSlotAggregate,
+    metricLabel: string,
+    valueLabel: string,
+  ): ClassTrendRow => ({
+    className: slot.className,
+    scheduleLabel: slot.scheduleLabel,
+    metricLabel,
+    valueLabel,
+  });
+
+  const mostAttended = [...slotsByAttendance]
+    .sort((left, right) => right.attendanceCount - left.attendanceCount)
+    .slice(0, 5)
+    .map((slot) =>
+      toTrendRow(slot, "Attendance", `${slot.attendanceCount} present`),
+    );
+
+  const leastAttended = [...slotsByAttendance]
+    .sort((left, right) => left.attendanceCount - right.attendanceCount)
+    .slice(0, 5)
+    .map((slot) =>
+      toTrendRow(slot, "Attendance", `${slot.attendanceCount} present`),
+    );
+
+  const poorUtilisation = Array.from(slotAggregates.values())
+    .filter((slot) => slot.totalCapacity > 0 && slot.totalBookings > 0)
+    .map((slot) => ({
+      slot,
+      utilisation: formatUtilisationPercent(slot.totalBookings, slot.totalCapacity) ?? 0,
+    }))
+    .sort((left, right) => left.utilisation - right.utilisation)
+    .slice(0, 5)
+    .map(({ slot, utilisation }) =>
+      toTrendRow(slot, "Utilisation", `${utilisation}% booked vs capacity`),
+    );
+
+  const repeatedNoShows = Array.from(slotAggregates.values())
+    .filter((slot) => slot.noShowCount >= 2)
+    .sort((left, right) => right.noShowCount - left.noShowCount)
+    .slice(0, 5)
+    .map((slot) => toTrendRow(slot, "No-shows", `${slot.noShowCount} no-shows`));
+
+  const popularDayTimes: DayTimePopularityRow[] = Array.from(dayTimeAggregates.values())
+    .sort((left, right) => right.bookings - left.bookings)
+    .slice(0, 8)
+    .map((row) => ({
+      dayLabel: row.dayLabel,
+      timeLabel: row.timeLabel,
+      totalBookings: row.bookings,
+      attendanceCount: row.attendance,
+    }));
+
+  return {
+    periodLabel: `Last ${METRICS_LOOKBACK_DAYS} days (plus 14 days ahead for bookings)`,
+    totalNoShows,
+    popularClasses,
+    instructorMetrics,
+    noShowStudents,
+    trends: {
+      mostAttended,
+      leastAttended,
+      poorUtilisation,
+      repeatedNoShows,
+      popularDayTimes,
+    },
+    hasSessionData: true,
+    trackedClassSlots: slotAggregates.size,
+  };
+}

@@ -2,9 +2,12 @@
 
 import {
   deactivateRecurringClassSchedule,
+  deleteRecurringClassSchedulePermanently,
   getRecurringClassScheduleById,
   reactivateRecurringClassSchedule,
+  updateRecurringClassSchedule,
 } from "@/lib/admin-recurring-classes.server";
+import { parseUpdateRecurringClassInput } from "@/lib/admin-recurring-classes.input";
 import { revalidateRecurringClassPaths } from "@/lib/admin-revalidate.server";
 import {
   adminBlockBookRecurringSchedule,
@@ -127,4 +130,28 @@ export async function cancelRecurringScheduleBookingsAction(
   revalidateRecurringClassPaths(clubSlug, scheduleId, userId);
 
   return result;
+}
+
+export async function updateRecurringClassAction(formData: FormData) {
+  const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
+  const input = parseUpdateRecurringClassInput(formData);
+
+  await requireScheduleForClub(input.scheduleId, club.id);
+  await updateRecurringClassSchedule(input, club.id);
+  revalidateRecurringClassPaths(clubSlug, input.scheduleId);
+}
+
+export async function deleteRecurringClassAction(formData: FormData) {
+  const clubSlug = parseClubSlugFromForm(formData);
+  const club = await requireClubBySlug(clubSlug);
+  const scheduleId = String(formData.get("scheduleId") ?? "");
+
+  if (!scheduleId) {
+    throw new Error("Missing recurring class id.");
+  }
+
+  await requireScheduleForClub(scheduleId, club.id);
+  await deleteRecurringClassSchedulePermanently(scheduleId, club.id);
+  revalidateRecurringClassPaths(clubSlug, scheduleId);
 }

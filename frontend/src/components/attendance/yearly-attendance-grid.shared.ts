@@ -35,7 +35,7 @@ export const attendanceGridScrollClassName =
 
 /** White frame hugs table width exactly (no stretch past day 31). */
 export const attendanceGridSurfaceClassName =
-  "attendance-card-grid block w-max overflow-hidden rounded-md border border-neutral-300 bg-white text-neutral-900 shadow-[0_1px_2px_rgba(15,23,42,0.06)] print:w-full print:max-w-none print:border-neutral-400 print:shadow-none";
+  "attendance-card-grid block w-max overflow-hidden rounded-md border border-neutral-300 bg-white text-black shadow-[0_1px_2px_rgba(15,23,42,0.06)] print:w-full print:max-w-none print:border-neutral-400 print:shadow-none";
 
 export const attendanceCardComposedInnerClassName =
   "flex w-max max-w-full min-w-0 flex-col gap-1.5";
@@ -58,19 +58,19 @@ export const studentPortalAttendanceMainClassName =
   "mx-auto min-h-screen w-full max-w-7xl space-y-6 overflow-x-hidden px-3 py-4 pb-20 sm:px-5";
 
 export const attendanceGridDayHeaderClassName =
-  "border-b border-neutral-300 border-r border-neutral-200 bg-neutral-50 px-0 py-1.5 text-center text-[11px] font-medium tabular-nums text-neutral-600 last:border-r-0 sm:py-2";
+  "border-b border-neutral-300 border-r border-neutral-200 bg-neutral-50 px-0 py-1.5 text-center text-[11px] font-medium tabular-nums text-black last:border-r-0 sm:py-2";
 
 export function attendanceGridColumnHeaderClassName(
   density: AttendanceGridDensity = "standard",
 ) {
-  return `sticky left-0 z-20 ${monthColumnSurface(density)} px-2 py-2 text-left text-xs font-semibold tracking-wide text-neutral-700 shadow-[2px_0_4px_-2px_rgba(15,23,42,0.08)] print:bg-neutral-200 print:shadow-none`;
+  return `sticky left-0 z-20 ${monthColumnSurface(density)} px-2 py-2 text-left text-xs font-semibold tracking-wide text-black shadow-[2px_0_4px_-2px_rgba(15,23,42,0.08)] print:bg-neutral-200 print:shadow-none`;
 }
 
 export function attendanceGridMonthLabelClassName(
   _monthIndex: number,
   density: AttendanceGridDensity = "standard",
 ) {
-  return `sticky left-0 z-10 ${monthColumnSurface(density)} px-2 py-1.5 text-left text-xs font-semibold text-neutral-700 shadow-[2px_0_4px_-2px_rgba(15,23,42,0.06)] print:bg-neutral-200 print:shadow-none`;
+  return `sticky left-0 z-10 ${monthColumnSurface(density)} px-2 py-1.5 text-left text-xs font-semibold text-black shadow-[2px_0_4px_-2px_rgba(15,23,42,0.06)] print:bg-neutral-200 print:shadow-none`;
 }
 
 export function attendanceGridMonthRowClassName(monthIndex: number) {
@@ -81,10 +81,10 @@ export const attendanceGridInvalidDayClassName =
   "cursor-not-allowed bg-neutral-200 bg-[repeating-linear-gradient(135deg,transparent_0,transparent_5px,rgba(163,163,163,0.14)_5px_6px)] text-transparent print:cursor-default print:bg-neutral-200 print:bg-none";
 
 export const attendanceLegendAttendedSwatchClassName =
-  "inline-flex h-5 w-5 items-center justify-center rounded-sm border border-[#c5d6cb] bg-[#eef4f0] text-[11px] font-semibold text-[#2f4f3a]";
+  "inline-flex h-5 w-5 items-center justify-center rounded-sm border border-[#c5d6cb] bg-[#eef4f0] text-[11px] font-semibold text-black";
 
 export const attendanceLegendGradingSwatchClassName =
-  "inline-flex h-5 w-5 items-center justify-center rounded-sm border border-[#e0d6c4] bg-[#f7f4ed] text-[11px] font-semibold text-[#5c4e32]";
+  "inline-flex h-5 w-5 items-center justify-center rounded-sm border border-[#e0d6c4] bg-[#f7f4ed] text-[11px] font-semibold text-black";
 
 export function attendanceGridDayCellClassName(
   cell: GridCell,
@@ -96,12 +96,12 @@ export function attendanceGridDayCellClassName(
   }
 
   if (cell === "G") {
-    return "bg-[#f7f4ed] font-semibold text-[#5c4e32] print:bg-[#f7f4ed]";
+    return "bg-[#f7f4ed] font-semibold text-black print:bg-[#f7f4ed]";
   }
 
   if (cell === "X") {
     return [
-      "bg-[#eef4f0] font-semibold text-[#2f4f3a]",
+      "bg-[#eef4f0] font-semibold text-black",
       options?.isInteractive
         ? "cursor-pointer hover:bg-[#e3ece6] print:cursor-auto print:hover:bg-[#eef4f0]"
         : "",
@@ -124,4 +124,4 @@ export const attendanceGridDayCellBaseClassName =
   "border-b border-r border-neutral-200 px-0 py-1 text-center align-middle last:border-r-0 sm:py-1.5";
 
 export const attendanceGridEditHintClassName =
-  "box-border w-full border-b border-neutral-200 bg-neutral-50 px-3 py-1.5 text-[11px] leading-snug text-neutral-500 print:hidden";
+  "box-border w-full border-b border-neutral-200 bg-neutral-50 px-3 py-1.5 text-[11px] leading-snug text-black print:hidden";

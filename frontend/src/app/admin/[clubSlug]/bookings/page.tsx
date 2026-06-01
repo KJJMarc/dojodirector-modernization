@@ -1,35 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ManageClassesHub } from "@/components/admin/manage-classes-hub";
+import { ManageBookingsHub } from "@/components/admin/manage-bookings-hub";
 import { AppHeader } from "@/components/layout/app-header";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
 
-interface ClubAdminClassesPageProps {
+interface ManageBookingsPageProps {
   params: { clubSlug: string };
 }
 
 export async function generateMetadata({
   params,
-}: ClubAdminClassesPageProps): Promise<Metadata> {
+}: ManageBookingsPageProps): Promise<Metadata> {
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Manage Classes`,
-    description: `Manage classes and bookings for ${club.name}.`,
+    title: `DojoDirector | ${club.name} Manage Bookings`,
+    description: `Manage attendance and bookings for ${club.name}.`,
   };
 }
 
-export default async function ClubAdminClassesPage({
-  params,
-}: ClubAdminClassesPageProps) {
+export default async function ManageBookingsPage({ params }: ManageBookingsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Manage Classes" clubName={club.name} />
+      <AppHeader pageTitle="Manage Bookings" clubName={club.name} />
 
       <Link
         href={clubAdminPath(club.slug)}
@@ -40,12 +38,12 @@ export default async function ClubAdminClassesPage({
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          CLASS MANAGEMENT
+          BOOKING TOOLS
         </h2>
         <p className="text-sm text-dojo-muted">
-          Update recurring class templates or manage upcoming session bookings.
+          Mark attendance, make block bookings, or cancel upcoming session bookings.
         </p>
-        <ManageClassesHub clubSlug={club.slug} />
+        <ManageBookingsHub clubSlug={club.slug} />
       </section>
     </main>
   );

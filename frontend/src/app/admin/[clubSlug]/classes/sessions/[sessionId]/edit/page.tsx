@@ -45,7 +45,7 @@ export default async function ClubEditClassSessionPage({
       <AppHeader pageTitle="Edit Session" clubName={club.name} />
 
       <Link
-        href={clubAdminPath(club.slug, "classes")}
+        href={clubAdminPath(club.slug, "classes/edit")}
         className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >
         ← Back to Manage Classes

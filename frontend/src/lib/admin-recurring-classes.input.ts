@@ -14,6 +14,10 @@ export interface CreateRecurringClassInput {
   isActive?: boolean;
 }
 
+export interface UpdateRecurringClassInput extends CreateRecurringClassInput {
+  scheduleId: string;
+}
+
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export function parseCreateRecurringClassInput(
@@ -65,5 +69,20 @@ export function parseCreateRecurringClassInput(
     capacity,
     location,
     isActive,
+  };
+}
+
+export function parseUpdateRecurringClassInput(
+  formData: FormData,
+): UpdateRecurringClassInput {
+  const scheduleId = String(formData.get("scheduleId") ?? "").trim();
+
+  if (!scheduleId) {
+    throw new Error("Missing recurring class id.");
+  }
+
+  return {
+    scheduleId,
+    ...parseCreateRecurringClassInput(formData),
   };
 }

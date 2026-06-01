@@ -39,6 +39,7 @@ export function revalidateClassManagementPaths(
 ) {
   revalidateUniquePaths([
     clubAdminPath(clubSlug, "classes"),
+    clubAdminPath(clubSlug, "classes/edit"),
     clubAdminPath(clubSlug, "classes/new"),
     clubAdminPath(clubSlug, "classes/new-event"),
     clubBookingPath(clubSlug),
@@ -59,11 +60,17 @@ export function revalidateRecurringClassPaths(
 ) {
   revalidateUniquePaths([
     clubAdminPath(clubSlug, "classes"),
+    clubAdminPath(clubSlug, "classes/edit"),
     clubBookingPath(clubSlug),
     "/book",
     "/attendance",
     scheduleId
       ? clubAdminPath(clubSlug, `classes/recurring/${scheduleId}/bookings`)
+      : "",
+    scheduleId ? clubAdminPath(clubSlug, `bookings/make/${scheduleId}`) : "",
+    scheduleId ? clubAdminPath(clubSlug, "bookings/make") : "",
+    scheduleId
+      ? clubAdminPath(clubSlug, `classes/recurring/${scheduleId}/edit`)
       : "",
     userId ? `/students/${userId}/attendance-card` : "",
   ].filter(Boolean));
@@ -83,6 +90,29 @@ export function revalidateSessionBookingPaths(
     `/attendance/${sessionId}`,
     userId ? `/students/${userId}/attendance-card` : "",
   ].filter(Boolean));
+}
+
+export function revalidateManageBookingsPaths(
+  clubSlug: string,
+  sessionId?: string,
+  userId?: string,
+) {
+  revalidateUniquePaths([
+    clubAdminPath(clubSlug),
+    clubAdminPath(clubSlug, "bookings"),
+    clubAdminPath(clubSlug, "bookings/make"),
+    clubAdminPath(clubSlug, "bookings/cancel"),
+    sessionId ? clubAdminPath(clubSlug, `bookings/cancel/${sessionId}`) : "",
+    sessionId ? `/attendance/${sessionId}` : "/attendance",
+    sessionId ? clubAdminPath(clubSlug, `classes/sessions/${sessionId}`) : "",
+    clubBookingPath(clubSlug),
+    "/book",
+    userId ? `/students/${userId}/attendance-card` : "",
+  ].filter(Boolean));
+
+  if (sessionId) {
+    revalidateSessionBookingPaths(clubSlug, sessionId, userId);
+  }
 }
 
 export function revalidateInstructorAdminPaths(clubSlug: string) {

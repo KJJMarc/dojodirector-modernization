@@ -1,12 +1,17 @@
 import "server-only";
 
+import { getStudentFullName } from "@/lib/attendance";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import {
   sortRecurringClassSchedules,
   type RecurringClassScheduleRow,
 } from "@/lib/admin-recurring-classes.shared";
-import type { CreateRecurringClassInput } from "@/lib/admin-recurring-classes.input";
+import type {
+  CreateRecurringClassInput,
+  UpdateRecurringClassInput,
+} from "@/lib/admin-recurring-classes.input";
+import type { RecurringClassDeleteStatus } from "@/lib/admin-recurring-classes.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type { RecurringClassScheduleRow, CreateRecurringClassInput };
@@ -96,6 +101,37 @@ export async function getRecurringClassSchedules(
   return sortRecurringClassSchedules(
     rows.map((row) => mapRecurringScheduleRow(row, classById)),
   );
+}
+
+export async function getRecurringClassInstructorLabel(
+  scheduleId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<string | null> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from("instructor_assignments")
+    .select("instructor_user_id")
+    .eq("club_id", clubId)
+    .eq("recurring_schedule_id", scheduleId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data?.instructor_user_id) {
+    return null;
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("first_name, last_name")
+    .eq("id", data.instructor_user_id)
+    .maybeSingle();
+
+  if (userError || !user) {
+    return null;
+  }
+
+  return getStudentFullName(user.first_name, user.last_name);
 }
 
 export async function getRecurringClassScheduleById(
@@ -248,5 +284,267 @@ export async function reactivateRecurringClassSchedule(scheduleId: string) {
 
   if (error) {
     throw new Error(`Unable to reactivate recurring class: ${error.message}`);
+  }
+}
+
+export async function getRecurringClassDeleteStatuses(
+  scheduleIds: string[],
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<Map<string, RecurringClassDeleteStatus>> {
+  const statuses = new Map<string, RecurringClassDeleteStatus>();
+
+  if (scheduleIds.length === 0) {
+    return statuses;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const nowIso = new Date().toISOString();
+
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("class_sessions")
+    .select("id, recurring_schedule_id, starts_at")
+    .eq("club_id", clubId)
+    .in("recurring_schedule_id", scheduleIds);
+
+  if (sessionsError) {
+    throw new Error(`Unable to load class sessions: ${sessionsError.message}`);
+  }
+
+  const sessionRows = sessions ?? [];
+  const sessionIds = sessionRows.map((row) => row.id as string);
+  const sessionsByScheduleId = new Map<string, typeof sessionRows>();
+
+  for (const row of sessionRows) {
+    const scheduleId = row.recurring_schedule_id as string | null;
+
+    if (!scheduleId) {
+      continue;
+    }
+
+    const list = sessionsByScheduleId.get(scheduleId) ?? [];
+    list.push(row);
+    sessionsByScheduleId.set(scheduleId, list);
+  }
+
+  const attendanceCountBySessionId = new Map<string, number>();
+
+  if (sessionIds.length > 0) {
+    const { data: attendanceRows, error: attendanceError } = await supabase
+      .from("attendance_records")
+      .select("class_session_id")
+      .in("class_session_id", sessionIds);
+
+    if (attendanceError) {
+      throw new Error(
+        `Unable to check attendance history: ${attendanceError.message}`,
+      );
+    }
+
+    for (const row of attendanceRows ?? []) {
+      const sessionId = row.class_session_id as string;
+      attendanceCountBySessionId.set(
+        sessionId,
+        (attendanceCountBySessionId.get(sessionId) ?? 0) + 1,
+      );
+    }
+  }
+
+  for (const scheduleId of scheduleIds) {
+    const scheduleSessions = sessionsByScheduleId.get(scheduleId) ?? [];
+    let attendanceRecordCount = 0;
+    let futureSessionCount = 0;
+
+    for (const session of scheduleSessions) {
+      attendanceRecordCount += attendanceCountBySessionId.get(session.id as string) ?? 0;
+
+      if ((session.starts_at as string) >= nowIso) {
+        futureSessionCount += 1;
+      }
+    }
+
+    if (attendanceRecordCount > 0) {
+      statuses.set(scheduleId, {
+        canDelete: false,
+        attendanceRecordCount,
+        futureSessionCount,
+        message:
+          "This recurring class has attendance history. Deactivate it instead of deleting so past records stay intact.",
+      });
+      continue;
+    }
+
+    statuses.set(scheduleId, {
+      canDelete: true,
+      attendanceRecordCount: 0,
+      futureSessionCount,
+      message:
+        "Permanent delete will remove this recurring template and future sessions/bookings. Past sessions are kept.",
+    });
+  }
+
+  return statuses;
+}
+
+export async function getRecurringClassDeleteStatus(
+  scheduleId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<RecurringClassDeleteStatus> {
+  const statuses = await getRecurringClassDeleteStatuses([scheduleId], clubId);
+  return (
+    statuses.get(scheduleId) ?? {
+      canDelete: true,
+      attendanceRecordCount: 0,
+      futureSessionCount: 0,
+      message:
+        "Permanent delete will remove this recurring template and future sessions/bookings.",
+    }
+  );
+}
+
+export async function deleteRecurringClassSchedulePermanently(
+  scheduleId: string,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
+  const deleteStatus = await getRecurringClassDeleteStatus(scheduleId, clubId);
+
+  if (!deleteStatus.canDelete) {
+    throw new Error(deleteStatus.message);
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const nowIso = new Date().toISOString();
+
+  const { data: futureSessions, error: futureSessionsError } = await supabase
+    .from("class_sessions")
+    .select("id")
+    .eq("club_id", clubId)
+    .eq("recurring_schedule_id", scheduleId)
+    .gte("starts_at", nowIso);
+
+  if (futureSessionsError) {
+    throw new Error(
+      `Unable to load future sessions: ${futureSessionsError.message}`,
+    );
+  }
+
+  const futureSessionIds = (futureSessions ?? []).map((row) => row.id as string);
+
+  if (futureSessionIds.length > 0) {
+    const { error: attendeesError } = await supabase
+      .from("session_attendees")
+      .delete()
+      .in("class_session_id", futureSessionIds);
+
+    if (attendeesError) {
+      throw new Error(
+        `Unable to remove future bookings: ${attendeesError.message}`,
+      );
+    }
+
+    const { error: deleteSessionsError } = await supabase
+      .from("class_sessions")
+      .delete()
+      .in("id", futureSessionIds);
+
+    if (deleteSessionsError) {
+      throw new Error(
+        `Unable to remove future sessions: ${deleteSessionsError.message}`,
+      );
+    }
+  }
+
+  const { error: deleteScheduleError } = await supabase
+    .from("recurring_class_schedules")
+    .delete()
+    .eq("id", scheduleId)
+    .eq("club_id", clubId);
+
+  if (deleteScheduleError) {
+    throw new Error(
+      `Unable to delete recurring class: ${deleteScheduleError.message}`,
+    );
+  }
+}
+
+export async function updateRecurringClassSchedule(
+  input: UpdateRecurringClassInput,
+  clubId: string = ACTIVE_CLUB_ID,
+) {
+  const supabase = getSupabaseAdminClient();
+  const existing = await getRecurringClassScheduleById(input.scheduleId, clubId);
+
+  if (!existing) {
+    throw new Error("Recurring class schedule not found.");
+  }
+
+  const classId = await findOrCreateClassTemplate(
+    clubId,
+    input.className,
+    input.programmeType,
+  );
+
+  const { error: classUpdateError } = await supabase
+    .from("classes")
+    .update({
+      name: input.className,
+      programme_type: input.programmeType,
+      is_active: input.isActive ?? true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", classId)
+    .eq("club_id", clubId);
+
+  if (classUpdateError) {
+    throw new Error(`Unable to update class template: ${classUpdateError.message}`);
+  }
+
+  const wasActive = existing.isActive;
+  const willBeActive = input.isActive ?? true;
+
+  const { error: scheduleUpdateError } = await supabase
+    .from("recurring_class_schedules")
+    .update({
+      class_id: classId,
+      day_of_week: input.dayOfWeek,
+      start_time: input.startTime,
+      end_time: input.endTime,
+      capacity: input.capacity,
+      location: input.location,
+      is_active: willBeActive,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.scheduleId)
+    .eq("club_id", clubId);
+
+  if (scheduleUpdateError) {
+    throw new Error(
+      `Unable to update recurring class: ${scheduleUpdateError.message}`,
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const { error: futureSessionUpdateError } = await supabase
+    .from("class_sessions")
+    .update({
+      class_id: classId,
+      capacity: input.capacity,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("recurring_schedule_id", input.scheduleId)
+    .eq("club_id", clubId)
+    .gte("starts_at", nowIso)
+    .eq("status", "scheduled");
+
+  if (futureSessionUpdateError) {
+    throw new Error(
+      `Unable to update future sessions: ${futureSessionUpdateError.message}`,
+    );
+  }
+
+  if (wasActive && !willBeActive) {
+    await deactivateRecurringClassSchedule(input.scheduleId);
+  } else if (!wasActive && willBeActive) {
+    await reactivateRecurringClassSchedule(input.scheduleId);
   }
 }

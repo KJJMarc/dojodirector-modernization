@@ -26,6 +26,13 @@ export interface RecurringClassScheduleRow {
   isActive: boolean;
 }
 
+export interface RecurringClassDeleteStatus {
+  canDelete: boolean;
+  attendanceRecordCount: number;
+  futureSessionCount: number;
+  message: string;
+}
+
 export function formatDayOfWeekLabel(dayOfWeek: number) {
   return (
     DAY_OF_WEEK_OPTIONS.find((option) => option.value === dayOfWeek)?.label ??

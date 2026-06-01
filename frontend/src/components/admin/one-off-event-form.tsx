@@ -25,7 +25,7 @@ export function OneOffEventForm({ clubSlug }: { clubSlug: string }) {
     startTransition(async () => {
       try {
         await createOneOffEventAction(formData);
-        router.push(clubAdminPath(clubSlug, "classes"));
+        router.push(clubAdminPath(clubSlug, "classes/edit"));
         router.refresh();
       } catch (error) {
         setErrorMessage(
@@ -170,7 +170,7 @@ export function OneOffEventForm({ clubSlug }: { clubSlug: string }) {
           {isPending ? "Creating…" : "Create one-off event"}
         </button>
         <Link
-          href={clubAdminPath(clubSlug, "classes")}
+          href={clubAdminPath(clubSlug, "classes/edit")}
           className="inline-flex min-h-[40px] items-center rounded-md border border-dojo-border px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-elevated"
         >
           Cancel

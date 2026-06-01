@@ -1,35 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ManageClassesHub } from "@/components/admin/manage-classes-hub";
+import { ClassMetricsView } from "@/components/admin/class-metrics-view";
 import { AppHeader } from "@/components/layout/app-header";
+import { getAdminClassMetricsPageData } from "@/lib/admin-class-metrics.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
 
-interface ClubAdminClassesPageProps {
+interface ClassDataPageProps {
   params: { clubSlug: string };
 }
 
 export async function generateMetadata({
   params,
-}: ClubAdminClassesPageProps): Promise<Metadata> {
+}: ClassDataPageProps): Promise<Metadata> {
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Manage Classes`,
-    description: `Manage classes and bookings for ${club.name}.`,
+    title: `DojoDirector | ${club.name} Class Data`,
+    description: `Class performance and attendance metrics for ${club.name}.`,
   };
 }
 
-export default async function ClubAdminClassesPage({
-  params,
-}: ClubAdminClassesPageProps) {
+export default async function ClassDataPage({ params }: ClassDataPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
+  const data = await getAdminClassMetricsPageData(club.id);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Manage Classes" clubName={club.name} />
+      <AppHeader pageTitle="Class Data" clubName={club.name} />
 
       <Link
         href={clubAdminPath(club.slug)}
@@ -38,15 +38,17 @@ export default async function ClubAdminClassesPage({
         ← Back to Admin Dashboard
       </Link>
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          CLASS MANAGEMENT
+          Class metrics
         </h2>
-        <p className="text-sm text-dojo-muted">
-          Update recurring class templates or manage upcoming session bookings.
+        <p className="max-w-3xl text-sm leading-relaxed text-dojo-muted">
+          Understand class popularity, instructor performance, no-shows, and
+          attendance trends from bookings and register data.
         </p>
-        <ManageClassesHub clubSlug={club.slug} />
       </section>
+
+      <ClassMetricsView clubSlug={club.slug} data={data} />
     </main>
   );
 }

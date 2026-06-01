@@ -4,11 +4,6 @@ import { clubAdminPath } from "@/lib/clubs.shared";
 function buildActions(clubSlug: string) {
   return [
     {
-      label: "Add Student",
-      href: clubAdminPath(clubSlug, "students/new"),
-      description: "Register a new student",
-    },
-    {
       label: "Students",
       href: clubAdminPath(clubSlug, "students"),
       description: "View and manage students",
@@ -34,9 +29,14 @@ function buildActions(clubSlug: string) {
       description: "Recurring classes, events and sessions",
     },
     {
-      label: "Attendance Register",
-      href: "/attendance",
-      description: "Mark today's attendance",
+      label: "Class Data",
+      href: clubAdminPath(clubSlug, "class-data"),
+      description: "Class performance and attendance metrics",
+    },
+    {
+      label: "Manage Bookings",
+      href: clubAdminPath(clubSlug, "bookings"),
+      description: "Attendance register and booking cancellations",
     },
     {
       label: "Guest Bookings",
