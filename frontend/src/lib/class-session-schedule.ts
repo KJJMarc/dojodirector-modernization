@@ -61,7 +61,7 @@ function hasExternalSessionSlotTime(externalId: string | null | undefined) {
     return false;
   }
 
-  return /^(?:kjj_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}/.test(
+  return /^(?:kjj_timetable|kids_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}/.test(
     externalId,
   );
 }
@@ -123,12 +123,13 @@ export function resolveSessionLocationFromRow(row: {
 }): string | null {
   if (
     (row.source === "kjj_timetable_seed" ||
+      row.source === "kids_timetable_seed" ||
       row.source === "admin_recurring" ||
       row.source === "admin_one_off") &&
     row.external_id
   ) {
     const match = row.external_id.match(
-      /^(?:kjj_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}(?::\d{2})?:(.+)$/,
+      /^(?:kjj_timetable|kids_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}(?::\d{2})?:(.+)$/,
     );
 
     if (match?.[1]) {
@@ -146,7 +147,7 @@ export function resolveSessionSlotTimeFromRow(row: {
 }): string {
   if (row.external_id) {
     const match = row.external_id.match(
-      /^(?:kjj_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:(\d{1,2}:\d{2})/,
+      /^(?:kjj_timetable|kids_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:(\d{1,2}:\d{2})/,
     );
 
     if (match?.[1]) {

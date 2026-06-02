@@ -5,6 +5,7 @@
 --   2. Kids programmes cloned (bjj, muay_thai)
 --   3. supabase/migrations/20260529120000_add_programme_type_to_classes.sql
 --   4. supabase/migrations/20260530120000_add_recurring_class_schedules.sql
+--   5. supabase/migrations/20260602150000_fix_london_recurring_session_generation.sql
 --
 -- Safe to re-run (idempotent):
 --   - Inserts classes only when missing for the Kids club (matched by name)
@@ -146,8 +147,8 @@ BEGIN
   SELECT
     class_row.id,
     kids_club_id,
-    (occurrence.slot_day + slot.start_time) AT TIME ZONE 'Europe/London',
-    (occurrence.slot_day + slot.end_time) AT TIME ZONE 'Europe/London',
+    public.london_wall_clock_to_timestamptz(occurrence.slot_day, slot.start_time),
+    public.london_wall_clock_to_timestamptz(occurrence.slot_day, slot.end_time),
     slot.capacity,
     'scheduled',
     'kids_timetable_seed',
@@ -180,7 +181,10 @@ BEGIN
     FROM public.class_sessions AS existing
     WHERE existing.club_id = kids_club_id
       AND existing.class_id = class_row.id
-      AND existing.starts_at = (occurrence.slot_day + slot.start_time) AT TIME ZONE 'Europe/London'
+      AND existing.starts_at = public.london_wall_clock_to_timestamptz(
+        occurrence.slot_day,
+        slot.start_time
+      )
   );
 
   UPDATE public.class_sessions AS session_row
