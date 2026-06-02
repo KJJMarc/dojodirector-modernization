@@ -5,15 +5,27 @@ import {
   formatAttendanceTimeRange,
 } from "@/lib/attendance-schedule";
 import { formatSessionLocation } from "@/lib/booking";
+import {
+  type AttendanceRegisterNavContext,
+  withAttendanceRegisterNavContext,
+} from "@/lib/attendance-register-navigation.shared";
 
 interface AttendanceSessionRowProps {
   session: AttendanceScheduleSession;
+  navContext?: AttendanceRegisterNavContext | null;
 }
 
-export function AttendanceSessionRow({ session }: AttendanceSessionRowProps) {
+export function AttendanceSessionRow({
+  session,
+  navContext = null,
+}: AttendanceSessionRowProps) {
+  const sessionHref = navContext
+    ? withAttendanceRegisterNavContext(`/attendance/${session.id}`, navContext)
+    : `/attendance/${session.id}`;
+
   return (
     <Link
-      href={`/attendance/${session.id}`}
+      href={sessionHref}
       className={`block rounded-xl border bg-dojo-surface p-3 transition active:scale-[0.99] ${
         session.isCancelled
           ? "border-dojo-red/40 opacity-75"

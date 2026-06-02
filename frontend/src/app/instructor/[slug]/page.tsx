@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { InstructorPortalHeader } from "@/components/instructor/instructor-portal-header";
+import { AppHeader } from "@/components/layout/app-header";
 import { InstructorQuickActions } from "@/components/instructor/instructor-quick-actions";
+import { InstructorPortalHomeLink } from "@/components/instructor-portal/instructor-portal-home-link";
+import { ACTIVE_CLUB_NAME } from "@/lib/branding";
 import { requireInstructorIdentityBySlug } from "@/lib/instructor-portal.server";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +29,10 @@ export default async function InstructorDashboardPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <InstructorPortalHeader slug={identity.slug} instructorName={identity.displayName} />
+      <AppHeader pageTitle="Instructor Portal" clubName={ACTIVE_CLUB_NAME} />
+
+      <InstructorPortalHomeLink />
+
       <InstructorQuickActions slug={identity.slug} />
     </main>
   );

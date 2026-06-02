@@ -13,6 +13,10 @@ import {
 import { getAttendanceSessionDetails } from "@/lib/attendance-session";
 import { formatBookingDate, formatSessionLocation } from "@/lib/booking";
 import { countAttendance } from "@/lib/attendance-ui";
+import {
+  attendanceRegisterPath,
+  parseAttendanceRegisterNavContext,
+} from "@/lib/attendance-register-navigation.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +24,12 @@ interface AttendanceSessionPageProps {
   params: {
     sessionId: string;
   };
+  searchParams: { from?: string | string[]; club?: string | string[] };
 }
 
 export default async function AttendanceSessionPage({
   params,
+  searchParams,
 }: AttendanceSessionPageProps) {
   const details = await getAttendanceSessionDetails(params.sessionId);
 
@@ -53,13 +59,14 @@ export default async function AttendanceSessionPage({
     isCancelled,
   };
   const counts = countAttendance(session.session_attendees);
+  const navContext = parseAttendanceRegisterNavContext(searchParams);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle={session.class_name} />
 
       <Link
-        href="/attendance"
+        href={attendanceRegisterPath(navContext)}
         className="inline-flex text-sm text-dojo-muted hover:text-dojo-red"
       >
         ← Back to Attendance Register

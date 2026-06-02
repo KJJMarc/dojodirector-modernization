@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminDashboardAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
 import { clubBookingPath, KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 
 /**
@@ -19,7 +20,7 @@ export function ClubAdminStubActions() {
     },
     {
       label: "Attendance Register",
-      href: "/attendance",
+      href: adminDashboardAttendanceRegisterPath(KINGSTON_CLUB_SLUG),
       description: "Mark today's attendance",
     },
     {

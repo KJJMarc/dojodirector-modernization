@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { manageBookingsAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 
 interface ManageBookingsHubProps {
@@ -11,7 +12,10 @@ const actionCardClassName =
 export function ManageBookingsHub({ clubSlug }: ManageBookingsHubProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <Link href="/attendance" className={actionCardClassName}>
+      <Link
+        href={manageBookingsAttendanceRegisterPath(clubSlug)}
+        className={actionCardClassName}
+      >
         <span className="text-base font-semibold text-dojo-white">
           Attendance Register
         </span>

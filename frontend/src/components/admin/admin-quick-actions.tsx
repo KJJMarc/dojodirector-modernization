@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ProgrammeManagementUnavailableNotice } from "@/components/admin/programme-management-unavailable-notice";
+import { clubAcademyPagesAdminPath } from "@/lib/admin-academy-pages.shared";
 import { clubBeltManagementAdminPath } from "@/lib/admin-belt-systems.shared";
 import {
   clubProgrammeStudentAreasPath,
   clubProgrammesAdminPath,
 } from "@/lib/admin-programmes.shared";
 import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
+import { adminDashboardAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 
 interface DashboardAction {
@@ -29,12 +31,8 @@ function buildDashboardSections(
         {
           label: "Programme Management",
           href: clubProgrammesAdminPath(clubSlug),
-          description: "Programme settings and feature toggles",
-        },
-        {
-          label: "Create New Programme",
-          href: clubProgrammesAdminPath(clubSlug, "new"),
-          description: "Add a new programme area for your club",
+          description:
+            "View, edit, activate and create programmes for your club",
         },
       ]
     : [];
@@ -50,12 +48,17 @@ function buildDashboardSections(
       href: clubAdminPath(clubSlug, "training-agreements"),
       description: "Manage agreement templates and versions",
     },
+    {
+      label: "Academy Pages",
+      href: clubAcademyPagesAdminPath(clubSlug),
+      description: "Manage and view public-facing academy pages",
+    },
   );
 
   return [
     {
-      title: "PROGRAMMES",
-      ariaLabel: "Programmes",
+      title: "ACADEMY MANAGEMENT",
+      ariaLabel: "Academy management",
       actions: programmeActions,
       showProgrammesUnavailableNotice: !programmesSchemaAvailable,
     },
@@ -94,6 +97,11 @@ function buildDashboardSections(
           label: "Manage Classes",
           href: clubAdminPath(clubSlug, "classes/edit"),
           description: "Recurring classes, events and sessions",
+        },
+        {
+          label: "Attendance Register",
+          href: adminDashboardAttendanceRegisterPath(clubSlug),
+          description: "Mark attendance for upcoming classes",
         },
         {
           label: "Class Data",

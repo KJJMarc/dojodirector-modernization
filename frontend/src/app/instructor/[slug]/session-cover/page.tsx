@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
-import { InstructorPortalHeader } from "@/components/instructor/instructor-portal-header";
+import { AppHeader } from "@/components/layout/app-header";
 import { InstructorSessionCoverList } from "@/components/instructor/instructor-session-cover-list";
+import { InstructorPortalBackLink } from "@/components/instructor-portal/instructor-portal-back-link";
+import { InstructorPortalHomeLink } from "@/components/instructor-portal/instructor-portal-home-link";
+import { ACTIVE_CLUB_NAME } from "@/lib/branding";
 import { getInstructorSessionCoverPageData } from "@/lib/instructor-portal.server";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +29,10 @@ export default async function InstructorSessionCoverPage({
   const pageData = await getInstructorSessionCoverPageData(params.slug);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-4 px-3 py-4 pb-20 sm:px-5">
-      <InstructorPortalHeader
-        slug={pageData.identity.slug}
-        instructorName={pageData.identity.displayName}
-        pageTitle="Session Cover"
-        showBackLink
-      />
+    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+      <AppHeader pageTitle="Session Cover" clubName={ACTIVE_CLUB_NAME} />
+
+      <InstructorPortalBackLink />
 
       <p className="text-sm text-dojo-muted">
         Upcoming class sessions for the next 8 weeks. Read-only view of who is
@@ -40,6 +40,8 @@ export default async function InstructorSessionCoverPage({
       </p>
 
       <InstructorSessionCoverList sessions={pageData.sessions} />
+
+      <InstructorPortalHomeLink />
     </main>
   );
 }

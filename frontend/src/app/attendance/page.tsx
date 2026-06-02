@@ -1,19 +1,28 @@
 import {
-  getAttendanceScheduleSessions,
   groupAttendanceSessionsByMonth,
 } from "@/lib/attendance-schedule";
+import { getAttendanceScheduleSessions } from "@/lib/attendance-schedule.server";
+import { AttendanceRegisterBackLink } from "@/components/attendance/attendance-register-back-link";
 import { AttendanceScheduleList } from "@/components/attendance/attendance-schedule-list";
 import { AppHeader } from "@/components/layout/app-header";
+import { parseAttendanceRegisterNavContext } from "@/lib/attendance-register-navigation.shared";
 
 export const dynamic = "force-dynamic";
 
-export default async function AttendancePage() {
+interface AttendancePageProps {
+  searchParams: { from?: string | string[]; club?: string | string[] };
+}
+
+export default async function AttendancePage({ searchParams }: AttendancePageProps) {
+  const navContext = parseAttendanceRegisterNavContext(searchParams);
   const sessions = await getAttendanceScheduleSessions();
   const monthGroups = groupAttendanceSessionsByMonth(sessions);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
+    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Attendance Register" />
+
+      {navContext ? <AttendanceRegisterBackLink context={navContext} /> : null}
 
       <p className="text-sm text-dojo-muted">
         Upcoming class sessions for the next 8 weeks. Tap a session to mark
@@ -31,6 +40,7 @@ export default async function AttendancePage() {
               key={monthGroup.monthKey}
               monthLabel={monthGroup.monthLabel}
               dateGroups={monthGroup.dateGroups}
+              navContext={navContext}
             />
           ))}
         </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { instructorPortalPath } from "@/lib/instructor-portal.shared";
+import { instructorPortalAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
 
 export interface InstructorQuickActionItem {
   label: string;
@@ -21,7 +22,7 @@ export function InstructorQuickActions({
   const actions: InstructorQuickActionItem[] = [
     {
       label: "Attendance Register",
-      href: "/attendance",
+      href: instructorPortalAttendanceRegisterPath(),
       description: "Mark attendance for today's classes.",
     },
     {

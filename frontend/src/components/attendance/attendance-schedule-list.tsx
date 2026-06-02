@@ -1,12 +1,15 @@
 import { AttendanceScheduleDateGroup } from "@/lib/attendance-schedule";
 import { AttendanceSessionRow } from "@/components/attendance/attendance-session-row";
+import type { AttendanceRegisterNavContext } from "@/lib/attendance-register-navigation.shared";
 
 interface AttendanceScheduleDateGroupSectionProps {
   group: AttendanceScheduleDateGroup;
+  navContext?: AttendanceRegisterNavContext | null;
 }
 
 function AttendanceScheduleDateGroupSection({
   group,
+  navContext = null,
 }: AttendanceScheduleDateGroupSectionProps) {
   return (
     <section className="space-y-2">
@@ -16,7 +19,11 @@ function AttendanceScheduleDateGroupSection({
       </div>
       <div className="space-y-2">
         {group.sessions.map((session) => (
-          <AttendanceSessionRow key={session.id} session={session} />
+          <AttendanceSessionRow
+            key={session.id}
+            session={session}
+            navContext={navContext}
+          />
         ))}
       </div>
     </section>
@@ -26,11 +33,13 @@ function AttendanceScheduleDateGroupSection({
 interface AttendanceScheduleListProps {
   monthLabel: string;
   dateGroups: AttendanceScheduleDateGroup[];
+  navContext?: AttendanceRegisterNavContext | null;
 }
 
 export function AttendanceScheduleList({
   monthLabel,
   dateGroups,
+  navContext = null,
 }: AttendanceScheduleListProps) {
   return (
     <section className="space-y-4">
@@ -39,7 +48,11 @@ export function AttendanceScheduleList({
       </h2>
       <div className="space-y-5">
         {dateGroups.map((group) => (
-          <AttendanceScheduleDateGroupSection key={group.dateKey} group={group} />
+          <AttendanceScheduleDateGroupSection
+            key={group.dateKey}
+            group={group}
+            navContext={navContext}
+          />
         ))}
       </div>
     </section>
