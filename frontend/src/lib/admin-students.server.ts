@@ -15,6 +15,7 @@ import {
 import {
   loadActiveStudentMembershipRows,
   loadAdminStudentProfileRowsByIds,
+  loadClubMembershipRows,
   type AdminStudentProfileRow,
   type ClubMembershipRow,
 } from "@/lib/admin-club-memberships.server";
@@ -23,6 +24,7 @@ import {
   requireClubBjjProgramme,
   resolveProgrammeStudentAreaMemberUserIds,
 } from "@/lib/admin-programmes.server";
+import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface GradeAwardRow {
@@ -80,22 +82,25 @@ async function loadScopedClubStudentRows(
   clubId: string,
   programme?: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
 ): Promise<ScopedClubStudentRows | null> {
-  const membershipRows = await loadActiveStudentMembershipRows(clubId);
-
-  if (membershipRows.length === 0) {
-    return null;
-  }
-
-  let scopedMembershipRows = membershipRows;
+  let scopedMembershipRows: ClubMembershipRow[];
 
   if (programme) {
     const programmeUserIds = new Set(
       await resolveProgrammeStudentAreaMemberUserIds(clubId, programme),
     );
 
-    scopedMembershipRows = membershipRows.filter((membership) =>
-      programmeUserIds.has(membership.user_id),
+    if (programmeUserIds.size === 0) {
+      return null;
+    }
+
+    const membershipRows = await loadClubMembershipRows(clubId);
+    scopedMembershipRows = membershipRows.filter(
+      (membership) =>
+        programmeUserIds.has(membership.user_id) &&
+        isActiveMembershipStatus(membership.status),
     );
+  } else {
+    scopedMembershipRows = await loadActiveStudentMembershipRows(clubId);
   }
 
   if (scopedMembershipRows.length === 0) {

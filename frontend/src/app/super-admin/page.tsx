@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdminSignOutButton } from "@/components/admin/admin-sign-out-button";
 import { SuperAdminClubList } from "@/components/admin/super-admin-club-list";
 import { AppHeader } from "@/components/layout/app-header";
+import { requireSuperAdminAccess } from "@/lib/admin-auth.server";
+import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 import { listClubs } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +15,15 @@ export const metadata: Metadata = {
 };
 
 export default async function SuperAdminPage() {
+  await requireSuperAdminAccess();
   const clubs = await listClubs();
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+      <div className="flex justify-end">
+        <AdminSignOutButton clubSlug={KINGSTON_CLUB_SLUG} />
+      </div>
+
       <AppHeader pageTitle="Super Admin" clubName="Platform" />
 
       <p className="text-sm text-dojo-muted">

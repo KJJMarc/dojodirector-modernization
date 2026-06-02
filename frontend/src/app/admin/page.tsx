@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
-import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
+import {
+  resolveAcademyAdminLoginDestination,
+} from "@/lib/admin-auth.server";
+import { adminLoginPath } from "@/lib/admin-auth.shared";
+import { getSupabaseAuthSessionUser } from "@/lib/student-portal-auth.server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +14,17 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  const { club } = await requireAdminAccessForClubSlug(KINGSTON_CLUB_SLUG);
-  redirect(`/admin/${club.slug}`);
+  const authUser = await getSupabaseAuthSessionUser();
+
+  if (!authUser) {
+    redirect(adminLoginPath());
+  }
+
+  const destination = await resolveAcademyAdminLoginDestination(authUser.id);
+
+  if (destination) {
+    redirect(destination);
+  }
+
+  redirect(`${adminLoginPath()}?denied=1`);
 }

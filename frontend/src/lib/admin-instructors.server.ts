@@ -30,12 +30,13 @@ import type {
   InstructorAssignmentRow,
   InstructorAssignmentSource,
   InstructorClassAssignmentsPageData,
-  InstructorMembershipRole,
   InstructorSessionAllocationRow,
   InstructorSessionAssignmentsPageData,
   InstructorSessionMonthGroup,
+  AcademyInstructorListRole,
+  InstructorMembershipRole,
 } from "@/lib/admin-instructors.shared";
-import { INSTRUCTOR_MEMBERSHIP_ROLES } from "@/lib/admin-instructors.shared";
+import { ACADEMY_INSTRUCTOR_LIST_ROLES } from "@/lib/admin-instructors.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -93,7 +94,8 @@ export async function getAdminInstructors(
     .from("memberships")
     .select("user_id, role, status")
     .eq("club_id", clubId)
-    .in("role", [...INSTRUCTOR_MEMBERSHIP_ROLES]);
+    .eq("status", "active")
+    .in("role", [...ACADEMY_INSTRUCTOR_LIST_ROLES]);
 
   if (error) {
     throw new Error(`Failed to load instructors: ${error.message}`);
@@ -887,5 +889,5 @@ export async function adminDeactivateInstructorAssignment(
 }
 
 export function isInstructorRole(role: string): role is InstructorMembershipRole {
-  return INSTRUCTOR_MEMBERSHIP_ROLES.includes(role as InstructorMembershipRole);
+  return ACADEMY_INSTRUCTOR_LIST_ROLES.includes(role as AcademyInstructorListRole);
 }

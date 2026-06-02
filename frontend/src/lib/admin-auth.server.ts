@@ -5,10 +5,14 @@ import { getStudentFullName } from "@/lib/attendance";
 import {
   ADMIN_ACCESS_DENIED_MESSAGE,
   adminAccessPath,
+  adminAcademySelectPath,
+  adminLoginPath,
+  type AdminLoginIntent,
   isAdminLoginRole,
   isClubAdminMembershipRole,
   isSuperAdminMembershipRole,
   membershipGrantsAdminDashboardPanel,
+  superAdminLoginPath,
   SUPER_ADMIN_PATH,
 } from "@/lib/admin-auth.shared";
 import type { AdminDashboardAccessSummary } from "@/lib/admin-student-profile.shared";
@@ -374,9 +378,75 @@ async function resolveUserForAuthSession(authUser: {
   return user;
 }
 
+export function resolveAccessibleAcademyAdminMemberships(
+  memberships: AdminMembershipWithClub[],
+): AdminMembershipWithClub[] {
+  const byClubId = new Map<string, AdminMembershipWithClub>();
+
+  for (const membership of memberships) {
+    if (!isActiveAdminMembershipStatus(membership.status)) {
+      continue;
+    }
+
+    if (
+      !isClubAdminMembershipRole(membership.role) &&
+      !isSuperAdminMembershipRole(membership.role)
+    ) {
+      continue;
+    }
+
+    const existing = byClubId.get(membership.clubId);
+
+    if (!existing) {
+      byClubId.set(membership.clubId, membership);
+      continue;
+    }
+
+    if (
+      isClubAdminMembershipRole(membership.role) &&
+      isSuperAdminMembershipRole(existing.role)
+    ) {
+      byClubId.set(membership.clubId, membership);
+    }
+  }
+
+  return Array.from(byClubId.values()).sort((left, right) =>
+    left.clubName.localeCompare(right.clubName, "en", { sensitivity: "base" }),
+  );
+}
+
+export async function loadAccessibleAcademyAdminMembershipsForAuthUser(
+  authUserId: string,
+): Promise<AdminMembershipWithClub[]> {
+  const user = await loadUserByAuthUserId(authUserId);
+
+  if (!user) {
+    return [];
+  }
+
+  const memberships = await loadAdminMembershipsForUser(user.id);
+  return resolveAccessibleAcademyAdminMemberships(memberships);
+}
+
+export async function resolveAcademyAdminLoginDestination(
+  authUserId: string,
+): Promise<string | null> {
+  const academies = await loadAccessibleAcademyAdminMembershipsForAuthUser(authUserId);
+
+  if (academies.length === 0) {
+    return null;
+  }
+
+  if (academies.length === 1) {
+    return clubAdminPath(academies[0].clubSlug);
+  }
+
+  return adminAcademySelectPath();
+}
+
 export async function resolvePostAdminLoginRedirect(
   authUserId: string,
-  loginClubSlug: string,
+  options: { intent: AdminLoginIntent; clubSlug?: string },
 ): Promise<string | null> {
   const access = await resolveAdminAccessForAuthUser(authUserId);
 
@@ -384,28 +454,62 @@ export async function resolvePostAdminLoginRedirect(
     return null;
   }
 
-  if (access.isPlatformSuperAdmin) {
-    return SUPER_ADMIN_PATH;
-  }
-
-  const loginClub = await getClubBySlug(loginClubSlug);
-  const memberships = access.clubAdminMemberships;
-
-  if (loginClub) {
-    const atLoginClub = memberships.find(
-      (membership) => membership.clubId === loginClub.id,
-    );
-
-    if (atLoginClub) {
-      return clubAdminPath(atLoginClub.clubSlug);
+  if (options.intent === "super_admin") {
+    if (access.isPlatformSuperAdmin) {
+      return SUPER_ADMIN_PATH;
     }
+
+    return resolveAcademyAdminLoginDestination(authUserId);
   }
 
-  if (memberships.length === 1) {
-    return clubAdminPath(memberships[0].clubSlug);
+  if (options.intent === "legacy_club") {
+    const clubSlug = options.clubSlug?.trim();
+
+    if (clubSlug) {
+      const loginClub = await getClubBySlug(clubSlug);
+
+      if (loginClub) {
+        const canAccessLegacyClub =
+          access.isPlatformSuperAdmin ||
+          access.clubAdminMemberships.some(
+            (membership) =>
+              membership.clubId === loginClub.id &&
+              isClubAdminMembershipRole(membership.role) &&
+              isActiveAdminMembershipStatus(membership.status),
+          );
+
+        if (canAccessLegacyClub) {
+          return clubAdminPath(loginClub.slug);
+        }
+      }
+    }
+
+    return resolveAcademyAdminLoginDestination(authUserId);
   }
 
-  return null;
+  return resolveAcademyAdminLoginDestination(authUserId);
+}
+
+export async function requireAcademyAdminSelectionAccess(): Promise<
+  AdminMembershipWithClub[]
+> {
+  const authUser = await getSupabaseAuthSessionUser();
+
+  if (!authUser) {
+    redirect(adminLoginPath());
+  }
+
+  const academies = await loadAccessibleAcademyAdminMembershipsForAuthUser(authUser.id);
+
+  if (academies.length === 0) {
+    redirect(`${adminLoginPath()}?denied=1`);
+  }
+
+  if (academies.length === 1) {
+    redirect(clubAdminPath(academies[0].clubSlug));
+  }
+
+  return academies;
 }
 
 export async function resolveAdminSessionState(
@@ -529,7 +633,7 @@ export async function requireSuperAdminAccess() {
   const state = await resolveSuperAdminSessionState();
 
   if (state.status === "signed_out") {
-    redirect(adminAccessPath("kingston-jiu-jitsu"));
+    redirect(superAdminLoginPath());
   }
 
   if (state.status === "forbidden") {
@@ -543,7 +647,7 @@ export async function requireSuperAdminAccess() {
       }
     }
 
-    redirect(`${adminAccessPath("kingston-jiu-jitsu")}?denied=1`);
+    redirect(`${superAdminLoginPath()}?denied=1`);
   }
 
   return { session: state.session };
@@ -558,12 +662,15 @@ export async function signOutAdminAccess() {
   }
 }
 
-export async function signInAdminAccessAndRedirect(formData: FormData) {
+export async function signInAdminAccessAndRedirect(
+  formData: FormData,
+  intent: AdminLoginIntent = "legacy_club",
+) {
   const clubSlug = String(formData.get("clubSlug") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!clubSlug) {
+  if (intent === "legacy_club" && !clubSlug) {
     throw new Error("Club is required.");
   }
 
@@ -571,7 +678,10 @@ export async function signInAdminAccessAndRedirect(formData: FormData) {
     throw new Error("Enter your email and password.");
   }
 
-  await requireClubBySlug(clubSlug);
+  if (intent === "legacy_club") {
+    await requireClubBySlug(clubSlug);
+  }
+
   const supabase = await createSupabaseServerAuthClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -585,7 +695,21 @@ export async function signInAdminAccessAndRedirect(formData: FormData) {
 
   await linkAdminAuthUserAfterSignIn(data.user.id, email);
 
-  const destination = await resolvePostAdminLoginRedirect(data.user.id, clubSlug);
+  if (intent === "super_admin") {
+    const access = await resolveAdminAccessForAuthUser(data.user.id);
+
+    if (!access?.isPlatformSuperAdmin) {
+      await signOutAdminAccess();
+      throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
+    }
+
+    redirect(SUPER_ADMIN_PATH);
+  }
+
+  const destination = await resolvePostAdminLoginRedirect(data.user.id, {
+    intent,
+    clubSlug: clubSlug || undefined,
+  });
 
   if (!destination) {
     await signOutAdminAccess();

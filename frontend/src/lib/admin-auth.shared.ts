@@ -73,7 +73,24 @@ export function adminAccessPath(clubSlug: string) {
   return `/admin-access/${normalized}`;
 }
 
+export function adminLoginPath() {
+  return "/admin/login";
+}
+
+export function adminAcademySelectPath() {
+  return "/admin/select";
+}
+
+/** Platform super admin sign-in URL. */
+export function superAdminLoginPath() {
+  return "/super-admin/login";
+}
+
+export const SUPER_ADMIN_LOGIN_PATH = superAdminLoginPath();
+
 export const ADMIN_ACCESS_DENIED_MESSAGE =
   "You do not have permission to access the admin area.";
 
 export const SUPER_ADMIN_PATH = "/super-admin";
+
+export type AdminLoginIntent = "super_admin" | "academy_admin" | "legacy_club";

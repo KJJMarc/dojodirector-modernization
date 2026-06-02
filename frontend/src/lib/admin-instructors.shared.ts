@@ -1,8 +1,14 @@
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 
+/** Teaching staff shown in instructor selectors, lists, and assignment workflows. */
+export const ACADEMY_INSTRUCTOR_LIST_ROLES = ["instructor", "admin"] as const;
+
+export type AcademyInstructorListRole =
+  (typeof ACADEMY_INSTRUCTOR_LIST_ROLES)[number];
+
+/** Includes platform super_admin for portal access checks only — not instructor lists. */
 export const INSTRUCTOR_MEMBERSHIP_ROLES = [
-  "instructor",
-  "admin",
+  ...ACADEMY_INSTRUCTOR_LIST_ROLES,
   "super_admin",
 ] as const;
 
@@ -13,6 +19,12 @@ export const INSTRUCTOR_CREATE_ROLE_OPTIONS = [
   { value: "instructor", label: "Instructor" },
   { value: "admin", label: "Admin" },
 ] as const;
+
+export function isAcademyInstructorListRole(
+  role: string | null | undefined,
+): role is AcademyInstructorListRole {
+  return ACADEMY_INSTRUCTOR_LIST_ROLES.includes(role as AcademyInstructorListRole);
+}
 
 export function isInstructorMembershipRole(
   role: string | null | undefined,

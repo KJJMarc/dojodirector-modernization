@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { signInAdminAccessAction } from "@/app/admin-access/[clubSlug]/actions";
+import type { AdminLoginIntent } from "@/lib/admin-auth.shared";
 
 interface AdminAccessLoginFormProps {
-  clubSlug: string;
+  loginIntent: AdminLoginIntent;
+  clubSlug?: string;
+  onSubmit: (formData: FormData) => Promise<void>;
 }
 
-export function AdminAccessLoginForm({ clubSlug }: AdminAccessLoginFormProps) {
+export function AdminAccessLoginForm({
+  loginIntent,
+  clubSlug,
+  onSubmit,
+}: AdminAccessLoginFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -19,11 +25,15 @@ export function AdminAccessLoginForm({ clubSlug }: AdminAccessLoginFormProps) {
         setErrorMessage(null);
 
         const formData = new FormData(event.currentTarget);
-        formData.set("clubSlug", clubSlug);
+        formData.set("loginIntent", loginIntent);
+
+        if (clubSlug) {
+          formData.set("clubSlug", clubSlug);
+        }
 
         startTransition(async () => {
           try {
-            await signInAdminAccessAction(formData);
+            await onSubmit(formData);
           } catch (error) {
             setErrorMessage(
               error instanceof Error ? error.message : "Unable to sign in.",
@@ -32,7 +42,8 @@ export function AdminAccessLoginForm({ clubSlug }: AdminAccessLoginFormProps) {
         });
       }}
     >
-      <input type="hidden" name="clubSlug" value={clubSlug} />
+      <input type="hidden" name="loginIntent" value={loginIntent} />
+      {clubSlug ? <input type="hidden" name="clubSlug" value={clubSlug} /> : null}
 
       <div className="space-y-2">
         <label

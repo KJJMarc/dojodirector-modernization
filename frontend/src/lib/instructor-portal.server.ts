@@ -96,17 +96,12 @@ async function findMarcBartonInClub(clubId: string) {
 
 /**
  * TODO: Replace with the authenticated instructor session user once real login ships.
- * Until then, prefer an existing super_admin/instructor membership, then Marc Barton.
+ * Until then, prefer an existing instructor/admin membership, then Marc Barton.
  */
 export async function resolveTemporaryInstructorIdentity(
   clubId: string = ACTIVE_CLUB_ID,
 ): Promise<InstructorPortalIdentity> {
   const instructors = await getAdminInstructors(clubId);
-
-  const superAdmin = instructors.find((instructor) => instructor.role === "super_admin");
-  if (superAdmin) {
-    return toPortalIdentity(superAdmin);
-  }
 
   const staffInstructor = instructors.find(
     (instructor) => instructor.role === "instructor" || instructor.role === "admin",

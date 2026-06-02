@@ -21,12 +21,14 @@ import {
 import {
   countActiveStudentMemberships,
   countClubMemberships,
-  loadActiveStudentUserIds,
+  loadClubMembershipRows,
   loadClubMembershipBackfillRows,
   loadAdminStudentProfileRowsByIds,
 } from "@/lib/admin-club-memberships.server";
+import { isActiveStudentClubMembership } from "@/lib/admin-student-membership.shared";
 import type { BookingStudentOption } from "@/lib/admin-session-bookings.shared";
 import { getStudentFullName } from "@/lib/attendance";
+import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import type {
   AdminStudentProgrammeAccessSummary,
   AdminStudentProgrammeMembershipSummary,
@@ -229,38 +231,89 @@ async function loadActiveProgrammeMembershipUserIds(
   );
 }
 
+async function loadActiveProgrammeMemberUserIdsForClub(
+  clubId: string,
+): Promise<string[]> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data: programmes, error: programmesError } = await supabase
+    .from("programmes")
+    .select("id")
+    .eq("club_id", clubId);
+
+  if (programmesError) {
+    throw new Error(`Failed to load club programmes: ${programmesError.message}`);
+  }
+
+  const programmeIds = ((programmes ?? []) as { id: string }[]).map(
+    (programme) => programme.id,
+  );
+
+  if (programmeIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("programme_memberships")
+    .select("user_id")
+    .in("programme_id", programmeIds)
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error(`Failed to load club programme memberships: ${error.message}`);
+  }
+
+  return Array.from(
+    new Set(((data ?? []) as { user_id: string }[]).map((row) => row.user_id)),
+  );
+}
+
 /** Single source of truth for programme student area counts and member lists. */
 export async function resolveProgrammeStudentAreaMemberUserIds(
   clubId: string,
   programme: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
 ): Promise<string[]> {
-  const activeStudentIds = await loadActiveStudentUserIds(clubId);
+  const membershipRows = await loadClubMembershipRows(clubId);
+  const activeClubMemberIds = new Set(
+    membershipRows
+      .filter((membership) => isActiveMembershipStatus(membership.status))
+      .map((membership) => membership.user_id),
+  );
 
-  if (activeStudentIds.size === 0) {
+  if (activeClubMemberIds.size === 0) {
     return [];
   }
 
+  const studentRoleIds = membershipRows
+    .filter(isActiveStudentClubMembership)
+    .map((membership) => membership.user_id);
+
   if (programme.id === LEGACY_BJJ_PROGRAMME_ID) {
-    return Array.from(activeStudentIds);
+    const programmeMemberIds = await loadActiveProgrammeMemberUserIdsForClub(clubId);
+    const memberProfileIds = programmeMemberIds.filter((userId) =>
+      activeClubMemberIds.has(userId),
+    );
+
+    return Array.from(new Set([...studentRoleIds, ...memberProfileIds]));
   }
 
   const programmeMemberIds = await loadActiveProgrammeMembershipUserIds(programme.id);
-  const filteredMemberIds = programmeMemberIds.filter((userId) =>
-    activeStudentIds.has(userId),
+  const memberProfileIds = programmeMemberIds.filter((userId) =>
+    activeClubMemberIds.has(userId),
   );
 
   if (
-    filteredMemberIds.length === 0 &&
+    memberProfileIds.length === 0 &&
     (await shouldUseMembershipStudentCountFallback(
       clubId,
       programme,
       programmeMemberIds.length,
     ))
   ) {
-    return Array.from(activeStudentIds);
+    return studentRoleIds.filter((userId) => activeClubMemberIds.has(userId));
   }
 
-  return filteredMemberIds;
+  return memberProfileIds;
 }
 
 async function resolveProgrammeStudentCount(
@@ -994,7 +1047,11 @@ export async function loadProgrammeMembershipUserIds(
   }
 
   if (programmeId === LEGACY_BJJ_PROGRAMME_ID) {
-    return Array.from(await loadActiveStudentUserIds(clubId));
+    return resolveProgrammeStudentAreaMemberUserIds(clubId, {
+      id: LEGACY_BJJ_PROGRAMME_ID,
+      slug: BJJ_PROGRAMME_SLUG,
+      programmeType: "bjj",
+    });
   }
 
   const supabase = getSupabaseAdminClient();

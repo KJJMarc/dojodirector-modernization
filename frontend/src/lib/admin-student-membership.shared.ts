@@ -50,7 +50,7 @@ export function isStudentMembershipRole(role: string | null | undefined) {
   return role === "student";
 }
 
-/** Active club members who count toward programme student areas (excludes staff/admin roles). */
+/** Active club memberships with role student — used for student-role-specific rules. */
 export function isActiveStudentClubMembership(membership: {
   role: string | null | undefined;
   status: string | null | undefined;
