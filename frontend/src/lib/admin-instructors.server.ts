@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  isSessionEligibleForActiveBooking,
+  mapRecurringClassScheduleRowsForBookingEligibility,
+} from "@/lib/class-session-booking-eligibility.shared";
 import { getStudentFullName } from "@/lib/attendance";
 import { getRecurringClassSchedules } from "@/lib/admin-recurring-classes.server";
 import {
@@ -137,6 +141,7 @@ interface ClassMetaRow {
   id: string;
   name: string;
   programme_type: string;
+  is_active: boolean | null;
 }
 
 async function loadClassesById(classIds: string[]) {
@@ -147,7 +152,7 @@ async function loadClassesById(classIds: string[]) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("classes")
-    .select("id, name, programme_type")
+    .select("id, name, programme_type, is_active")
     .in("id", classIds);
 
   if (error) {
@@ -358,10 +363,12 @@ export async function getInstructorClassAssignmentsPageData(
 
   return {
     instructors,
-    schedules: schedules.map((schedule) => ({
-      id: schedule.id,
-      label: `${schedule.className} · ${formatDayOfWeekLabel(schedule.dayOfWeek)} ${formatScheduleTimeLabel(schedule.startTime)}`,
-    })),
+    schedules: schedules
+      .filter((schedule) => schedule.isActive)
+      .map((schedule) => ({
+        id: schedule.id,
+        label: `${schedule.className} · ${formatDayOfWeekLabel(schedule.dayOfWeek)} ${formatScheduleTimeLabel(schedule.startTime)}`,
+      })),
     assignments,
   };
 }
@@ -462,12 +469,21 @@ function resolveEffectiveRecurringScheduleId(
     return session.recurring_schedule_id;
   }
 
+  return resolveMatchingRecurringScheduleId(session, schedules, { activeOnly: true });
+}
+
+function resolveMatchingRecurringScheduleId(
+  session: UpcomingSessionRow,
+  schedules: RecurringClassScheduleRow[],
+  options: { activeOnly: boolean },
+): string | null {
   const dayOfWeek = getLondonDayOfWeek(session.starts_at);
   const startTime = normalizeScheduleTime(resolveSessionSlotTimeFromRow(session));
   const location = resolveSessionLocationFromRow(session)?.trim().toLowerCase() ?? null;
 
   const candidates = schedules.filter(
     (schedule) =>
+      schedule.isActive === options.activeOnly &&
       schedule.classId === session.class_id &&
       schedule.dayOfWeek === dayOfWeek &&
       normalizeScheduleTime(schedule.startTime) === startTime,
@@ -488,6 +504,18 @@ function resolveEffectiveRecurringScheduleId(
   }
 
   return candidates[0]?.id ?? null;
+}
+
+function isSessionEligibleForSessionCover(
+  session: UpcomingSessionRow,
+  classRow: ClassMetaRow | undefined,
+  schedules: RecurringClassScheduleRow[],
+) {
+  return isSessionEligibleForActiveBooking(
+    session,
+    classRow,
+    mapRecurringClassScheduleRowsForBookingEligibility(schedules),
+  );
 }
 
 async function buildInstructorLookupForAssignments(
@@ -653,7 +681,11 @@ function mapSessionAllocationRow(
       month: "short",
     }).format(new Date(session.starts_at)),
     dayLabel: formatScheduleDayLabel(session.starts_at),
-    timeLabel: formatScheduleTimeRange(session.starts_at, session.ends_at),
+    timeLabel: formatScheduleTimeRange(
+      session.starts_at,
+      session.ends_at,
+      session.external_id,
+    ),
     className: classRow?.name ?? "Unnamed class",
     programmeType,
     locationLabel: formatSessionLocation(location),
@@ -704,16 +736,24 @@ export async function getInstructorSessionAssignmentsPageData(
     assignments,
   );
 
-  const sessionRows = sessions.map((session) =>
-    mapSessionAllocationRow(
-      session,
-      classesById.get(session.class_id),
-      sessionAssignmentBySessionId,
-      recurringAssignmentByScheduleId,
-      instructorById,
-      schedules,
-    ),
-  );
+  const sessionRows = sessions
+    .filter((session) =>
+      isSessionEligibleForSessionCover(
+        session,
+        classesById.get(session.class_id),
+        schedules,
+      ),
+    )
+    .map((session) =>
+      mapSessionAllocationRow(
+        session,
+        classesById.get(session.class_id),
+        sessionAssignmentBySessionId,
+        recurringAssignmentByScheduleId,
+        instructorById,
+        schedules,
+      ),
+    );
 
   return {
     instructors,

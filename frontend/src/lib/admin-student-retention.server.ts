@@ -252,7 +252,8 @@ export async function loadAdminStudentRetentionRows(
     .from("memberships")
     .select("user_id, role, status, joined_at")
     .eq("club_id", clubId)
-    .eq("role", "student");
+    .eq("role", "student")
+    .eq("status", "active");
 
   if (membershipsError) {
     throw new Error(

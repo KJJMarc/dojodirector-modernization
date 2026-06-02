@@ -1,3 +1,6 @@
+import {
+  assertActiveMembershipForBooking as checkActiveMembershipForBooking,
+} from "@/lib/membership-access.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { StudentBookingDetails } from "@/lib/booking-form";
 
@@ -5,22 +8,17 @@ export type BookingEligibilityResult =
   | { allowed: true }
   | { allowed: false; reason: string };
 
-/**
- * MVP: any email may book. Unknown emails create a new users row.
- *
- * TODO: Require an active membership (memberships.status === "active") for the
- * session club before allowing booking.
- */
 export async function assertActiveMembershipForBooking(
   userId: string,
   clubId: string,
 ): Promise<BookingEligibilityResult> {
-  void userId;
-  void clubId;
+  const result = await checkActiveMembershipForBooking(userId, clubId);
 
-  // TODO: Query memberships for userId + clubId and return { allowed: false, reason: "..." }
-  // when no active membership exists.
-  return { allowed: true };
+  if (result.allowed) {
+    return { allowed: true };
+  }
+
+  return { allowed: false, reason: result.message };
 }
 
 export interface BookingStudentContext {

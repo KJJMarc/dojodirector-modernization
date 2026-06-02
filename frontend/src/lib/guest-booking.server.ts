@@ -6,6 +6,7 @@ import {
   formatBookingTime,
   formatSessionLocation,
 } from "@/lib/booking";
+import { assertSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { resolveGuestTrainingAgreementContent } from "@/lib/club-agreement-templates.server";
 import {
@@ -285,10 +286,6 @@ async function loadClassSessionForGuestBooking(classSessionId: string) {
     throw new Error("Class session not found.");
   }
 
-  if (data.status && data.status !== "scheduled") {
-    throw new Error("This class session is not available to book.");
-  }
-
   const { data: classRow, error: classError } = await supabase
     .from("classes")
     .select("name, club_id")
@@ -299,16 +296,18 @@ async function loadClassSessionForGuestBooking(classSessionId: string) {
     throw new Error(`Unable to load class: ${classError.message}`);
   }
 
-  const location = resolveSessionLocationFromRow({
-    source: data.source ?? null,
-    external_id: data.external_id ?? null,
-  });
-
   const clubId = data.club_id ?? classRow?.club_id ?? null;
 
   if (!clubId) {
     throw new Error("Unable to resolve club for this class session.");
   }
+
+  await assertSessionIsBookableForClub(classSessionId, clubId);
+
+  const location = resolveSessionLocationFromRow({
+    source: data.source ?? null,
+    external_id: data.external_id ?? null,
+  });
 
   return {
     classSessionId: data.id,

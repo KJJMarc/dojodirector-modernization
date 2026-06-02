@@ -1,4 +1,5 @@
 export const KINGSTON_CLUB_SLUG = "kingston-jiu-jitsu";
+export const KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG = "kingston-jiu-jitsu-kids";
 
 export interface ClubRow {
   id: string;
@@ -28,4 +29,12 @@ export function clubAdminPath(slug: string, section?: string) {
 export function clubBookingPath(slug: string) {
   const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
   return normalized ? `/${normalized}/book` : `/${KINGSTON_CLUB_SLUG}/book`;
+}
+
+/** Public junior belt rankings page for a club. */
+export function clubJuniorBeltRankingsPath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized
+    ? `/${normalized}/junior-belt-rankings`
+    : `/${KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG}/junior-belt-rankings`;
 }

@@ -1,7 +1,7 @@
 import { HomeHeader } from "@/components/layout/home-header";
 import { HomeHeroSection } from "@/components/layout/home-hero-section";
 import { HomeLoginProvider } from "@/components/layout/home-login-context";
-import { PRODUCT_NAME } from "@/lib/branding";
+import { PublicSiteFooter } from "@/components/layout/public-site-footer";
 
 const FEATURES = [
   {
@@ -79,14 +79,7 @@ export default function Home() {
           </section>
         </main>
 
-        <footer className="border-t border-neutral-800 bg-neutral-950 py-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
-            {PRODUCT_NAME}
-          </p>
-          <p className="mt-1 text-xs text-neutral-500">
-            Martial arts academy management
-          </p>
-        </footer>
+        <PublicSiteFooter />
       </div>
     </HomeLoginProvider>
   );

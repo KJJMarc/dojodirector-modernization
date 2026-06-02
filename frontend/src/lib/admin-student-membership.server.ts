@@ -6,8 +6,9 @@ import {
   canChangeProfileMembershipRole,
   canDeleteStudentMembership,
   isProfileMembershipRoleValue,
-  isProfileMembershipStatusValue,
+  parseProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
+import { assertSuperAdminMembershipChangeAllowed } from "@/lib/admin-super-admin.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface MembershipManagementRow {
@@ -105,6 +106,12 @@ export async function adminUpdateMembershipRole(input: {
   const membership = await loadMembershipForManagement(input.userId, clubId);
   assertCanChangeRole(membership.role);
 
+  await assertSuperAdminMembershipChangeAllowed({
+    userId: input.userId,
+    clubId,
+    nextRole: input.role,
+  });
+
   const supabase = getSupabaseAdminClient();
 
   const { error } = await supabase
@@ -134,18 +141,26 @@ export async function adminUpdateMembershipStatus(input: {
     throw new Error("Missing student id.");
   }
 
-  if (!isProfileMembershipStatusValue(input.status)) {
+  const status = parseProfileMembershipStatusValue(input.status);
+
+  if (!status) {
     throw new Error("Please select a valid membership status.");
   }
 
   const membership = await loadMembershipForManagement(input.userId, clubId);
   assertCanChangeRole(membership.role);
 
+  await assertSuperAdminMembershipChangeAllowed({
+    userId: input.userId,
+    clubId,
+    nextStatus: status,
+  });
+
   const supabase = getSupabaseAdminClient();
 
   const { error } = await supabase
     .from("memberships")
-    .update({ status: input.status })
+    .update({ status })
     .eq("user_id", input.userId)
     .eq("club_id", clubId);
 
@@ -171,6 +186,12 @@ export async function adminDeleteStudentMembership(input: {
 
   const membership = await loadMembershipForManagement(input.userId, clubId);
   assertCanDelete(membership.role);
+
+  await assertSuperAdminMembershipChangeAllowed({
+    userId: input.userId,
+    clubId,
+    deleteMembership: true,
+  });
 
   const supabase = getSupabaseAdminClient();
 

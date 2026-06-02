@@ -1,7 +1,6 @@
 import {
   ClassScheduleSession,
   groupClassScheduleSessionsByDate,
-  loadClassScheduleSessions,
   type ClassScheduleDateGroup,
 } from "@/lib/class-session-schedule";
 import {
@@ -10,6 +9,7 @@ import {
 } from "@/lib/booking-form";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
+import { utcIsoToLondonTime } from "@/lib/london-datetime";
 
 export type BookableSession = ClassScheduleSession;
 
@@ -30,14 +30,12 @@ export function formatBookingDate(startsAt: string) {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "Europe/London",
   }).format(new Date(startsAt));
 }
 
 export function formatBookingTime(iso: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  return utcIsoToLondonTime(iso);
 }
 
 export function getSpacesAvailable(
@@ -113,20 +111,6 @@ export function groupSessionsByDate(
   sessions: BookableSession[],
 ): BookableSessionGroup[] {
   return groupClassScheduleSessionsByDate(sessions);
-}
-
-export async function getUpcomingBookableSessions(
-  clubId: string,
-): Promise<BookableSession[]> {
-  const { startIso, endIso } = getBookingDateRange();
-
-  return loadClassScheduleSessions({
-    startIso,
-    endIso,
-    includeCancelled: false,
-    activeClassesOnly: true,
-    clubId,
-  });
 }
 
 export function validateStudentBookingDetails(details: StudentBookingDetails) {

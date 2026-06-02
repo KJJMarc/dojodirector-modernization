@@ -222,7 +222,9 @@ async function getRecurringClassesForInstructor(
   }
 
   const schedules = await getRecurringClassSchedules(clubId);
-  const assignedSchedules = schedules.filter((schedule) => scheduleIds.has(schedule.id));
+  const assignedSchedules = schedules.filter(
+    (schedule) => scheduleIds.has(schedule.id) && schedule.isActive,
+  );
 
   assignedSchedules.sort(compareRecurringClassSchedules);
 

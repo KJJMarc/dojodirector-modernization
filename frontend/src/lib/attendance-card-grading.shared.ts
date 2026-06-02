@@ -72,7 +72,7 @@ export function collectGradingMarkerDates(
     }
   }
 
-  return [...dates].sort();
+  return Array.from(dates).sort();
 }
 
 export function buildAttendanceCardGradingDiagnostics(input: {

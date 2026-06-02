@@ -2,13 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { bookClassFromStudentPortal } from "@/app/student-portal/[userId]/actions";
+import { bookClassFromStudentPortal } from "@/app/student-portal/[clubSlug]/[userId]/actions";
 import type {
   StudentPortalBookableSession,
   StudentPortalBookableSessionGroup,
 } from "@/lib/student-portal.shared";
 
 interface StudentPortalBookClassProps {
+  clubSlug: string;
   userId: string;
   sessionGroups: StudentPortalBookableSessionGroup[];
 }
@@ -90,6 +91,7 @@ function BookableSessionCard({
 }
 
 export function StudentPortalBookClass({
+  clubSlug,
   userId,
   sessionGroups,
 }: StudentPortalBookClassProps) {
@@ -104,7 +106,11 @@ export function StudentPortalBookClass({
 
     startTransition(async () => {
       try {
-        const result = await bookClassFromStudentPortal(userId, classSessionId);
+        const result = await bookClassFromStudentPortal(
+          clubSlug,
+          userId,
+          classSessionId,
+        );
         setSuccessMessage(
           formatBookingSuccessMessage(result.outcome, result.className),
         );

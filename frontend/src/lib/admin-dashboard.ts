@@ -1,8 +1,8 @@
 import "server-only";
 
 import { getTodayUtcRange } from "@/lib/attendance";
+import { countBjjProgrammeStudents } from "@/lib/admin-students.server";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
-import { requireClubBjjProgramme } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface AdminDashboardStats {
@@ -80,8 +80,7 @@ export async function getAdminDashboardStats(
     presentToday = presentResult.count ?? 0;
   }
 
-  const bjjProgramme = await requireClubBjjProgramme(clubId);
-  const studentsTotal = bjjProgramme.studentCount;
+  const studentsTotal = await countBjjProgrammeStudents(clubId);
 
   return {
     todaysSessions: todaysSessionsCount,

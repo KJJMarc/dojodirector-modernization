@@ -35,7 +35,11 @@ export function BookingSessionCard({
               {session.className}
             </h3>
             <p className="text-sm text-dojo-muted">
-              {formatScheduleTimeRange(session.startsAt, session.endsAt)}
+              {formatScheduleTimeRange(
+                session.startsAt,
+                session.endsAt,
+                session.externalId,
+              )}
             </p>
             <p className="text-sm text-dojo-muted">
               {formatSessionLocation(session.location)}

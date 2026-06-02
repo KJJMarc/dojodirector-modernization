@@ -13,13 +13,15 @@ import {
   type AdminStudent,
 } from "@/lib/admin-students";
 import {
+  loadActiveStudentMembershipRows,
   loadAdminStudentProfileRowsByIds,
-  loadClubMembershipRows,
+  type AdminStudentProfileRow,
+  type ClubMembershipRow,
 } from "@/lib/admin-club-memberships.server";
 import type { AdminProgramme } from "@/lib/admin-programmes.shared";
 import {
-  loadProgrammeMembershipUserIds,
   requireClubBjjProgramme,
+  resolveProgrammeStudentAreaMemberUserIds,
 } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -69,21 +71,26 @@ function buildCurrentLevelAwardedAtByUserId(
   return awardedAtByUserId;
 }
 
-export async function getClubStudents(
-  clubId: string = ACTIVE_CLUB_ID,
-  programme?: Pick<AdminProgramme, "id" | "beltsRanksEnabled" | "promotionCandidatesEnabled">,
-): Promise<AdminStudent[]> {
-  const membershipRows = await loadClubMembershipRows(clubId);
+interface ScopedClubStudentRows {
+  scopedMembershipRows: ClubMembershipRow[];
+  userById: Map<string, AdminStudentProfileRow>;
+}
+
+async function loadScopedClubStudentRows(
+  clubId: string,
+  programme?: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+): Promise<ScopedClubStudentRows | null> {
+  const membershipRows = await loadActiveStudentMembershipRows(clubId);
 
   if (membershipRows.length === 0) {
-    return [];
+    return null;
   }
 
   let scopedMembershipRows = membershipRows;
 
   if (programme) {
     const programmeUserIds = new Set(
-      await loadProgrammeMembershipUserIds(programme.id),
+      await resolveProgrammeStudentAreaMemberUserIds(clubId, programme),
     );
 
     scopedMembershipRows = membershipRows.filter((membership) =>
@@ -92,7 +99,7 @@ export async function getClubStudents(
   }
 
   if (scopedMembershipRows.length === 0) {
-    return [];
+    return null;
   }
 
   const userIds = Array.from(
@@ -100,6 +107,49 @@ export async function getClubStudents(
   );
 
   const userById = await loadAdminStudentProfileRowsByIds(userIds);
+
+  return { scopedMembershipRows, userById };
+}
+
+/** Same row scope as getClubStudents — matches the admin Students list total. */
+export async function countClubStudents(
+  clubId: string = ACTIVE_CLUB_ID,
+  programme?: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+): Promise<number> {
+  const scopedRows = await loadScopedClubStudentRows(clubId, programme);
+
+  if (!scopedRows) {
+    return 0;
+  }
+
+  let count = 0;
+
+  for (const membership of scopedRows.scopedMembershipRows) {
+    if (scopedRows.userById.has(membership.user_id)) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+export async function getClubStudents(
+  clubId: string = ACTIVE_CLUB_ID,
+  programme?: Pick<
+    AdminProgramme,
+    "id" | "slug" | "programmeType" | "beltsRanksEnabled" | "promotionCandidatesEnabled"
+  >,
+): Promise<AdminStudent[]> {
+  const scopedRows = await loadScopedClubStudentRows(clubId, programme);
+
+  if (!scopedRows) {
+    return [];
+  }
+
+  const { scopedMembershipRows, userById } = scopedRows;
+  const userIds = Array.from(
+    new Set(scopedMembershipRows.map((membership) => membership.user_id)),
+  );
   const useBjjEnrichment = programme?.beltsRanksEnabled !== false;
 
   let latestGradeAwardByUserId = new Map<string, GradeAwardRow>();
@@ -179,4 +229,11 @@ export async function getBjjProgrammeStudents(
 ): Promise<AdminStudent[]> {
   const bjjProgramme = await requireClubBjjProgramme(clubId);
   return getClubStudents(clubId, bjjProgramme);
+}
+
+export async function countBjjProgrammeStudents(
+  clubId: string = ACTIVE_CLUB_ID,
+): Promise<number> {
+  const bjjProgramme = await requireClubBjjProgramme(clubId);
+  return countClubStudents(clubId, bjjProgramme);
 }

@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { cancelClassBookingFromStudentPortal } from "@/app/student-portal/[userId]/actions";
+import { cancelClassBookingFromStudentPortal } from "@/app/student-portal/[clubSlug]/[userId]/actions";
 
 const CANCEL_BOOKING_BUTTON_CLASS =
   "inline-flex min-h-[32px] items-center justify-center rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-green-500 transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60";
 
 interface StudentPortalBookingsViewProps {
+  clubSlug: string;
   userId: string;
   pageData: {
     upcomingBookings: Array<{
@@ -26,6 +27,7 @@ interface StudentPortalBookingsViewProps {
 }
 
 export function StudentPortalBookingsView({
+  clubSlug,
   userId,
   pageData,
 }: StudentPortalBookingsViewProps) {
@@ -49,6 +51,7 @@ export function StudentPortalBookingsView({
     startTransition(async () => {
       try {
         const result = await cancelClassBookingFromStudentPortal(
+          clubSlug,
           userId,
           classSessionId,
         );

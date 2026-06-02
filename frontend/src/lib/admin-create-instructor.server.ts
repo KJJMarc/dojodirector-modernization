@@ -8,6 +8,7 @@ import {
   INSTRUCTOR_CREATE_ROLE_OPTIONS,
   isInstructorMembershipRole,
 } from "@/lib/admin-instructors.shared";
+import { assertSuperAdminMembershipChangeAllowed } from "@/lib/admin-super-admin.server";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -176,6 +177,12 @@ async function promoteMembershipToInstructor(
   role: string,
   clubId: string,
 ) {
+  await assertSuperAdminMembershipChangeAllowed({
+    userId,
+    clubId,
+    nextRole: role,
+  });
+
   const supabase = getSupabaseAdminClient();
 
   const { error } = await supabase

@@ -365,7 +365,11 @@ export async function getAdminSessionBookingsPageData(
       status,
       isCancelled,
       dateLabel: formatScheduleDayLabel(sessionRow.starts_at),
-      timeLabel: formatScheduleTimeRange(sessionRow.starts_at, sessionRow.ends_at),
+      timeLabel: formatScheduleTimeRange(
+        sessionRow.starts_at,
+        sessionRow.ends_at,
+        sessionRow.external_id,
+      ),
       locationLabel: formatSessionLocation(location),
       recurringScheduleId: sessionRow.recurring_schedule_id,
     },

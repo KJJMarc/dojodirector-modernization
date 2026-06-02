@@ -5,9 +5,11 @@ import { AttendanceCardLegend } from "@/components/attendance/attendance-card-le
 import { attendanceCardHeaderRowClassName } from "@/components/attendance/attendance-card-meta";
 import { attendanceCardSectionClassName } from "@/components/attendance/yearly-attendance-grid.shared";
 import { ReadonlyYearlyAttendanceGrid } from "@/components/student-portal/readonly-yearly-attendance-grid";
+import { studentPortalPath } from "@/lib/student-portal-routing.shared";
 import type { StudentPortalAttendancePageData } from "@/lib/student-portal.shared";
 
 interface StudentPortalAttendanceViewProps {
+  clubSlug: string;
   userId: string;
   pageData: StudentPortalAttendancePageData;
 }
@@ -16,10 +18,11 @@ const yearNavButtonClassName =
   "inline-flex min-h-[30px] shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-2.5 py-1 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50";
 
 export function StudentPortalAttendanceView({
+  clubSlug,
   userId,
   pageData,
 }: StudentPortalAttendanceViewProps) {
-  const basePath = `/student-portal/${userId}/attendance`;
+  const basePath = studentPortalPath(clubSlug, userId, "attendance");
   const year = pageData.year;
 
   return (

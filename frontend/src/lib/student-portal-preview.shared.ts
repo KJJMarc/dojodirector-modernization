@@ -8,6 +8,6 @@ export interface StudentPortalPreviewEntryData {
   students: StudentPortalPreviewStudent[];
 }
 
-export function studentPortalPath(userId: string) {
-  return `/student-portal/${userId}`;
+export function studentPortalPath(clubSlug: string, userId: string) {
+  return `/student-portal/${clubSlug.trim()}/${userId.trim()}`;
 }

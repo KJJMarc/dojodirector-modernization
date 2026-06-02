@@ -4,7 +4,10 @@ import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { AddStudentForm } from "@/components/admin/add-student-form";
 import { AppHeader } from "@/components/layout/app-header";
-import { buildAddStudentProgrammeAccessOptions } from "@/lib/admin-programmes.shared";
+import {
+  buildAddStudentBookingAccessOptions,
+  buildAddStudentProgrammeMembershipOptions,
+} from "@/lib/admin-programmes.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -47,13 +50,15 @@ export default async function ClubAddStudentPage({
             NEW STUDENT
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Creates a user account and club membership. Choose programme access below.
+            Creates a user account and club membership. Choose programme student areas and
+            booking access below.
           </p>
         </div>
 
         <AddStudentForm
           clubSlug={club.slug}
-          programmeAccessOptions={buildAddStudentProgrammeAccessOptions("bjj")}
+          programmeMembershipOptions={buildAddStudentProgrammeMembershipOptions("bjj")}
+          bookingAccessOptions={buildAddStudentBookingAccessOptions("bjj")}
         />
       </section>
     </main>

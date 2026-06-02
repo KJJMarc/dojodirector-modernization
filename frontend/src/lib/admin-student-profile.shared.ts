@@ -1,4 +1,5 @@
 import type { BeltPromotionAssessment } from "@/lib/admin-belt-promotion.shared";
+import { formatMembershipStatusLabel } from "@/lib/membership-status.shared";
 import type { StudentBjjFeatureVisibility } from "@/lib/admin-programmes.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import type { SignatoryType } from "@/lib/student-portal-agreements.shared";
@@ -18,6 +19,7 @@ export interface AdminStudentProfileDetails {
   membershipStatus: string | null;
   canChangeRole: boolean;
   canDelete: boolean;
+  lastSuperAdminWarning: string | null;
 }
 
 export interface AdminStudentProfileAttendanceSummary {
@@ -100,6 +102,9 @@ export interface AdminStudentProgrammeAccessSummary {
   programmes: AdminStudentProgrammeAccessItem[];
 }
 
+/** @deprecated Use AdminStudentProgrammeMembershipSummary for student areas */
+export type AdminStudentProgrammeBookingAccessSummary = AdminStudentProgrammeAccessSummary;
+
 export interface AdminStudentProgrammeMembershipItem {
   programmeId: string;
   name: string;
@@ -120,7 +125,8 @@ export interface AdminStudentProfilePageData {
   instructorPortalAccess: AdminInstructorPortalAccessSummary | null;
   adminAccess: AdminDashboardAccessSummary | null;
   agreementAccess: AdminStudentAgreementAccessSummary;
-  programmeAccess: AdminStudentProgrammeAccessSummary;
+  programmeMembership: AdminStudentProgrammeMembershipSummary;
+  programmeBookingAccess: AdminStudentProgrammeAccessSummary;
   bjjFeatureVisibility: StudentBjjFeatureVisibility;
   attendance: AdminStudentProfileAttendanceSummary;
   belt: AdminStudentProfileBeltSummary;
@@ -152,11 +158,7 @@ export function formatProfileDate(value: string | null) {
 }
 
 export function formatMembershipStatus(status: string | null) {
-  if (!status) {
-    return "—";
-  }
-
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  return formatMembershipStatusLabel(status);
 }
 
 export function formatProfileField(value: string | null) {

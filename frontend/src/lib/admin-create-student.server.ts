@@ -5,13 +5,14 @@ import {
   StudentAlreadyExistsError,
   getTodayJoinedAtDate,
   isMembershipRoleValue,
-  isMembershipStatusValue,
+  parseMembershipStatusValue,
   normalizeStudentEmail,
 } from "@/lib/admin-create-student.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { StudentPortalAccessProgrammeType } from "@/lib/admin-programmes.shared";
 import {
-  ensureProgrammeAccessForUser,
+  ensureProgrammeMembershipForUser,
+  setProgrammeBookingAccessForUser,
   requireClubProgrammeBySlug,
 } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -59,13 +60,13 @@ function parseCreateAdminStudentInput(
   input: CreateAdminStudentInput,
 ): CreateAdminStudentInput {
   const role = input.role;
-  const membershipStatus = input.membershipStatus;
+  const membershipStatus = parseMembershipStatusValue(input.membershipStatus);
 
   if (!isMembershipRoleValue(role)) {
     throw new Error("Please select a valid role.");
   }
 
-  if (!isMembershipStatusValue(membershipStatus)) {
+  if (!membershipStatus) {
     throw new Error("Please select a valid membership status.");
   }
 
@@ -161,8 +162,10 @@ async function createUser(input: CreateAdminStudentInput) {
 export interface CreateAdminStudentOptions {
   /** Redirect context only; does not grant programme access. */
   programmeSlug?: string;
-  /** Programme access types selected on the form (membership + portal booking). */
-  programmeAccessTypes: StudentPortalAccessProgrammeType[];
+  /** Programme student area membership types selected on the form. */
+  programmeMembershipTypes: StudentPortalAccessProgrammeType[];
+  /** Portal booking access types selected on the form. */
+  bookingAccessTypes: StudentPortalAccessProgrammeType[];
 }
 
 export async function createAdminStudent(
@@ -172,8 +175,12 @@ export async function createAdminStudent(
 ): Promise<{ userId: string; createdUser: boolean }> {
   const input = parseCreateAdminStudentInput(rawInput);
 
-  if (options.programmeAccessTypes.length === 0) {
-    throw new Error("Select at least one programme for programme access.");
+  if (options.programmeMembershipTypes.length === 0) {
+    throw new Error("Select at least one programme student area.");
+  }
+
+  if (options.bookingAccessTypes.length === 0) {
+    throw new Error("Select at least one programme for booking access.");
   }
 
   if (options.programmeSlug) {
@@ -198,11 +205,16 @@ export async function createAdminStudent(
       role: input.role,
       status: input.membershipStatus,
     });
-    await ensureProgrammeAccessForUser({
+    await ensureProgrammeMembershipForUser({
       clubId,
       userId: existingUserId,
-      programmeTypes: options.programmeAccessTypes,
+      programmeTypes: options.programmeMembershipTypes,
       status: input.membershipStatus,
+    });
+    await setProgrammeBookingAccessForUser({
+      clubId,
+      userId: existingUserId,
+      programmeTypes: options.bookingAccessTypes,
     });
 
     return { userId: existingUserId, createdUser: false };
@@ -216,11 +228,16 @@ export async function createAdminStudent(
     role: input.role,
     status: input.membershipStatus,
   });
-  await ensureProgrammeAccessForUser({
+  await ensureProgrammeMembershipForUser({
     clubId,
     userId,
-    programmeTypes: options.programmeAccessTypes,
+    programmeTypes: options.programmeMembershipTypes,
     status: input.membershipStatus,
+  });
+  await setProgrammeBookingAccessForUser({
+    clubId,
+    userId,
+    programmeTypes: options.bookingAccessTypes,
   });
 
   return { userId, createdUser: true };

@@ -4,7 +4,6 @@ import {
   formatScheduleCapacitySummary,
   formatScheduleDayLabel,
   formatScheduleTimeRange,
-  loadClassScheduleSessions,
   type ClassScheduleDateGroup,
 } from "@/lib/class-session-schedule";
 
@@ -39,16 +38,6 @@ export function formatAttendanceMonthLabel(startsAt: string) {
     month: "long",
     year: "numeric",
   }).format(new Date(startsAt));
-}
-
-export async function getAttendanceScheduleSessions(): Promise<AttendanceScheduleSession[]> {
-  const { startIso, endIso } = getAttendanceScheduleDateRange();
-
-  return loadClassScheduleSessions({
-    startIso,
-    endIso,
-    includeCancelled: true,
-  });
 }
 
 export function groupAttendanceSessionsByMonth(

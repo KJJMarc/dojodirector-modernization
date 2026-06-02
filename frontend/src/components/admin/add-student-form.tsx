@@ -17,61 +17,81 @@ interface AddStudentFormProps {
   clubSlug: string;
   programmeSlug?: string;
   cancelHref?: string;
-  programmeAccessOptions: AddStudentProgrammeAccessOption[];
+  programmeMembershipOptions: AddStudentProgrammeAccessOption[];
+  bookingAccessOptions: AddStudentProgrammeAccessOption[];
 }
 
 export function AddStudentForm({
   clubSlug,
   programmeSlug,
   cancelHref,
-  programmeAccessOptions,
+  programmeMembershipOptions,
+  bookingAccessOptions,
 }: AddStudentFormProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const defaultSelectedAccess = useMemo(
+  const defaultSelectedMembership = useMemo(
     () =>
       new Set(
-        programmeAccessOptions
+        programmeMembershipOptions
           .filter((option) => option.defaultChecked)
           .map((option) => option.programmeType),
       ),
-    [programmeAccessOptions],
+    [programmeMembershipOptions],
   );
-  const [selectedAccess, setSelectedAccess] = useState(defaultSelectedAccess);
+  const defaultSelectedBooking = useMemo(
+    () =>
+      new Set(
+        bookingAccessOptions
+          .filter((option) => option.defaultChecked)
+          .map((option) => option.programmeType),
+      ),
+    [bookingAccessOptions],
+  );
+  const [selectedMembership, setSelectedMembership] = useState(defaultSelectedMembership);
+  const [selectedBooking, setSelectedBooking] = useState(defaultSelectedBooking);
 
   const fieldClassName =
     "mt-1 w-full rounded-md border border-dojo-border bg-dojo-black px-3 py-2 text-sm text-dojo-white outline-none focus:border-dojo-red";
 
-  const toggleProgrammeAccess = (
+  const toggleSelection = (
+    current: Set<StudentPortalAccessProgrammeType>,
     programmeType: StudentPortalAccessProgrammeType,
     checked: boolean,
   ) => {
-    setSelectedAccess((current) => {
-      const next = new Set(current);
+    const next = new Set(current);
 
-      if (checked) {
-        next.add(programmeType);
-      } else {
-        next.delete(programmeType);
-      }
+    if (checked) {
+      next.add(programmeType);
+    } else {
+      next.delete(programmeType);
+    }
 
-      return next;
-    });
+    return next;
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
 
-    if (selectedAccess.size === 0) {
-      setErrorMessage("Select at least one programme for programme access.");
+    if (selectedMembership.size === 0) {
+      setErrorMessage("Select at least one programme student area.");
+      return;
+    }
+
+    if (selectedBooking.size === 0) {
+      setErrorMessage("Select at least one programme for booking access.");
       return;
     }
 
     const formData = new FormData(event.currentTarget);
 
-    for (const programmeType of Array.from(selectedAccess)) {
-      formData.append("programmeAccessTypes", programmeType);
+    for (const programmeType of Array.from(selectedMembership)) {
+      formData.append("programmeMembershipTypes", programmeType);
+    }
+
+    for (const programmeType of Array.from(selectedBooking)) {
+      formData.append("bookingAccessTypes", programmeType);
     }
 
     startTransition(async () => {
@@ -86,6 +106,50 @@ export function AddStudentForm({
       }
     });
   };
+
+  const renderCheckboxFieldset = ({
+    legend,
+    description,
+    options,
+    selected,
+    onToggle,
+  }: {
+    legend: string;
+    description: string;
+    options: AddStudentProgrammeAccessOption[];
+    selected: Set<StudentPortalAccessProgrammeType>;
+    onToggle: (
+      programmeType: StudentPortalAccessProgrammeType,
+      checked: boolean,
+    ) => void;
+  }) => (
+    <fieldset className="space-y-2 rounded-lg border border-dojo-border bg-dojo-elevated p-3">
+      <legend className="px-1 text-sm font-medium text-dojo-white">{legend}</legend>
+      <p className="text-xs text-dojo-muted">{description}</p>
+      <ul className="space-y-2">
+        {options.map((option) => {
+          const checked = selected.has(option.programmeType);
+
+          return (
+            <li key={option.programmeType}>
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dojo-border bg-dojo-surface px-3 py-2 text-sm text-dojo-white transition hover:border-dojo-red/30">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-dojo-border bg-dojo-black text-dojo-red focus:ring-dojo-red"
+                  checked={checked}
+                  disabled={isPending}
+                  onChange={(event) =>
+                    onToggle(option.programmeType, event.target.checked)
+                  }
+                />
+                <span>{option.label}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </fieldset>
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -222,37 +286,28 @@ export function AddStudentForm({
         </div>
       </div>
 
-      <fieldset className="space-y-2 rounded-lg border border-dojo-border bg-dojo-elevated p-3">
-        <legend className="px-1 text-sm font-medium text-dojo-white">
-          Programme access
-        </legend>
-        <p className="text-xs text-dojo-muted">
-          Choose which programmes this student belongs to and can book through the
-          student portal.
-        </p>
-        <ul className="space-y-2">
-          {programmeAccessOptions.map((option) => {
-            const checked = selectedAccess.has(option.programmeType);
+      {renderCheckboxFieldset({
+        legend: "Programme Student Areas",
+        description: "Choose which programme student lists include this student.",
+        options: programmeMembershipOptions,
+        selected: selectedMembership,
+        onToggle: (programmeType, checked) =>
+          setSelectedMembership((current) =>
+            toggleSelection(current, programmeType, checked),
+          ),
+      })}
 
-            return (
-              <li key={option.programmeType}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dojo-border bg-dojo-surface px-3 py-2 text-sm text-dojo-white transition hover:border-dojo-red/30">
-                  <input
-                    type="checkbox"
-                    className="size-4 rounded border-dojo-border bg-dojo-black text-dojo-red focus:ring-dojo-red"
-                    checked={checked}
-                    disabled={isPending}
-                    onChange={(event) =>
-                      toggleProgrammeAccess(option.programmeType, event.target.checked)
-                    }
-                  />
-                  <span>{option.label}</span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      </fieldset>
+      {renderCheckboxFieldset({
+        legend: "Booking Access",
+        description:
+          "Choose which programme classes this student can book through the student portal.",
+        options: bookingAccessOptions,
+        selected: selectedBooking,
+        onToggle: (programmeType, checked) =>
+          setSelectedBooking((current) =>
+            toggleSelection(current, programmeType, checked),
+          ),
+      })}
 
       <div className="flex flex-wrap gap-3">
         <button

@@ -52,6 +52,8 @@ export interface StudentPortalPageData {
   membershipStatus: string | null;
   currentBeltLabel: string;
   agreementStatus: StudentAgreementStatusSummary;
+  /** Show BJJ-only portal actions (programme_memberships for BJJ). */
+  showBjjPortalActions: boolean;
   /** Show BJJ attendance card section (programme access + attendance cards enabled). */
   showBjjAttendanceCard: boolean;
   /** Show current belt in portal header (BJJ access + belts/ranks enabled). */
@@ -80,4 +82,17 @@ export interface StudentPortalBookingsPageData {
 export interface StudentPortalBookPageData {
   studentName: string;
   bookableSessionGroups: StudentPortalBookableSessionGroup[];
+}
+
+export interface StudentPortalGradingHistoryEntry {
+  id: string;
+  dateLabel: string;
+  previousRankLabel: string;
+  newRankLabel: string;
+  awardedByLabel: string | null;
+}
+
+export interface StudentPortalGradingHistoryPageData {
+  studentName: string;
+  entries: StudentPortalGradingHistoryEntry[];
 }

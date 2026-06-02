@@ -5,8 +5,11 @@ import { revalidateStudentAdminPaths } from "@/lib/admin-revalidate.server";
 import { createAdminStudent } from "@/lib/admin-create-student.server";
 import type { CreateAdminStudentInput } from "@/lib/admin-create-student.shared";
 import {
+  buildAddStudentBookingAccessOptions,
+  buildAddStudentProgrammeMembershipOptions,
   clubProgrammeStudentAreasPath,
-  parseProgrammeAccessTypes,
+  parseBookingAccessProgrammeTypes,
+  parseProgrammeMembershipTypes,
   programmeStudentsAdminPath,
 } from "@/lib/admin-programmes.shared";
 import { clubAdminPath, parseClubSlugFromForm } from "@/lib/clubs.shared";
@@ -30,13 +33,17 @@ export async function createAdminStudentAction(formData: FormData) {
     ) as CreateAdminStudentInput["membershipStatus"],
   };
 
-  const programmeAccessTypes = parseProgrammeAccessTypes(
-    formData.getAll("programmeAccessTypes").map(String),
+  const programmeMembershipTypes = parseProgrammeMembershipTypes(
+    formData.getAll("programmeMembershipTypes").map(String),
+  );
+  const bookingAccessTypes = parseBookingAccessProgrammeTypes(
+    formData.getAll("bookingAccessTypes").map(String),
   );
 
   const { userId } = await createAdminStudent(input, club.id, {
     programmeSlug,
-    programmeAccessTypes,
+    programmeMembershipTypes,
+    bookingAccessTypes,
   });
 
   revalidateStudentAdminPaths(clubSlug, userId);

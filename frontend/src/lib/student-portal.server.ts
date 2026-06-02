@@ -1,11 +1,13 @@
 import "server-only";
 
-import { loadStudentBjjFeatureVisibility } from "@/lib/admin-programmes.server";
+import {
+  loadStudentBjjFeatureVisibility,
+  studentHasActiveBjjProgrammeMembership,
+} from "@/lib/admin-programmes.server";
 import { getAdminStudentProfilePageData } from "@/lib/admin-student-profile.server";
 import { formatBookingDate, formatBookingTime } from "@/lib/booking";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { getStudentAttendanceCardData } from "@/lib/attendance-card.server";
-import { getStudentClubContextForAttendance } from "@/lib/attendance-card-manual.server";
 import { getStudentAgreementStatus } from "@/lib/student-portal-agreements.server";
 import {
   loadInstructorNameBySessionId,
@@ -16,6 +18,7 @@ import type {
   StudentPortalAttendancePageData,
   StudentPortalBookPageData,
   StudentPortalBookingsPageData,
+  StudentPortalGradingHistoryPageData,
   StudentPortalPageData,
   StudentPortalUpcomingBooking,
 } from "@/lib/student-portal.shared";
@@ -25,9 +28,12 @@ export type {
   StudentPortalAttendancePageData,
   StudentPortalBookPageData,
   StudentPortalBookingsPageData,
+  StudentPortalGradingHistoryPageData,
   StudentPortalPageData,
   StudentPortalUpcomingBooking,
 };
+
+export { getStudentPortalGradingHistoryPageData } from "@/lib/student-portal-grading-history.server";
 
 import {
   formatStudentBookingCancelBlockedMessage,
@@ -191,10 +197,12 @@ async function loadStudentUpcomingBookings(
 export async function getStudentPortalPageData(
   userId: string,
   year: number,
+  clubId: string,
 ): Promise<StudentPortalPageData> {
-  const { clubId } = await getStudentClubContextForAttendance(userId);
-
-  const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, userId);
+  const [bjjFeatures, hasBjjProgrammeMembership] = await Promise.all([
+    loadStudentBjjFeatureVisibility(clubId, userId),
+    studentHasActiveBjjProgrammeMembership(clubId, userId),
+  ]);
 
   const [profile, agreementStatus, attendanceCard] = await Promise.all([
     getAdminStudentProfilePageData(userId, clubId),
@@ -209,6 +217,7 @@ export async function getStudentPortalPageData(
     membershipStatus: profile.student.membershipStatus,
     currentBeltLabel: profile.belt.currentBeltLabel,
     agreementStatus,
+    showBjjPortalActions: hasBjjProgrammeMembership,
     showBjjAttendanceCard: bjjFeatures.showAttendanceCard,
     showCurrentBelt: bjjFeatures.showBeltSummary,
     ...(attendanceCard
@@ -226,9 +235,8 @@ export async function getStudentPortalPageData(
 export async function getStudentPortalAttendancePageData(
   userId: string,
   year: number,
+  clubId: string,
 ): Promise<StudentPortalAttendancePageData> {
-  const { clubId } = await getStudentClubContextForAttendance(userId);
-
   const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, userId);
 
   if (!bjjFeatures.showAttendanceCard) {
@@ -252,9 +260,8 @@ export async function getStudentPortalAttendancePageData(
 
 export async function getStudentPortalBookingsPageData(
   userId: string,
+  clubId: string,
 ): Promise<StudentPortalBookingsPageData> {
-  const { clubId } = await getStudentClubContextForAttendance(userId);
-
   const [profile, upcomingBookings] = await Promise.all([
     getAdminStudentProfilePageData(userId, clubId),
     loadStudentUpcomingBookings(userId, clubId),
@@ -268,9 +275,8 @@ export async function getStudentPortalBookingsPageData(
 
 export async function getStudentPortalBookPageData(
   userId: string,
+  clubId: string,
 ): Promise<StudentPortalBookPageData> {
-  const { clubId } = await getStudentClubContextForAttendance(userId);
-
   const [profile, bookableSessionGroups] = await Promise.all([
     getAdminStudentProfilePageData(userId, clubId),
     loadStudentPortalBookableSessionGroups(userId, clubId),

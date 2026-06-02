@@ -5,11 +5,17 @@ import {
   formatBookingDate,
   formatBookingTime,
 } from "@/lib/booking";
+import { assertSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { assertStudentCanBookClassProgramme } from "@/lib/admin-programmes.server";
 import { clubBookingPath } from "@/lib/clubs.shared";
 import { getClubSlugById } from "@/lib/clubs.server";
+import { assertActiveMembershipForBooking } from "@/lib/membership-access.server";
 import { resolveStudentBookingCancellation } from "@/lib/student-portal-booking-cancel.shared";
+import {
+  legacyStudentPortalPath,
+  studentPortalPath,
+} from "@/lib/student-portal-routing.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type MemberBookingOutcome = "confirmed" | "waitlisted";
@@ -209,9 +215,19 @@ export async function revalidatePathsAfterMemberBooking(
   revalidatePath("/attendance");
 
   if (portalUserId) {
-    revalidatePath(`/student-portal/${portalUserId}`);
-    revalidatePath(`/student-portal/${portalUserId}/book`);
-    revalidatePath(`/student-portal/${portalUserId}/bookings`);
+    revalidatePath(legacyStudentPortalPath(portalUserId));
+    revalidatePath(legacyStudentPortalPath(portalUserId, "book"));
+    revalidatePath(legacyStudentPortalPath(portalUserId, "bookings"));
+
+    if (clubId) {
+      const clubSlug = (await getClubSlugById(clubId)) ?? undefined;
+
+      if (clubSlug) {
+        revalidatePath(studentPortalPath(clubSlug, portalUserId));
+        revalidatePath(studentPortalPath(clubSlug, portalUserId, "book"));
+        revalidatePath(studentPortalPath(clubSlug, portalUserId, "bookings"));
+      }
+    }
   }
 }
 
@@ -240,13 +256,18 @@ export async function bookClassSessionForUser(
     throw new Error("This class is not available for your club.");
   }
 
-  if (classSession.status === "cancelled") {
-    throw new Error("This class session is no longer available.");
+  const clubId = input.clubId ?? classSession.club_id;
+  await assertSessionIsBookableForClub(classSessionId, clubId);
+
+  const membershipAccess = await assertActiveMembershipForBooking(userId, clubId);
+
+  if (!membershipAccess.allowed) {
+    throw new Error(membershipAccess.message);
   }
 
   await assertStudentCanBookClassProgramme({
     userId,
-    clubId: input.clubId ?? classSession.club_id,
+    clubId,
     classId: classSession.class_id,
   });
 

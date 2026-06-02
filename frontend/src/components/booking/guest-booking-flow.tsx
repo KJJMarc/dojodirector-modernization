@@ -250,6 +250,7 @@ export function GuestBookingFlow({
           timeLabel={formatScheduleTimeRange(
             pendingSession.session.startsAt,
             pendingSession.session.endsAt,
+            pendingSession.session.externalId,
           )}
           trainingAgreement={trainingAgreement}
           fieldErrors={{ ...agreementFieldErrors, ...detailsFieldErrors }}

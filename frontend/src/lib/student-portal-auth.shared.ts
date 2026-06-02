@@ -30,3 +30,9 @@ export function resolvePortalLoginEmail(
 export function isStudentPortalDevPickerEnabled() {
   return process.env.STUDENT_PORTAL_DEV_PICKER === "true";
 }
+
+export const STUDENT_PORTAL_NO_STUDENT_ACCESS_MESSAGE =
+  "This account does not have student portal access. The member portal is for students with an active academy membership.";
+
+export const STUDENT_PORTAL_CLUB_ACCESS_DENIED_MESSAGE =
+  "You do not have student portal access for this academy. Sign in with a student account or contact the academy for assistance.";

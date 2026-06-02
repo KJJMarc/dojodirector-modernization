@@ -10,7 +10,11 @@ import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templa
 import {
   hasAcceptedCurrentStudentAgreements,
 } from "@/lib/student-portal-agreements.server";
+import { resolveStudentPortalHomePath } from "@/lib/student-portal-club.server";
 import { resolveStudentPortalSessionState } from "@/lib/student-portal-auth.server";
+import { STUDENT_PORTAL_NO_STUDENT_ACCESS_MESSAGE } from "@/lib/student-portal-auth.shared";
+import { StudentPortalAccessDenied } from "@/components/student-portal/student-portal-access-denied";
+import { StudentPortalInactiveMembership } from "@/components/student-portal/student-portal-inactive-membership";
 import { StudentPortalUnlinkedProfile } from "@/components/student-portal/student-portal-unlinked-profile";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +41,26 @@ export default async function StudentPortalAgreementsPage() {
     );
   }
 
+  if (session.status === "membership_inactive") {
+    return (
+      <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+        <AppHeader pageTitle="Membership Agreement" clubName={ACTIVE_CLUB_NAME} />
+        <StudentPortalHomeLink />
+        <StudentPortalInactiveMembership membershipStatus={session.membershipStatus} />
+      </main>
+    );
+  }
+
+  if (session.status === "no_student_access") {
+    return (
+      <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+        <AppHeader pageTitle="Membership Agreement" clubName={ACTIVE_CLUB_NAME} />
+        <StudentPortalHomeLink />
+        <StudentPortalAccessDenied message={STUDENT_PORTAL_NO_STUDENT_ACCESS_MESSAGE} />
+      </main>
+    );
+  }
+
   const profile = session.profile;
 
   const agreementsComplete = await hasAcceptedCurrentStudentAgreements(
@@ -45,7 +69,7 @@ export default async function StudentPortalAgreementsPage() {
   );
 
   if (agreementsComplete) {
-    redirect("/student-portal");
+    redirect(await resolveStudentPortalHomePath(profile.userId));
   }
 
   const agreementContent = toClientClubAgreementContent(

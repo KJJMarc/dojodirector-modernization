@@ -14,9 +14,12 @@ import { getAttendanceSessionDetails } from "@/lib/attendance-session";
 import { formatBookingDate, formatSessionLocation } from "@/lib/booking";
 import { countAttendance } from "@/lib/attendance-ui";
 import {
+  ATTENDANCE_REGISTER_NAV_FROM,
   attendanceRegisterPath,
   parseAttendanceRegisterNavContext,
 } from "@/lib/attendance-register-navigation.shared";
+import { getClubBySlug } from "@/lib/clubs.server";
+import { readSelectedInstructorPortalClubSlug } from "@/lib/instructor-portal-club.server";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +42,18 @@ export default async function AttendanceSessionPage({
 
   const { session, endsAt, capacity, isCancelled, status, clubId, programmeType } =
     details;
+  const navContext = parseAttendanceRegisterNavContext(searchParams);
+
+  if (navContext?.from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal) {
+    const clubSlug =
+      navContext.clubSlug ?? (await readSelectedInstructorPortalClubSlug()) ?? undefined;
+    const expectedClub = clubSlug ? await getClubBySlug(clubSlug) : null;
+
+    if (!expectedClub || expectedClub.id !== clubId) {
+      notFound();
+    }
+  }
+
   const showAttendanceCardLink = await getProgrammeAttendanceCardsEnabled(
     clubId,
     programmeType,
@@ -59,7 +74,6 @@ export default async function AttendanceSessionPage({
     isCancelled,
   };
   const counts = countAttendance(session.session_attendees);
-  const navContext = parseAttendanceRegisterNavContext(searchParams);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">

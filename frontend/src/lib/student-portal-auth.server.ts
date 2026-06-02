@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
+import { resolveStudentPortalStudentMembershipAccess } from "@/lib/student-portal-club.server";
 import {
   formatPortalAuthStatusLabel,
   resolvePortalLoginEmail,
@@ -180,6 +181,8 @@ export async function getSupabaseAuthSessionUser() {
 export type StudentPortalSessionState =
   | { status: "signed_out" }
   | { status: "unlinked" }
+  | { status: "no_student_access" }
+  | { status: "membership_inactive"; membershipStatus: string | null }
   | { status: "authenticated"; profile: StudentPortalAuthProfile };
 
 async function resolveProfileForAuthUser(
@@ -223,6 +226,21 @@ export async function resolveStudentPortalSessionState(): Promise<StudentPortalS
 
   if (!profile) {
     return { status: "unlinked" };
+  }
+
+  const studentAccess = await resolveStudentPortalStudentMembershipAccess(
+    profile.userId,
+  );
+
+  if (studentAccess.status === "none") {
+    return { status: "no_student_access" };
+  }
+
+  if (studentAccess.status === "inactive") {
+    return {
+      status: "membership_inactive",
+      membershipStatus: studentAccess.membershipStatus,
+    };
   }
 
   return { status: "authenticated", profile };

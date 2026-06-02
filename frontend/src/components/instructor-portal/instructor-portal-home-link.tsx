@@ -1,6 +1,22 @@
 import Link from "next/link";
+import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
 
-export function InstructorPortalHomeLink() {
+interface InstructorPortalHomeLinkProps {
+  clubSlug?: string;
+}
+
+export function InstructorPortalHomeLink({ clubSlug }: InstructorPortalHomeLinkProps) {
+  if (clubSlug) {
+    return (
+      <Link
+        href={instructorPortalClubPath(clubSlug)}
+        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
+      >
+        ← Back to Portal Home
+      </Link>
+    );
+  }
+
   return (
     <Link
       href="/"

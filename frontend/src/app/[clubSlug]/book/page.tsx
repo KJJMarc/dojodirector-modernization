@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/layout/app-header";
+import { PublicSiteFooter } from "@/components/layout/public-site-footer";
 import { GuestBookingFlow } from "@/components/booking/guest-booking-flow";
 import {
-  getUpcomingBookableSessions,
   groupSessionsByDate,
 } from "@/lib/booking";
+import { getUpcomingBookableSessions } from "@/lib/booking.server";
 import { toClientClubAgreementContent } from "@/lib/club-agreement-templates.shared";
 import { resolveGuestTrainingAgreementContent } from "@/lib/club-agreement-templates.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
@@ -35,21 +36,22 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
   );
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Guest Booking" clubName={club.name} />
+    <div className="flex min-h-screen flex-col">
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 px-3 py-4 pb-8 sm:px-5">
+        <AppHeader pageTitle="Guest Booking" clubName={club.name} />
 
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold text-dojo-white">Guest Booking</h1>
         <p className="text-sm text-dojo-muted">
           Book a trial or guest class at {club.name}.
         </p>
-      </div>
 
-      <GuestBookingFlow
-        clubSlug={club.slug}
-        sessionGroups={sessionGroups}
-        trainingAgreement={trainingAgreement}
-      />
-    </main>
+        <GuestBookingFlow
+          clubSlug={club.slug}
+          sessionGroups={sessionGroups}
+          trainingAgreement={trainingAgreement}
+        />
+      </main>
+
+      <PublicSiteFooter />
+    </div>
   );
 }

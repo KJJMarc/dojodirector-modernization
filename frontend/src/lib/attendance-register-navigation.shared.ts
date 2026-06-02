@@ -31,7 +31,7 @@ export function parseAttendanceRegisterNavContext(
   const clubSlug = normalizeSearchParam(searchParams.club);
 
   if (from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal) {
-    return { from };
+    return clubSlug ? { from, clubSlug } : { from };
   }
 
   if (from === ATTENDANCE_REGISTER_NAV_FROM.adminDashboard && clubSlug) {
@@ -83,9 +83,10 @@ export function attendanceRegisterPath(
   return withAttendanceRegisterNavContext("/attendance", context);
 }
 
-export function instructorPortalAttendanceRegisterPath(): string {
+export function instructorPortalAttendanceRegisterPath(clubSlug: string): string {
   return withAttendanceRegisterNavContext("/attendance", {
     from: ATTENDANCE_REGISTER_NAV_FROM.instructorPortal,
+    clubSlug,
   });
 }
 
@@ -103,6 +104,8 @@ export function manageBookingsAttendanceRegisterPath(clubSlug: string): string {
   });
 }
 
+import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
+
 export function resolveAttendanceRegisterBackLink(context: AttendanceRegisterNavContext): {
   href: string;
   label: string;
@@ -110,7 +113,9 @@ export function resolveAttendanceRegisterBackLink(context: AttendanceRegisterNav
   switch (context.from) {
     case ATTENDANCE_REGISTER_NAV_FROM.instructorPortal:
       return {
-        href: "/instructor-portal",
+        href: context.clubSlug
+          ? instructorPortalClubPath(context.clubSlug)
+          : "/instructor-portal",
         label: "← Back to Instructor Portal",
       };
     case ATTENDANCE_REGISTER_NAV_FROM.adminDashboard:

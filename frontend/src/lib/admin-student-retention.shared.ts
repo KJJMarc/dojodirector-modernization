@@ -83,18 +83,7 @@ export function studentRetentionRiskLevelLabel(
   }
 }
 
-function isInactiveMembershipStatus(status: string | null) {
-  if (!status) {
-    return false;
-  }
-
-  const normalized = status.trim().toLowerCase();
-  return (
-    normalized === "inactive" ||
-    normalized === "suspended" ||
-    normalized === "expired"
-  );
-}
+import { isNonActiveMembershipStatus } from "@/lib/membership-status.shared";
 
 function isNewStudentWithLowEngagement(input: StudentRetentionScoreInput) {
   if (input.daysSinceJoined === null || input.daysSinceJoined > NEW_STUDENT_DAYS_THRESHOLD) {
@@ -179,9 +168,9 @@ export function computeStudentRetentionScore(
     addAction("help-book", "Offer help booking a suitable class");
   }
 
-  if (isInactiveMembershipStatus(input.membershipStatus)) {
+  if (isNonActiveMembershipStatus(input.membershipStatus)) {
     score += 25;
-    addReason("membership", "Membership inactive or suspended");
+    addReason("membership", "Membership inactive or paused");
     addAction("membership", "Check membership/payment status");
   }
 

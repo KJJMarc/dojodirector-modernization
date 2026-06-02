@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
+import { requireClubBySlug } from "@/lib/clubs.server";
+import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 import {
   hasAcceptedCurrentStudentAgreements,
   logStudentAgreementGate,
   recordStudentAgreementAcceptance,
 } from "@/lib/student-portal-agreements.server";
+import { resolveStudentPortalHomePath } from "@/lib/student-portal-club.server";
 import {
   getAuthenticatedStudentPortalProfile,
   signOutStudentPortal,
@@ -19,6 +21,11 @@ import {
   SIGNATORY_TYPE_PARENT_GUARDIAN,
   SIGNATORY_TYPE_PARTICIPANT,
 } from "@/lib/student-portal-agreements.shared";
+import {
+  studentPortalAgreementsPath,
+  studentPortalEntryPath,
+  studentPortalPath,
+} from "@/lib/student-portal-routing.shared";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
 
 export async function signInStudentPortalAction(formData: FormData) {
@@ -30,18 +37,18 @@ export async function signInStudentPortalAction(formData: FormData) {
   }
 
   const supabase = await createSupabaseServerAuthClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     throw new Error("Sign in failed. Check your email and password.");
   }
 
-  redirect("/student-portal");
+  redirect(studentPortalEntryPath());
 }
 
 export async function signOutStudentPortalAction() {
   await signOutStudentPortal();
-  redirect("/student-portal");
+  redirect(studentPortalEntryPath());
 }
 
 export async function acceptStudentAgreementsAction(formData: FormData) {
@@ -82,7 +89,8 @@ export async function acceptStudentAgreementsAction(formData: FormData) {
   }
 
   const headerStore = await headers();
-  const agreementContent = await resolveMemberPortalAgreementContent(ACTIVE_CLUB_ID);
+  const kjjClub = await requireClubBySlug(KINGSTON_CLUB_SLUG);
+  const agreementContent = await resolveMemberPortalAgreementContent(kjjClub.id);
 
   logStudentAgreementGate("acceptStudentAgreementsAction.submit", {
     authUserId: profile.authUserId,
@@ -112,18 +120,22 @@ export async function acceptStudentAgreementsAction(formData: FormData) {
     logContext: "acceptStudentAgreementsAction.afterSave",
   });
 
+  const redirectTo = accepted
+    ? await resolveStudentPortalHomePath(profile.userId)
+    : studentPortalAgreementsPath();
+
   logStudentAgreementGate("acceptStudentAgreementsAction.redirect", {
     authUserId: profile.authUserId,
     studentUserId: profile.userId,
     savedAgreementRecordId: saved.agreementRecordId,
     savedVersion: saved.version,
     acceptedAfterSave: accepted,
-    redirectTo: accepted ? "/student-portal" : "/student-portal/agreements",
+    redirectTo,
   });
 
-  revalidatePath("/student-portal");
-  revalidatePath("/student-portal/agreements");
-  revalidatePath(`/student-portal/${profile.userId}`, "layout");
+  revalidatePath(studentPortalEntryPath());
+  revalidatePath(studentPortalAgreementsPath());
+  revalidatePath(studentPortalPath(KINGSTON_CLUB_SLUG, profile.userId), "layout");
 
   if (!accepted) {
     throw new Error(
@@ -131,5 +143,5 @@ export async function acceptStudentAgreementsAction(formData: FormData) {
     );
   }
 
-  redirect("/student-portal");
+  redirect(redirectTo);
 }

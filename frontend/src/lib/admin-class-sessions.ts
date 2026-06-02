@@ -125,7 +125,7 @@ function mapAdminSessionRow(
       month: "short",
     }).format(new Date(row.starts_at)),
     dayLabel: formatScheduleDayLabel(row.starts_at),
-    timeLabel: formatScheduleTimeRange(row.starts_at, row.ends_at),
+    timeLabel: formatScheduleTimeRange(row.starts_at, row.ends_at, row.external_id),
     locationLabel: formatSessionLocation(location),
   };
 }

@@ -1,3 +1,5 @@
+import { normalizeMembershipStatusValue } from "@/lib/membership-status.shared";
+
 export const MEMBERSHIP_ROLE_OPTIONS = [
   { value: "student", label: "Student" },
   { value: "instructor", label: "Instructor" },
@@ -8,7 +10,7 @@ export const MEMBERSHIP_ROLE_OPTIONS = [
 export const MEMBERSHIP_STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "trial", label: "Trial" },
-  { value: "suspended", label: "Suspended" },
+  { value: "paused", label: "Paused" },
   { value: "inactive", label: "Inactive" },
   { value: "archived", label: "Archived" },
 ] as const;
@@ -41,10 +43,21 @@ export function isMembershipRoleValue(value: string): value is MembershipRoleVal
   return MEMBERSHIP_ROLE_OPTIONS.some((option) => option.value === value);
 }
 
+export function parseMembershipStatusValue(
+  value: string,
+): MembershipStatusValue | null {
+  const normalized =
+    normalizeMembershipStatusValue(value.trim()) ?? value.trim().toLowerCase();
+
+  return MEMBERSHIP_STATUS_OPTIONS.some((option) => option.value === normalized)
+    ? (normalized as MembershipStatusValue)
+    : null;
+}
+
 export function isMembershipStatusValue(
   value: string,
 ): value is MembershipStatusValue {
-  return MEMBERSHIP_STATUS_OPTIONS.some((option) => option.value === value);
+  return parseMembershipStatusValue(value) !== null;
 }
 
 export function normalizeStudentEmail(email: string) {

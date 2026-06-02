@@ -1,47 +1,48 @@
-import type { Metadata } from "next";
-import { AppHeader } from "@/components/layout/app-header";
-import { InstructorSessionCoverList } from "@/components/instructor/instructor-session-cover-list";
-import { InstructorPortalBackLink } from "@/components/instructor-portal/instructor-portal-back-link";
-import { InstructorPortalHomeLink } from "@/components/instructor-portal/instructor-portal-home-link";
-import { ACTIVE_CLUB_NAME } from "@/lib/branding";
-import { getInstructorSessionCoverPageData } from "@/lib/instructor-portal.server";
+import { redirect } from "next/navigation";
+import {
+  instructorPortalClubPath,
+  instructorPortalEntryPath,
+} from "@/lib/instructor-portal-routing.shared";
 
 export const dynamic = "force-dynamic";
 
-interface InstructorSessionCoverPageProps {
+interface LegacyInstructorSessionCoverPageProps {
   params: { slug: string };
 }
 
-export async function generateMetadata({
-  params,
-}: InstructorSessionCoverPageProps): Promise<Metadata> {
-  const pageData = await getInstructorSessionCoverPageData(params.slug);
+async function resolveInstructorClubSlugForRedirect() {
+  const { getAuthenticatedInstructorPortalProfile } = await import(
+    "@/lib/instructor-portal-auth.server"
+  );
+  const { resolveInstructorPortalClubContext } = await import(
+    "@/lib/instructor-portal-club.server"
+  );
+  const { instructorPortalLoginPath } = await import(
+    "@/lib/instructor-portal-routing.shared"
+  );
 
-  return {
-    title: `DojoDirector | Session Cover | ${pageData.identity.displayName}`,
-    description: "View who is teaching upcoming classes.",
-  };
+  const profile = await getAuthenticatedInstructorPortalProfile();
+
+  if (!profile) {
+    redirect(instructorPortalLoginPath());
+  }
+
+  const clubContext = await resolveInstructorPortalClubContext(profile.userId);
+
+  if (clubContext.accessibleClubs.length === 1 && clubContext.accessibleClubs[0]) {
+    return clubContext.accessibleClubs[0].slug;
+  }
+
+  if (clubContext.selectedClub) {
+    return clubContext.selectedClub.slug;
+  }
+
+  redirect(instructorPortalEntryPath());
 }
 
-export default async function InstructorSessionCoverPage({
-  params,
-}: InstructorSessionCoverPageProps) {
-  const pageData = await getInstructorSessionCoverPageData(params.slug);
-
-  return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Session Cover" clubName={ACTIVE_CLUB_NAME} />
-
-      <InstructorPortalBackLink />
-
-      <p className="text-sm text-dojo-muted">
-        Upcoming class sessions for the next 8 weeks. Read-only view of who is
-        teaching each class.
-      </p>
-
-      <InstructorSessionCoverList sessions={pageData.sessions} />
-
-      <InstructorPortalHomeLink />
-    </main>
-  );
+export default async function LegacyInstructorSessionCoverPage(
+  _props: LegacyInstructorSessionCoverPageProps,
+) {
+  const clubSlug = await resolveInstructorClubSlugForRedirect();
+  redirect(instructorPortalClubPath(clubSlug, "session-cover"));
 }

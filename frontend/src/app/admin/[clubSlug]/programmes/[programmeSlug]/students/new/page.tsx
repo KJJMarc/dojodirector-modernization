@@ -5,7 +5,8 @@ import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-n
 import { AddStudentForm } from "@/components/admin/add-student-form";
 import { AppHeader } from "@/components/layout/app-header";
 import {
-  buildAddStudentProgrammeAccessOptions,
+  buildAddStudentBookingAccessOptions,
+  buildAddStudentProgrammeMembershipOptions,
   formatProgrammeStudentsLabel,
   programmeStudentsAdminPath,
 } from "@/lib/admin-programmes.shared";
@@ -55,7 +56,8 @@ export default async function ProgrammeAddStudentPage({
             NEW STUDENT
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Creates a user account and club membership. Choose programme access below.
+            Creates a user account and club membership. Choose programme student areas and
+            booking access below.
           </p>
         </div>
 
@@ -63,7 +65,10 @@ export default async function ProgrammeAddStudentPage({
           clubSlug={club.slug}
           programmeSlug={programme.slug}
           cancelHref={studentsPath}
-          programmeAccessOptions={buildAddStudentProgrammeAccessOptions(
+          programmeMembershipOptions={buildAddStudentProgrammeMembershipOptions(
+            programme.programmeType,
+          )}
+          bookingAccessOptions={buildAddStudentBookingAccessOptions(
             programme.programmeType,
           )}
         />

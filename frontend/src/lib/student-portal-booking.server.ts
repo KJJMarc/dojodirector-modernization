@@ -9,9 +9,10 @@ import {
 import {
   formatScheduleDayLabel,
   formatScheduleTimeRange,
-  loadClassScheduleSessions,
   type ClassScheduleSession,
 } from "@/lib/class-session-schedule";
+import { utcIsoToLondonDate } from "@/lib/london-datetime";
+import { loadClassScheduleSessions } from "@/lib/class-session-schedule.server";
 import { loadStudentActiveProgrammeIdsForBooking } from "@/lib/admin-programmes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -211,7 +212,7 @@ export async function loadInstructorNameBySessionId(
   return instructorNameBySessionId;
 }
 
-function filterSessionsByStudentProgrammeMembership(
+function filterSessionsByStudentBookingAccess(
   sessions: ClassScheduleSession[],
   allowedProgrammeIds: Set<string> | null,
 ) {
@@ -244,7 +245,7 @@ export async function loadStudentPortalBookableSessionGroups(
     loadStudentActiveProgrammeIdsForBooking(userId, clubId),
   ]);
 
-  const bookableClubSessions = filterSessionsByStudentProgrammeMembership(
+  const bookableClubSessions = filterSessionsByStudentBookingAccess(
     sessions,
     allowedProgrammeIds,
   );
@@ -280,7 +281,11 @@ export async function loadStudentPortalBookableSessionGroups(
         memberBookingStatusLabel:
           formatMemberBookingStatusLabel(memberBookingStatus),
         dateLabel: formatBookingDate(session.startsAt),
-        timeLabel: formatScheduleTimeRange(session.startsAt, session.endsAt),
+        timeLabel: formatScheduleTimeRange(
+          session.startsAt,
+          session.endsAt,
+          session.externalId,
+        ),
         isFull: session.spacesAvailable === 0,
       };
     },
@@ -289,7 +294,7 @@ export async function loadStudentPortalBookableSessionGroups(
   const groups = new Map<string, StudentPortalBookableSessionGroup>();
 
   for (const session of bookableSessions) {
-    const dateKey = new Date(session.startsAt).toISOString().slice(0, 10);
+    const dateKey = utcIsoToLondonDate(session.startsAt);
 
     if (!groups.has(dateKey)) {
       groups.set(dateKey, {

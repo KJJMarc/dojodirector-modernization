@@ -10,6 +10,12 @@ body {
   @apply bg-dojo-black text-dojo-white antialiased;
 }
 
+body:has(.adult-belt-rankings-page),
+body:has(.junior-belt-rankings-page) {
+  @apply bg-dojo-black text-white;
+  color-scheme: dark;
+}
+
 a {
   @apply text-dojo-red transition-colors hover:text-dojo-red-hover;
 }

@@ -75,7 +75,8 @@ export function StudentProfileView({
     showAdminDashboardAccess,
     adminAccess,
     agreementAccess,
-    programmeAccess,
+    programmeMembership,
+    programmeBookingAccess,
     bjjFeatureVisibility,
     attendance,
     belt,
@@ -132,7 +133,8 @@ export function StudentProfileView({
       <StudentProgrammeAccessPanel
         clubSlug={clubSlug}
         userId={student.id}
-        programmeAccess={programmeAccess}
+        programmeMembership={programmeMembership}
+        programmeBookingAccess={programmeBookingAccess}
       />
 
       <LoginAccessPanel

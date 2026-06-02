@@ -1,35 +1,7 @@
 import {
   formatBookingDate,
-  formatBookingTime,
-  getSpacesAvailable,
 } from "@/lib/booking";
-import { utcIsoToLondonTime } from "@/lib/london-datetime";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-
-interface ClassSessionRow {
-  id: string;
-  class_id: string;
-  starts_at: string;
-  ends_at: string | null;
-  capacity: number | null;
-  status: string | null;
-  source: string | null;
-  external_id: string | null;
-}
-
-interface ClassRow {
-  id: string;
-  name: string;
-  is_active: boolean | null;
-  club_id: string | null;
-  programme_id: string | null;
-}
-
-interface SessionAttendeeRow {
-  id: string;
-  class_session_id: string;
-  booking_status: string | null;
-}
+import { utcIsoToLondonDate, utcIsoToLondonTime } from "@/lib/london-datetime";
 
 export interface ClassScheduleSession {
   id: string;
@@ -38,6 +10,7 @@ export interface ClassScheduleSession {
   programmeId: string | null;
   startsAt: string;
   endsAt: string | null;
+  externalId: string | null;
   location: string | null;
   capacity: number | null;
   bookedCount: number;
@@ -65,15 +38,73 @@ export interface LoadClassScheduleSessionsOptions {
 export function formatScheduleDayLabel(startsAt: string) {
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "long",
+    timeZone: "Europe/London",
   }).format(new Date(startsAt));
 }
 
-export function formatScheduleTimeRange(startsAt: string, endsAt: string | null) {
-  if (!endsAt) {
-    return formatBookingTime(startsAt);
+function normalizeTimeLabel(time: string) {
+  const [hours, minutes] = time.split(":");
+  return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`;
+}
+
+function addDurationToTimeLabel(startTime: string, durationMs: number) {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const totalMinutes = hours * 60 + minutes + Math.round(durationMs / 60_000);
+  const endHours = Math.floor(totalMinutes / 60) % 24;
+  const endMinutes = totalMinutes % 60;
+
+  return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
+}
+
+function hasExternalSessionSlotTime(externalId: string | null | undefined) {
+  if (!externalId) {
+    return false;
   }
 
-  return `${formatBookingTime(startsAt)} – ${formatBookingTime(endsAt)}`;
+  return /^(?:kjj_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}/.test(
+    externalId,
+  );
+}
+
+/** Display class times in UK local time, preferring timetable slot time from external_id when present. */
+export function formatSessionTimeRangeForDisplay(input: {
+  startsAt: string;
+  endsAt: string | null;
+  externalId?: string | null;
+}) {
+  if (hasExternalSessionSlotTime(input.externalId)) {
+    const startLabel = normalizeTimeLabel(
+      resolveSessionSlotTimeFromRow({
+        starts_at: input.startsAt,
+        external_id: input.externalId ?? null,
+      }),
+    );
+
+    if (!input.endsAt) {
+      return startLabel;
+    }
+
+    const durationMs =
+      new Date(input.endsAt).getTime() - new Date(input.startsAt).getTime();
+
+    return `${startLabel} – ${addDurationToTimeLabel(startLabel, durationMs)}`;
+  }
+
+  const startLabel = utcIsoToLondonTime(input.startsAt);
+
+  if (!input.endsAt) {
+    return startLabel;
+  }
+
+  return `${startLabel} – ${utcIsoToLondonTime(input.endsAt)}`;
+}
+
+export function formatScheduleTimeRange(
+  startsAt: string,
+  endsAt: string | null,
+  externalId?: string | null,
+) {
+  return formatSessionTimeRangeForDisplay({ startsAt, endsAt, externalId });
 }
 
 export function formatScheduleCapacitySummary(
@@ -84,10 +115,6 @@ export function formatScheduleCapacitySummary(
   }
 
   return `${session.bookedCount} / ${session.capacity} booked`;
-}
-
-function isBookedStatus(bookingStatus: string | null) {
-  return bookingStatus === "booked";
 }
 
 export function resolveSessionLocationFromRow(row: {
@@ -130,134 +157,13 @@ export function resolveSessionSlotTimeFromRow(row: {
   return utcIsoToLondonTime(row.starts_at);
 }
 
-/** Loads sessions from class_sessions (source of truth) with class names and booking counts. */
-export async function loadClassScheduleSessions(
-  options: LoadClassScheduleSessionsOptions,
-): Promise<ClassScheduleSession[]> {
-  const supabase = getSupabaseServerClient();
-  const {
-    startIso,
-    endIso,
-    includeCancelled = false,
-    activeClassesOnly = false,
-    clubId,
-  } = options;
-
-  const { data: sessionRows, error: sessionsError } = await supabase
-    .from("class_sessions")
-    .select("id, class_id, starts_at, ends_at, capacity, status, source, external_id")
-    .gte("starts_at", startIso)
-    .lt("starts_at", endIso)
-    .order("starts_at", { ascending: true });
-
-  if (sessionsError) {
-    throw new Error(`Failed to load class sessions: ${sessionsError.message}`);
-  }
-
-  const sessions = ((sessionRows ?? []) as ClassSessionRow[]).filter((session) =>
-    includeCancelled ? true : session.status === "scheduled" || session.status === null,
-  );
-
-  if (sessions.length === 0) {
-    return [];
-  }
-
-  const sessionIds = sessions.map((session) => session.id);
-  const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
-
-  const [classesResult, attendeesResult] = await Promise.all([
-    supabase
-      .from("classes")
-      .select("id, name, is_active, club_id, programme_id")
-      .in("id", classIds),
-    supabase
-      .from("session_attendees")
-      .select("id, class_session_id, booking_status")
-      .in("class_session_id", sessionIds),
-  ]);
-
-  if (classesResult.error) {
-    throw new Error(`Failed to load classes: ${classesResult.error.message}`);
-  }
-
-  if (attendeesResult.error) {
-    throw new Error(
-      `Failed to load session bookings: ${attendeesResult.error.message}`,
-    );
-  }
-
-  const classRows = (classesResult.data ?? []) as ClassRow[];
-  const classNameById = new Map(classRows.map((row) => [row.id, row.name]));
-  const programmeIdByClassId = new Map(
-    classRows.map((row) => [row.id, row.programme_id]),
-  );
-  const activeClassIds = new Set(
-    ((classesResult.data ?? []) as ClassRow[])
-      .filter((row) => row.is_active !== false)
-      .map((row) => row.id),
-  );
-
-  const clubClassIds = clubId
-    ? new Set(
-        ((classesResult.data ?? []) as ClassRow[])
-          .filter((row) => row.club_id === clubId)
-          .map((row) => row.id),
-      )
-    : null;
-
-  const visibleSessions = sessions.filter((session) => {
-    if (activeClassesOnly && !activeClassIds.has(session.class_id)) {
-      return false;
-    }
-
-    if (clubClassIds && !clubClassIds.has(session.class_id)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  const bookedCountBySession = new Map<string, number>();
-
-  for (const attendee of (attendeesResult.data ?? []) as SessionAttendeeRow[]) {
-    if (!isBookedStatus(attendee.booking_status)) {
-      continue;
-    }
-
-    bookedCountBySession.set(
-      attendee.class_session_id,
-      (bookedCountBySession.get(attendee.class_session_id) ?? 0) + 1,
-    );
-  }
-
-  return visibleSessions.map((session) => {
-    const bookedCount = bookedCountBySession.get(session.id) ?? 0;
-    const isCancelled = session.status === "cancelled";
-
-    return {
-      id: session.id,
-      classId: session.class_id,
-      className: classNameById.get(session.class_id) ?? "Unnamed class",
-      programmeId: programmeIdByClassId.get(session.class_id) ?? null,
-      startsAt: session.starts_at,
-      endsAt: session.ends_at,
-      location: resolveSessionLocationFromRow(session),
-      capacity: session.capacity,
-      bookedCount,
-      spacesAvailable: getSpacesAvailable(session.capacity, bookedCount),
-      status: session.status,
-      isCancelled,
-    };
-  });
-}
-
 export function groupClassScheduleSessionsByDate(
   sessions: ClassScheduleSession[],
 ): ClassScheduleDateGroup[] {
   const groups = new Map<string, ClassScheduleDateGroup>();
 
   for (const session of sessions) {
-    const dateKey = new Date(session.startsAt).toISOString().slice(0, 10);
+    const dateKey = utcIsoToLondonDate(session.startsAt);
 
     if (!groups.has(dateKey)) {
       groups.set(dateKey, {

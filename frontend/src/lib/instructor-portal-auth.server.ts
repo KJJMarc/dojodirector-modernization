@@ -8,6 +8,7 @@ import {
   resolveInstructorPortalLoginEmail,
   type PortalAuthStatus,
 } from "@/lib/instructor-portal-auth.shared";
+import { loadInstructorPortalAccessibleClubs } from "@/lib/instructor-portal-club.server";
 import {
   getSupabaseAuthSessionUser,
   validatePortalPasswordInput,
@@ -242,7 +243,7 @@ async function resolveProfileForInstructorAuthUser(
     return null;
   }
 
-  const hasMembership = await userHasInstructorPortalMembership(row.id);
+  const hasMembership = (await loadInstructorPortalAccessibleClubs(row.id)).length > 0;
 
   if (!hasMembership) {
     return null;

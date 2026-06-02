@@ -14,9 +14,11 @@ import {
   profileSectionClassName,
 } from "@/components/admin/profile-detail-item";
 import {
+  parseProfileMembershipStatusValue,
   PROFILE_MEMBERSHIP_ROLE_OPTIONS,
   PROFILE_MEMBERSHIP_STATUS_OPTIONS,
   STUDENT_DELETE_CONFIRMATION_TEXT,
+  type ProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import {
   formatMembershipStatus,
@@ -46,7 +48,11 @@ export function StudentProfileMembershipManager({
   const [isStatusPending, startStatusTransition] = useTransition();
   const [isDeletePending, startDeleteTransition] = useTransition();
   const [role, setRole] = useState(student.membershipRole ?? "student");
-  const [status, setStatus] = useState(student.membershipStatus ?? "active");
+  const [status, setStatus] = useState<ProfileMembershipStatusValue>(
+    () =>
+      parseProfileMembershipStatusValue(student.membershipStatus ?? "active") ??
+      "active",
+  );
   const [confirmation, setConfirmation] = useState("");
   const [roleMessage, setRoleMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -174,7 +180,9 @@ export function StudentProfileMembershipManager({
                 Change membership status
                 <select
                   value={status}
-                  onChange={(event) => setStatus(event.target.value)}
+                  onChange={(event) =>
+                    setStatus(event.target.value as ProfileMembershipStatusValue)
+                  }
                   className={fieldClassName}
                 >
                   {PROFILE_MEMBERSHIP_STATUS_OPTIONS.map((option) => (
@@ -210,6 +218,12 @@ export function StudentProfileMembershipManager({
             This member&apos;s role cannot be changed from the profile page.
           </p>
         )}
+
+        {student.lastSuperAdminWarning ? (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm leading-snug text-dojo-white">
+            {student.lastSuperAdminWarning}
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-2 rounded-xl border border-dojo-red/40 bg-dojo-red/5 p-3">

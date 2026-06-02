@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isActiveStudentClubMembership } from "@/lib/admin-student-membership.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface ClubMembershipRow {
@@ -59,6 +60,36 @@ export async function loadClubMembershipRows(
   }
 
   return membershipRows;
+}
+
+/** Active student memberships only — used for programme student area counts and lists. */
+export async function loadActiveStudentMembershipRows(
+  clubId: string,
+): Promise<ClubMembershipRow[]> {
+  const membershipRows = await loadClubMembershipRows(clubId);
+  return membershipRows.filter(isActiveStudentClubMembership);
+}
+
+export async function loadActiveStudentUserIds(clubId: string): Promise<Set<string>> {
+  const membershipRows = await loadActiveStudentMembershipRows(clubId);
+  return new Set(membershipRows.map((membership) => membership.user_id));
+}
+
+export async function countActiveStudentMemberships(clubId: string): Promise<number> {
+  const supabase = getSupabaseAdminClient();
+
+  const { count, error } = await supabase
+    .from("memberships")
+    .select("user_id", { count: "exact", head: true })
+    .eq("club_id", clubId)
+    .eq("role", "student")
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error(`Failed to count active student memberships: ${error.message}`);
+  }
+
+  return count ?? 0;
 }
 
 /** All club memberships — used for programme fallback counts and backfill. */

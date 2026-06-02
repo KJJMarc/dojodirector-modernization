@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { instructorPortalPath } from "@/lib/instructor-portal.shared";
+import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
 import { instructorPortalAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
 
 export interface InstructorQuickActionItem {
@@ -10,29 +10,31 @@ export interface InstructorQuickActionItem {
 
 interface InstructorQuickActionsProps {
   slug: string;
+  clubSlug: string;
   extraActions?: readonly InstructorQuickActionItem[];
   sectionTitle?: string;
 }
 
 export function InstructorQuickActions({
   slug,
+  clubSlug,
   extraActions = [],
   sectionTitle = "ACTIONS",
 }: InstructorQuickActionsProps) {
   const actions: InstructorQuickActionItem[] = [
     {
       label: "Attendance Register",
-      href: instructorPortalAttendanceRegisterPath(),
+      href: instructorPortalAttendanceRegisterPath(clubSlug),
       description: "Mark attendance for today's classes.",
     },
     {
       label: "Session Cover",
-      href: instructorPortalPath(slug, "session-cover"),
+      href: instructorPortalClubPath(clubSlug, "session-cover"),
       description: "View who is teaching upcoming classes.",
     },
     {
       label: "My Classes",
-      href: instructorPortalPath(slug, "my-classes"),
+      href: instructorPortalClubPath(clubSlug, "my-classes"),
       description: "View your assigned recurring classes and upcoming sessions.",
     },
     ...extraActions,

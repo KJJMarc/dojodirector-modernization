@@ -1,7 +1,7 @@
 import { normalizeStudentEmail } from "@/lib/admin-create-student.shared";
 import {
   isProfileMembershipRoleValue,
-  isProfileMembershipStatusValue,
+  parseProfileMembershipStatusValue,
   type ProfileMembershipRoleValue,
   type ProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
@@ -113,9 +113,12 @@ export function parseEditAdminStudentMembershipFields(
     throw new Error("Please select a valid role.");
   }
 
-  if (!isProfileMembershipStatusValue(membershipStatus)) {
+  const parsedMembershipStatus =
+    parseProfileMembershipStatusValue(membershipStatus);
+
+  if (!parsedMembershipStatus) {
     throw new Error("Please select a valid membership status.");
   }
 
-  return { role, membershipStatus };
+  return { role, membershipStatus: parsedMembershipStatus };
 }

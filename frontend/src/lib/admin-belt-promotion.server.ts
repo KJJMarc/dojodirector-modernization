@@ -28,6 +28,8 @@ import {
   loadAdminStudentProfileRowsByIds,
   loadClubMembershipRows,
 } from "@/lib/admin-club-memberships.server";
+import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
+import { loadMembershipStatusesByUserId } from "@/lib/membership-access.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** KJJ test/dev — promotion candidate debug focus user. */
@@ -331,7 +333,7 @@ export async function loadPromotionFlagsByUserId(
 
   const awardedAtByUserId = buildCurrentLevelAwardedAtByUserId(latestAwardByUserId);
 
-  const [beltLevels, requirementsByTargetBeltId, juniorRequirementsByFromBeltId, summaries] =
+  const [beltLevels, requirementsByTargetBeltId, juniorRequirementsByFromBeltId, summaries, membershipStatuses] =
     await Promise.all([
       evaluationData?.beltLevels
         ? Promise.resolve(evaluationData.beltLevels)
@@ -345,9 +347,15 @@ export async function loadPromotionFlagsByUserId(
       bjjAttendanceByUserId
         ? Promise.resolve(bjjAttendanceByUserId)
         : loadBjjAttendanceSummariesByUserId(userIds, clubId, awardedAtByUserId),
+      loadMembershipStatusesByUserId(userIds, clubId),
     ]);
 
   for (const userId of userIds) {
+    if (!isActiveMembershipStatus(membershipStatuses.get(userId))) {
+      flags.set(userId, false);
+      continue;
+    }
+
     const assessment = buildStudentBeltPromotionAssessment({
       userId,
       latestAward: latestAwardByUserId.get(userId),
@@ -376,6 +384,7 @@ interface UserRow {
 interface PromotionEvaluationContext {
   userIds: string[];
   membershipRoleByUserId: Map<string, string | null>;
+  membershipStatusByUserId: Map<string, string | null>;
   userById: Map<string, UserRow>;
   latestAwardByUserId: Map<string, LatestGradeAwardRow>;
   beltLevels: BeltLevelProgressionRow[];
@@ -661,6 +670,7 @@ async function loadPromotionEvaluationContext(
     return {
       userIds: [],
       membershipRoleByUserId: new Map(),
+      membershipStatusByUserId: new Map(),
       userById: new Map(),
       latestAwardByUserId: new Map(),
       beltLevels: [],
@@ -672,8 +682,12 @@ async function loadPromotionEvaluationContext(
     };
   }
 
+  // Promotion eligibility uses active membership status only; paused/inactive are excluded.
   const membershipRoleByUserId = new Map(
     membershipRows.map((row) => [row.user_id, row.role]),
+  );
+  const membershipStatusByUserId = new Map(
+    membershipRows.map((row) => [row.user_id, row.status]),
   );
 
   const [userById, latestAwardByUserId] = await Promise.all([
@@ -697,6 +711,7 @@ async function loadPromotionEvaluationContext(
   return {
     userIds,
     membershipRoleByUserId,
+    membershipStatusByUserId,
     userById,
     latestAwardByUserId,
     beltLevels,
@@ -744,6 +759,10 @@ export async function loadPromotionCandidates(
   let clareInCandidates = false;
 
   for (const userId of context.userIds) {
+    if (!isActiveMembershipStatus(context.membershipStatusByUserId.get(userId))) {
+      continue;
+    }
+
     const isBilly = billyBloggsUserId !== null && userId === billyBloggsUserId;
     const isClare = userId === CLARE_BARTON_FOCUS_USER_ID;
     let user = context.userById.get(userId);

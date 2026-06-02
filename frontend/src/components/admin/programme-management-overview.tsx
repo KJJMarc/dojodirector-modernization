@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   clubProgrammeAdminPath,
-  clubProgrammesAdminPath,
   formatProgrammeTypeOptionLabel,
   type AdminProgramme,
 } from "@/lib/admin-programmes.shared";
@@ -39,7 +38,8 @@ export function ProgrammeManagementOverview({
   if (programmes.length === 0) {
     return (
       <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
-        No programmes configured yet. Create your first programme to get started.
+        No programmes configured yet. Use Create New Programme above to add your
+        first programme area.
       </div>
     );
   }
@@ -82,17 +82,6 @@ export function ProgrammeManagementOverview({
           </div>
         </article>
       ))}
-
-      <p className="text-xs text-dojo-muted">
-        Need another programme? Use{" "}
-        <Link
-          href={clubProgrammesAdminPath(clubSlug, "new")}
-          className="font-medium text-dojo-white underline-offset-2 hover:text-dojo-red hover:underline"
-        >
-          Create New Programme
-        </Link>{" "}
-        from the admin dashboard.
-      </p>
     </div>
   );
 }

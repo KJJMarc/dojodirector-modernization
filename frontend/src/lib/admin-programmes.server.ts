@@ -19,7 +19,9 @@ import {
   type StudentBjjFeatureVisibility,
 } from "@/lib/admin-programmes.shared";
 import {
+  countActiveStudentMemberships,
   countClubMemberships,
+  loadActiveStudentUserIds,
   loadClubMembershipBackfillRows,
   loadAdminStudentProfileRowsByIds,
 } from "@/lib/admin-club-memberships.server";
@@ -52,10 +54,6 @@ interface ProgrammeRow {
   class_booking_enabled: boolean;
   promotion_candidates_enabled: boolean;
   admin_area_enabled?: boolean;
-}
-
-interface ProgrammeMembershipCountRow {
-  programme_id: string;
 }
 
 function isMissingProgrammesTable(error: { message?: string; code?: string } | null) {
@@ -180,8 +178,12 @@ function isBjjProgramme(input: {
 }
 
 function normalizeProgrammeMembershipStatus(status: string | null) {
-  if (status === "active" || status === "inactive" || status === "suspended") {
+  if (status === "active" || status === "inactive" || status === "paused") {
     return status;
+  }
+
+  if (status === "suspended") {
+    return "paused";
   }
 
   return "active";
@@ -204,25 +206,69 @@ async function shouldUseMembershipStudentCountFallback(
     return false;
   }
 
-  return (await countClubMemberships(clubId)) > 0;
+  return (await countActiveStudentMemberships(clubId)) > 0;
+}
+
+async function loadActiveProgrammeMembershipUserIds(
+  programmeId: string,
+): Promise<string[]> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from("programme_memberships")
+    .select("user_id")
+    .eq("programme_id", programmeId)
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error(`Failed to load programme memberships: ${error.message}`);
+  }
+
+  return Array.from(
+    new Set(((data ?? []) as { user_id: string }[]).map((row) => row.user_id)),
+  );
+}
+
+/** Single source of truth for programme student area counts and member lists. */
+export async function resolveProgrammeStudentAreaMemberUserIds(
+  clubId: string,
+  programme: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+): Promise<string[]> {
+  const activeStudentIds = await loadActiveStudentUserIds(clubId);
+
+  if (activeStudentIds.size === 0) {
+    return [];
+  }
+
+  if (programme.id === LEGACY_BJJ_PROGRAMME_ID) {
+    return Array.from(activeStudentIds);
+  }
+
+  const programmeMemberIds = await loadActiveProgrammeMembershipUserIds(programme.id);
+  const filteredMemberIds = programmeMemberIds.filter((userId) =>
+    activeStudentIds.has(userId),
+  );
+
+  if (
+    filteredMemberIds.length === 0 &&
+    (await shouldUseMembershipStudentCountFallback(
+      clubId,
+      programme,
+      programmeMemberIds.length,
+    ))
+  ) {
+    return Array.from(activeStudentIds);
+  }
+
+  return filteredMemberIds;
 }
 
 async function resolveProgrammeStudentCount(
   clubId: string,
   programme: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
-  programmeMembershipCount: number,
 ) {
-  if (
-    await shouldUseMembershipStudentCountFallback(
-      clubId,
-      programme,
-      programmeMembershipCount,
-    )
-  ) {
-    return countClubMemberships(clubId);
-  }
-
-  return programmeMembershipCount;
+  const userIds = await resolveProgrammeStudentAreaMemberUserIds(clubId, programme);
+  return userIds.length;
 }
 
 function mapProgrammeRow(
@@ -286,12 +332,14 @@ async function loadProgrammeRowsForClub(
     .order("name", { ascending: true });
 
   if (error && isMissingAdminAreaEnabledColumn(error)) {
-    ({ data, error } = await supabase
+    const legacyResult = await supabase
       .from("programmes")
       .select(PROGRAMME_ROW_SELECT_LEGACY)
       .eq("club_id", clubId)
       .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }));
+      .order("name", { ascending: true });
+    data = legacyResult.data as typeof data;
+    error = legacyResult.error;
   }
 
   if (error) {
@@ -582,7 +630,7 @@ export async function buildProgrammeMembershipDebugReport(
   let programmeMembershipsCount = 0;
   let backfillRan = false;
   let usingMembershipFallback = false;
-  let bjjStudentCountDisplayed = membershipsCount;
+  let bjjStudentCountDisplayed = await countActiveStudentMemberships(clubId);
   let sampleUserIds: string[] = [];
 
   if (programmesSchemaAvailable) {
@@ -642,7 +690,7 @@ export async function buildProgrammeMembershipDebugReport(
       );
 
       bjjStudentCountDisplayed = usingMembershipFallback
-        ? membershipsCount
+        ? await countActiveStudentMemberships(clubId)
         : programmeMembershipsCount;
 
       const { data: programmeMembers, error: programmeMembersError } = await supabase
@@ -706,53 +754,50 @@ export async function buildProgrammeMembershipDebugReport(
   };
 }
 
-async function loadProgrammeStudentCounts(programmeIds: string[]) {
-  if (programmeIds.length === 0) {
-    return new Map<string, number>();
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("programme_memberships")
-    .select("programme_id")
-    .in("programme_id", programmeIds)
-    .eq("status", "active");
-
-  if (error) {
-    throw new Error(`Failed to load programme student counts: ${error.message}`);
-  }
-
+async function loadProgrammeStudentCounts(
+  clubId: string,
+  programmeIds: string[],
+  programmesById: Map<string, Pick<AdminProgramme, "id" | "slug" | "programmeType">>,
+) {
   const counts = new Map<string, number>();
 
-  for (const row of (data ?? []) as ProgrammeMembershipCountRow[]) {
-    counts.set(row.programme_id, (counts.get(row.programme_id) ?? 0) + 1);
-  }
+  await Promise.all(
+    programmeIds.map(async (programmeId) => {
+      const programme = programmesById.get(programmeId);
+
+      if (!programme) {
+        counts.set(programmeId, 0);
+        return;
+      }
+
+      const userIds = await resolveProgrammeStudentAreaMemberUserIds(clubId, programme);
+      counts.set(programmeId, userIds.length);
+    }),
+  );
 
   return counts;
 }
 
 export async function loadClubProgrammes(clubId: string): Promise<AdminProgramme[]> {
   if (!(await isProgrammesSchemaAvailable())) {
-    const studentCount = await countClubMemberships(clubId);
+    const studentCount = await countActiveStudentMemberships(clubId);
     return [buildLegacyBjjProgrammeFallback(clubId, studentCount)];
   }
 
   const rows = await loadProgrammeRowsForClub(clubId, { adminAreaOnly: true });
-  const counts = await loadProgrammeStudentCounts(rows.map((row) => row.id));
-
-  return Promise.all(
-    rows.map(async (row) => {
-      const programmeMembershipCount = counts.get(row.id) ?? 0;
-      const programme = mapProgrammeRow(row, programmeMembershipCount);
-      const studentCount = await resolveProgrammeStudentCount(
-        clubId,
-        programme,
-        programmeMembershipCount,
-      );
-
-      return mapProgrammeRow(row, studentCount);
+  const programmesById = new Map(
+    rows.map((row) => {
+      const programme = mapProgrammeRow(row, 0);
+      return [programme.id, programme] as const;
     }),
   );
+  const counts = await loadProgrammeStudentCounts(
+    clubId,
+    rows.map((row) => row.id),
+    programmesById,
+  );
+
+  return rows.map((row) => mapProgrammeRow(row, counts.get(row.id) ?? 0));
 }
 
 export async function requireClubProgrammeBySlug(
@@ -761,7 +806,7 @@ export async function requireClubProgrammeBySlug(
 ): Promise<AdminProgramme> {
   if (!(await isProgrammesSchemaAvailable())) {
     if (programmeSlug === BJJ_PROGRAMME_SLUG) {
-      const studentCount = await countClubMemberships(clubId);
+      const studentCount = await countActiveStudentMemberships(clubId);
       return buildLegacyBjjProgrammeFallback(clubId, studentCount);
     }
 
@@ -802,20 +847,22 @@ export async function requireClubProgrammeBySlug(
     throw new Error("Programme not found.");
   }
 
-  const counts = await loadProgrammeStudentCounts([row.id]);
-  const programmeMembershipCount = counts.get(row.id) ?? 0;
-  const programme = mapProgrammeRow(row, programmeMembershipCount);
-  const studentCount = await resolveProgrammeStudentCount(
-    clubId,
-    programme,
-    programmeMembershipCount,
-  );
+  const programme = mapProgrammeRow(row, 0);
+  const studentCount = await resolveProgrammeStudentCount(clubId, programme);
 
   return mapProgrammeRow(row, studentCount);
 }
 
 export async function requireClubBjjProgramme(clubId: string): Promise<AdminProgramme> {
   return requireClubProgrammeBySlug(clubId, BJJ_PROGRAMME_SLUG);
+}
+
+/** Active programme_memberships row for the club's BJJ programme (not belt or grading settings). */
+export async function studentHasActiveBjjProgrammeMembership(
+  clubId: string,
+  userId: string,
+): Promise<boolean> {
+  return studentHasActiveProgrammeMembership(clubId, userId, "bjj");
 }
 
 async function studentHasActiveProgrammeMembership(
@@ -939,25 +986,38 @@ export async function getProgrammeAttendanceCardsEnabled(
 
 export async function loadProgrammeMembershipUserIds(
   programmeId: string,
+  clubId: string,
+  programme?: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
 ): Promise<string[]> {
+  if (programme) {
+    return resolveProgrammeStudentAreaMemberUserIds(clubId, programme);
+  }
+
   if (programmeId === LEGACY_BJJ_PROGRAMME_ID) {
-    return [];
+    return Array.from(await loadActiveStudentUserIds(clubId));
   }
 
   const supabase = getSupabaseAdminClient();
+  const { data: programmeRow, error: programmeError } = await supabase
+    .from("programmes")
+    .select("id, slug, programme_type")
+    .eq("id", programmeId)
+    .eq("club_id", clubId)
+    .maybeSingle();
 
-  const { data, error } = await supabase
-    .from("programme_memberships")
-    .select("user_id")
-    .eq("programme_id", programmeId);
-
-  if (error) {
-    throw new Error(`Failed to load programme memberships: ${error.message}`);
+  if (programmeError) {
+    throw new Error(`Failed to load programme: ${programmeError.message}`);
   }
 
-  return Array.from(
-    new Set(((data ?? []) as { user_id: string }[]).map((row) => row.user_id)),
-  );
+  if (!programmeRow) {
+    return [];
+  }
+
+  return resolveProgrammeStudentAreaMemberUserIds(clubId, {
+    id: programmeRow.id,
+    slug: programmeRow.slug,
+    programmeType: programmeRow.programme_type,
+  });
 }
 
 export interface CreateAdminProgrammeInput {
@@ -1226,13 +1286,10 @@ export async function updateAdminProgrammeSettings(
     throw new Error(`Failed to update programme settings: ${error.message}`);
   }
 
-  const counts = await loadProgrammeStudentCounts([programme.id]);
-  const programmeMembershipCount = counts.get(programme.id) ?? 0;
-  const updatedProgramme = mapProgrammeRow(data as ProgrammeRow, programmeMembershipCount);
+  const updatedProgramme = mapProgrammeRow(data as ProgrammeRow, 0);
   const studentCount = await resolveProgrammeStudentCount(
     input.clubId,
     updatedProgramme,
-    programmeMembershipCount,
   );
 
   return mapProgrammeRow(data as ProgrammeRow, studentCount);
@@ -1240,20 +1297,31 @@ export async function updateAdminProgrammeSettings(
 
 export async function countActiveProgrammeStudents(
   programmeId: string,
+  clubId: string,
 ): Promise<number> {
   const supabase = getSupabaseAdminClient();
-
-  const { count, error } = await supabase
-    .from("programme_memberships")
-    .select("user_id", { count: "exact", head: true })
-    .eq("programme_id", programmeId)
-    .eq("status", "active");
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("id, slug, programme_type")
+    .eq("id", programmeId)
+    .eq("club_id", clubId)
+    .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to count programme students: ${error.message}`);
+    throw new Error(`Failed to load programme: ${error.message}`);
   }
 
-  return count ?? 0;
+  if (!data) {
+    return 0;
+  }
+
+  const userIds = await resolveProgrammeStudentAreaMemberUserIds(clubId, {
+    id: data.id,
+    slug: data.slug,
+    programmeType: data.programme_type,
+  });
+
+  return userIds.length;
 }
 
 async function assertProgrammeBelongsToClub(programmeId: string, clubId: string) {
@@ -1499,6 +1567,69 @@ async function loadPortalAccessProgrammeItems(clubId: string) {
   });
 }
 
+/** Active member enrolment in any student-portal-access programme at the club (role-agnostic). */
+export async function userHasActiveStudentPortalProgrammeMembershipAtClub(
+  clubId: string,
+  userId: string,
+): Promise<boolean> {
+  if (!(await isProgrammesSchemaAvailable())) {
+    return false;
+  }
+
+  const accessProgrammes = await loadPortalAccessProgrammeItems(clubId);
+
+  if (accessProgrammes.length === 0) {
+    return false;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const programmeIds = accessProgrammes.map((programme) => programme.programmeId);
+  const { data, error } = await supabase
+    .from("programme_memberships")
+    .select("programme_id")
+    .eq("user_id", userId)
+    .in("programme_id", programmeIds)
+    .eq("status", "active")
+    .limit(1);
+
+  if (error) {
+    throw new Error(
+      `Failed to load student portal programme memberships: ${error.message}`,
+    );
+  }
+
+  return (data ?? []).length > 0;
+}
+
+export async function setProgrammeBookingAccessForUser(input: {
+  clubId: string;
+  userId: string;
+  programmeTypes: ProgrammeTypeValue[];
+}) {
+  if (!(await isProgrammeBookingAccessSchemaAvailable())) {
+    return;
+  }
+
+  await ensureStudentPortalAccessProgrammeRows(input.clubId);
+
+  const supabase = getSupabaseAdminClient();
+  const { data: programmes, error: programmesError } = await supabase
+    .from("programmes")
+    .select("id, programme_type")
+    .eq("club_id", input.clubId)
+    .in("programme_type", input.programmeTypes);
+
+  if (programmesError) {
+    throw new Error(`Failed to load programmes for booking access: ${programmesError.message}`);
+  }
+
+  await syncProgrammeBookingAccessForUser({
+    clubId: input.clubId,
+    userId: input.userId,
+    programmeIds: ((programmes ?? []) as { id: string }[]).map((programme) => programme.id),
+  });
+}
+
 export async function ensureProgrammeBookingAccessForUser(input: {
   clubId: string;
   userId: string;
@@ -1614,7 +1745,7 @@ async function syncProgrammeBookingAccessForUser(input: {
   }
 }
 
-export async function ensureProgrammeAccessForUser(input: {
+export async function ensureProgrammeMembershipForUser(input: {
   clubId: string;
   userId: string;
   programmeTypes: ProgrammeTypeValue[];
@@ -1634,27 +1765,82 @@ export async function ensureProgrammeAccessForUser(input: {
     .in("programme_type", input.programmeTypes);
 
   if (programmesError) {
-    throw new Error(`Failed to load programmes for programme access: ${programmesError.message}`);
+    throw new Error(
+      `Failed to load programmes for student area membership: ${programmesError.message}`,
+    );
   }
 
-  const programmeIds: string[] = [];
-
   for (const programme of (programmes ?? []) as { id: string }[]) {
-    programmeIds.push(programme.id);
     await ensureProgrammeMembership({
       programmeId: programme.id,
       userId: input.userId,
       status: input.status,
     });
   }
+}
 
-  await syncProgrammeBookingAccessForUser({
+/** @deprecated Use ensureProgrammeMembershipForUser and ensureProgrammeBookingAccessForUser separately. */
+export async function ensureProgrammeAccessForUser(input: {
+  clubId: string;
+  userId: string;
+  programmeTypes: ProgrammeTypeValue[];
+  status?: string;
+}) {
+  await ensureProgrammeMembershipForUser(input);
+  await ensureProgrammeBookingAccessForUser({
     clubId: input.clubId,
     userId: input.userId,
-    programmeIds,
+    programmeTypes: input.programmeTypes,
   });
 }
 
+export async function loadStudentProgrammeBookingAccessForProfile(
+  clubId: string,
+  userId: string,
+): Promise<AdminStudentProgrammeAccessSummary> {
+  if (!(await isProgrammesSchemaAvailable())) {
+    return { available: false, programmes: [] };
+  }
+
+  const accessProgrammes = await loadPortalAccessProgrammeItems(clubId);
+
+  if (accessProgrammes.length === 0) {
+    return { available: true, programmes: [] };
+  }
+
+  if (!(await isProgrammeBookingAccessSchemaAvailable())) {
+    return loadStudentProgrammeAccessForProfile(clubId, userId);
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data: bookingRows, error: bookingError } = await supabase
+    .from("programme_booking_access")
+    .select("programme_id")
+    .eq("user_id", userId)
+    .in(
+      "programme_id",
+      accessProgrammes.map((programme) => programme.programmeId),
+    );
+
+  if (bookingError) {
+    throw new Error(`Failed to load programme booking access: ${bookingError.message}`);
+  }
+
+  const bookingProgrammeIds = new Set(
+    ((bookingRows ?? []) as { programme_id: string }[]).map((row) => row.programme_id),
+  );
+
+  return {
+    available: true,
+    programmes: accessProgrammes.map((programme) => ({
+      programmeId: programme.programmeId,
+      name: programme.name,
+      hasAccess: bookingProgrammeIds.has(programme.programmeId),
+    })),
+  };
+}
+
+/** @deprecated Use loadStudentProgrammeMembershipForProfile for student areas. */
 export async function loadStudentProgrammeAccessForProfile(
   clubId: string,
   userId: string,
@@ -1721,7 +1907,40 @@ export async function updateStudentProgrammeBookingAccess(input: {
   userId: string;
   programmeIds: string[];
 }) {
-  await updateStudentProgrammeMemberships(input);
+  if (!(await isProgrammesSchemaAvailable())) {
+    throw new Error(PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE);
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const selectedProgrammeIds = Array.from(new Set(input.programmeIds));
+
+  await ensureStudentPortalAccessProgrammeRows(input.clubId);
+
+  const { data: accessProgrammes, error: programmesError } = await supabase
+    .from("programmes")
+    .select("id")
+    .eq("club_id", input.clubId)
+    .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST);
+
+  if (programmesError) {
+    throw new Error(`Failed to load club programmes: ${programmesError.message}`);
+  }
+
+  const accessProgrammeIds = new Set(
+    ((accessProgrammes ?? []) as { id: string }[]).map((row) => row.id),
+  );
+
+  for (const programmeId of selectedProgrammeIds) {
+    if (!accessProgrammeIds.has(programmeId)) {
+      throw new Error("One or more selected programmes are invalid for this club.");
+    }
+  }
+
+  await syncProgrammeBookingAccessForUser({
+    clubId: input.clubId,
+    userId: input.userId,
+    programmeIds: selectedProgrammeIds,
+  });
 }
 
 export async function updateStudentProgrammeMemberships(input: {
@@ -1819,12 +2038,6 @@ export async function updateStudentProgrammeMemberships(input: {
       throw new Error(`Failed to remove programme memberships: ${deleteError.message}`);
     }
   }
-
-  await syncProgrammeBookingAccessForUser({
-    clubId: input.clubId,
-    userId: input.userId,
-    programmeIds: selectedProgrammeIds,
-  });
 }
 
 /** Active programme IDs for student portal booking; null when programmes schema is unavailable. */
@@ -1854,6 +2067,22 @@ export async function loadStudentActiveProgrammeIdsForBooking(
 
   if (clubProgrammeIds.length === 0) {
     return new Set();
+  }
+
+  if (await isProgrammeBookingAccessSchemaAvailable()) {
+    const { data, error } = await supabase
+      .from("programme_booking_access")
+      .select("programme_id")
+      .eq("user_id", userId)
+      .in("programme_id", clubProgrammeIds);
+
+    if (error) {
+      throw new Error(`Failed to load student booking access: ${error.message}`);
+    }
+
+    return new Set(
+      ((data ?? []) as { programme_id: string }[]).map((row) => row.programme_id),
+    );
   }
 
   const { data, error } = await supabase

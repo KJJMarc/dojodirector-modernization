@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { StudentPortalHomeLink } from "@/components/student-portal/student-portal-home-link";
 import { ACTIVE_CLUB_NAME } from "@/lib/branding";
+import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 import { isStudentPortalDevPickerEnabled } from "@/lib/student-portal-auth.shared";
 import { getStudentPortalPreviewEntry } from "@/lib/student-portal-preview.server";
 import { studentPortalPath } from "@/lib/student-portal-preview.shared";
@@ -49,7 +50,7 @@ export default async function StudentPortalDevPickerPage() {
           {featuredStudent ? (
             <li>
               <Link
-                href={studentPortalPath(featuredStudent.id)}
+                href={studentPortalPath(KINGSTON_CLUB_SLUG, featuredStudent.id)}
                 className="flex min-h-[44px] items-center justify-between rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-3 text-sm font-medium text-dojo-white transition hover:border-dojo-red/50"
               >
                 <span>{featuredStudent.fullName}</span>
@@ -60,7 +61,7 @@ export default async function StudentPortalDevPickerPage() {
           {otherStudents.map((student) => (
             <li key={student.id}>
               <Link
-                href={studentPortalPath(student.id)}
+                href={studentPortalPath(KINGSTON_CLUB_SLUG, student.id)}
                 className="flex min-h-[44px] items-center justify-between rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-3 text-sm font-medium text-dojo-white transition hover:border-dojo-red/50"
               >
                 <span>{student.fullName}</span>

@@ -17,14 +17,16 @@ import { formatInstructorRoleLabel } from "@/lib/admin-instructors.shared";
 import {
   canChangeProfileMembershipRole,
   canDeleteStudentMembership,
+  parseProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import type { AdminStudentProfilePageData } from "@/lib/admin-student-profile.shared";
 import { formatGradeAwardNotesForDisplay } from "@/lib/admin-student-profile.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
-import { getAdminStudentAgreementSummary } from "@/lib/student-portal-agreements.server";
+import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import {
   loadStudentBjjFeatureVisibility,
-  loadStudentProgrammeAccessForProfile,
+  loadStudentProgrammeBookingAccessForProfile,
+  loadStudentProgrammeMembershipForProfile,
 } from "@/lib/admin-programmes.server";
 import { membershipGrantsAdminDashboardPanel } from "@/lib/admin-auth.shared";
 import {
@@ -35,7 +37,9 @@ import {
 import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
 import { getAdminInstructorPortalAuthSummary } from "@/lib/instructor-portal-auth.server";
 import { getProfileLoginAccessSummary } from "@/lib/profile-login-access.server";
+import { getAdminStudentAgreementSummary } from "@/lib/student-portal-agreements.server";
 import { getAdminStudentPortalAuthSummary } from "@/lib/student-portal-auth.server";
+import { resolveLastSuperAdminWarningForUser } from "@/lib/admin-super-admin.server";
 import { loadUserAddressFromUsers } from "@/lib/user-address-field.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -158,7 +162,8 @@ export async function getAdminStudentProfilePageData(
     portalAccess,
     agreementAccess,
     loginAccess,
-    programmeAccess,
+    programmeMembership,
+    programmeBookingAccess,
     bjjFeatureVisibility,
   ] = await Promise.all([
     loadUserProfileRow(userId),
@@ -170,9 +175,11 @@ export async function getAdminStudentProfilePageData(
     getAdminStudentPortalAuthSummary(userId),
     getAdminStudentAgreementSummary(userId),
     getProfileLoginAccessSummary(userId),
-    loadStudentProgrammeAccessForProfile(clubId, userId),
+    loadStudentProgrammeMembershipForProfile(clubId, userId),
+    loadStudentProgrammeBookingAccessForProfile(clubId, userId),
     loadStudentBjjFeatureVisibility(clubId, userId),
   ]);
+  const lastSuperAdminWarning = await resolveLastSuperAdminWarningForUser(userId);
 
   const instructorPortalAccess = isInstructorPortalMembershipRole(membership.role)
     ? await getAdminInstructorPortalAuthSummary(userId)
@@ -223,15 +230,17 @@ export async function getAdminStudentProfilePageData(
   const currentBelt = latestAward?.belt_level_id
     ? beltLevelById.get(latestAward.belt_level_id) ?? null
     : null;
-  const promotion = buildStudentBeltPromotionAssessment({
-    userId,
-    latestAward,
-    beltLevels,
-    requirementsByTargetBeltId,
-    juniorRequirementsByFromBeltId,
-    bjjAttendance: attendanceSummary,
-    logDiagnostics: true,
-  });
+  const promotion = isActiveMembershipStatus(membership.status)
+    ? buildStudentBeltPromotionAssessment({
+        userId,
+        latestAward,
+        beltLevels,
+        requirementsByTargetBeltId,
+        juniorRequirementsByFromBeltId,
+        bjjAttendance: attendanceSummary,
+        logDiagnostics: true,
+      })
+    : null;
 
   return {
     loginAccess,
@@ -247,9 +256,12 @@ export async function getAdminStudentProfilePageData(
       notes: combineNotes(user.notes, membership.notes),
       role: formatInstructorRoleLabel(membership.role),
       membershipRole: membership.role,
-      membershipStatus: membership.status,
+      membershipStatus:
+        parseProfileMembershipStatusValue(membership.status ?? "active") ??
+        membership.status,
       canChangeRole: canChangeProfileMembershipRole(membership.role),
       canDelete: canDeleteStudentMembership(membership.role),
+      lastSuperAdminWarning,
     },
     portalAccess: {
       portalStatusLabel: portalAccess.portalAuthStatusLabel,
@@ -269,7 +281,8 @@ export async function getAdminStudentProfilePageData(
     showAdminDashboardAccess,
     adminAccess,
     agreementAccess,
-    programmeAccess,
+    programmeMembership,
+    programmeBookingAccess,
     bjjFeatureVisibility,
     attendance,
     belt: {

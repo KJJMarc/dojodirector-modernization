@@ -317,23 +317,67 @@ export interface AddStudentProgrammeAccessOption {
   defaultChecked: boolean;
 }
 
-export function buildAddStudentProgrammeAccessOptions(
+function normalizePortalAccessSourceProgrammeType(
+  sourceProgrammeType: ProgrammeTypeValue,
+): StudentPortalAccessProgrammeType {
+  if (
+    STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.includes(
+      sourceProgrammeType as StudentPortalAccessProgrammeType,
+    )
+  ) {
+    return sourceProgrammeType as StudentPortalAccessProgrammeType;
+  }
+
+  return "bjj";
+}
+
+export function programmeStudentAreaLabel(
+  programmeType: StudentPortalAccessProgrammeType,
+): string {
+  return `${formatProgrammeTypeOptionLabel(programmeType)} Student`;
+}
+
+export function programmeBookingAccessLabel(
+  programmeType: StudentPortalAccessProgrammeType,
+): string {
+  return `${formatProgrammeTypeOptionLabel(programmeType)} Classes`;
+}
+
+export function buildAddStudentProgrammeMembershipOptions(
   sourceProgrammeType: ProgrammeTypeValue,
 ): AddStudentProgrammeAccessOption[] {
-  const source = STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.includes(
-    sourceProgrammeType as StudentPortalAccessProgrammeType,
-  )
-    ? (sourceProgrammeType as StudentPortalAccessProgrammeType)
-    : "bjj";
+  const source = normalizePortalAccessSourceProgrammeType(sourceProgrammeType);
 
   return STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.map((programmeType) => ({
     programmeType,
-    label: formatProgrammeTypeOptionLabel(programmeType),
+    label: programmeStudentAreaLabel(programmeType),
     defaultChecked: programmeType === source,
   }));
 }
 
-export function parseProgrammeAccessTypes(
+export function buildAddStudentBookingAccessOptions(
+  sourceProgrammeType: ProgrammeTypeValue,
+): AddStudentProgrammeAccessOption[] {
+  const source = normalizePortalAccessSourceProgrammeType(sourceProgrammeType);
+
+  return STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.map((programmeType) => ({
+    programmeType,
+    label: programmeBookingAccessLabel(programmeType),
+    defaultChecked:
+      source === "bjj"
+        ? true
+        : programmeType === source,
+  }));
+}
+
+/** @deprecated Use buildAddStudentProgrammeMembershipOptions */
+export function buildAddStudentProgrammeAccessOptions(
+  sourceProgrammeType: ProgrammeTypeValue,
+): AddStudentProgrammeAccessOption[] {
+  return buildAddStudentProgrammeMembershipOptions(sourceProgrammeType);
+}
+
+function parsePortalAccessProgrammeTypes(
   values: string[],
 ): StudentPortalAccessProgrammeType[] {
   const allowed = new Set<string>(STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES);
@@ -350,8 +394,20 @@ export function parseProgrammeAccessTypes(
   );
 }
 
-/** @deprecated Use parseProgrammeAccessTypes */
-export const parseBookingAccessProgrammeTypes = parseProgrammeAccessTypes;
+export function parseProgrammeMembershipTypes(
+  values: string[],
+): StudentPortalAccessProgrammeType[] {
+  return parsePortalAccessProgrammeTypes(values);
+}
+
+export function parseBookingAccessProgrammeTypes(
+  values: string[],
+): StudentPortalAccessProgrammeType[] {
+  return parsePortalAccessProgrammeTypes(values);
+}
+
+/** @deprecated Use parseBookingAccessProgrammeTypes */
+export const parseProgrammeAccessTypes = parseBookingAccessProgrammeTypes;
 
 export function parseProgrammeFeatureSettings(
   formData: FormData,

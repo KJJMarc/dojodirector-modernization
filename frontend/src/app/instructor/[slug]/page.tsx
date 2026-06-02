@@ -1,39 +1,39 @@
-import type { Metadata } from "next";
-import { AppHeader } from "@/components/layout/app-header";
-import { InstructorQuickActions } from "@/components/instructor/instructor-quick-actions";
-import { InstructorPortalHomeLink } from "@/components/instructor-portal/instructor-portal-home-link";
-import { ACTIVE_CLUB_NAME } from "@/lib/branding";
-import { requireInstructorIdentityBySlug } from "@/lib/instructor-portal.server";
+import { redirect } from "next/navigation";
+import { getAuthenticatedInstructorPortalProfile } from "@/lib/instructor-portal-auth.server";
+import { resolveInstructorPortalClubContext } from "@/lib/instructor-portal-club.server";
+import {
+  instructorPortalClubPath,
+  instructorPortalEntryPath,
+  instructorPortalLoginPath,
+} from "@/lib/instructor-portal-routing.shared";
 
 export const dynamic = "force-dynamic";
 
-interface InstructorDashboardPageProps {
+interface LegacyInstructorSlugPageProps {
   params: { slug: string };
 }
 
-export async function generateMetadata({
-  params,
-}: InstructorDashboardPageProps): Promise<Metadata> {
-  const identity = await requireInstructorIdentityBySlug(params.slug);
+async function resolveInstructorClubSlugForRedirect() {
+  const profile = await getAuthenticatedInstructorPortalProfile();
 
-  return {
-    title: `DojoDirector | ${identity.displayName}`,
-    description: "Instructor dashboard for class attendance and schedules.",
-  };
+  if (!profile) {
+    redirect(instructorPortalLoginPath());
+  }
+
+  const clubContext = await resolveInstructorPortalClubContext(profile.userId);
+
+  if (clubContext.accessibleClubs.length === 1 && clubContext.accessibleClubs[0]) {
+    return clubContext.accessibleClubs[0].slug;
+  }
+
+  if (clubContext.selectedClub) {
+    return clubContext.selectedClub.slug;
+  }
+
+  redirect(instructorPortalEntryPath());
 }
 
-export default async function InstructorDashboardPage({
-  params,
-}: InstructorDashboardPageProps) {
-  const identity = await requireInstructorIdentityBySlug(params.slug);
-
-  return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Instructor Portal" clubName={ACTIVE_CLUB_NAME} />
-
-      <InstructorPortalHomeLink />
-
-      <InstructorQuickActions slug={identity.slug} />
-    </main>
-  );
+export default async function LegacyInstructorSlugPage(_props: LegacyInstructorSlugPageProps) {
+  const clubSlug = await resolveInstructorClubSlugForRedirect();
+  redirect(instructorPortalClubPath(clubSlug));
 }

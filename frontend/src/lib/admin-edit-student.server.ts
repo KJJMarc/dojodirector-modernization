@@ -6,7 +6,11 @@ import {
   type AdminStudentEditPageData,
   type EditAdminStudentInput,
 } from "@/lib/admin-edit-student.shared";
-import { canChangeProfileMembershipRole } from "@/lib/admin-student-membership.shared";
+import {
+  canChangeProfileMembershipRole,
+  parseProfileMembershipStatusValue,
+} from "@/lib/admin-student-membership.shared";
+import { assertSuperAdminMembershipChangeAllowed } from "@/lib/admin-super-admin.server";
 import {
   loadUserAddressFromUsers,
   saveUserAddressOnUsers,
@@ -77,7 +81,8 @@ export async function getAdminStudentEditPageData(
   }
 
   const membershipRole = membership.role ?? "student";
-  const membershipStatus = membership.status ?? "active";
+  const membershipStatus =
+    parseProfileMembershipStatusValue(membership.status ?? "active") ?? "active";
 
   return {
     userId: user.id,
@@ -141,6 +146,13 @@ export async function updateAdminStudentDetails(
   );
   const previousRole = membership.role;
   const nextRole = membershipFields.role;
+
+  await assertSuperAdminMembershipChangeAllowed({
+    userId: userFields.userId,
+    clubId,
+    nextRole: membershipFields.role,
+    nextStatus: membershipFields.membershipStatus,
+  });
 
   const { error: membershipError } = await supabase
     .from("memberships")
