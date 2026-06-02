@@ -5,6 +5,7 @@ import {
   studentPortalPath,
   type StudentPortalUiConfig,
 } from "@/lib/student-portal-routing.shared";
+import { studentOfTheYearPublicPath } from "@/lib/student-of-the-year.shared";
 
 const PORTAL_ACTION_CARD_CLASSNAME =
   "flex min-h-[88px] items-center justify-center rounded-xl border border-dojo-border bg-dojo-surface px-4 py-4 text-center transition hover:border-dojo-red/50 hover:bg-dojo-elevated active:scale-[0.99]";
@@ -57,6 +58,13 @@ export function StudentPortalActions({
       ? {
           label: "Adult Belt Rankings",
           href: "/adult-belt-rankings",
+          openInNewTab: true,
+        }
+      : null,
+    showAdultBeltRankings && uiConfig.showAdultBeltRankings
+      ? {
+          label: "Student of the Year",
+          href: studentOfTheYearPublicPath(),
           openInNewTab: true,
         }
       : null,

@@ -155,3 +155,11 @@ export function revalidateTrainingAgreementsPaths(clubSlug: string) {
     "/student-portal",
   ]);
 }
+
+export function revalidateStudentOfTheYearPaths(clubSlug: string) {
+  revalidateUniquePaths([
+    clubAdminPath(clubSlug, "academy-pages"),
+    clubAdminPath(clubSlug, "academy-pages/student-of-the-year/edit"),
+    "/student-of-the-year",
+  ]);
+}

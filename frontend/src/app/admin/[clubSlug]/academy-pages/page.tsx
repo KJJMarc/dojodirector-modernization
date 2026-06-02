@@ -36,8 +36,8 @@ export default async function AcademyPagesAdminPage({
       </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
-        Manage and view public-facing academy pages. Use View Page to open each
-        page in a new tab.
+        Manage and view public-facing academy pages. Use Edit Page to update editable
+        content, or View Page to open the live page in a new tab.
       </p>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">

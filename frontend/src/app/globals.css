@@ -11,7 +11,8 @@ body {
 }
 
 body:has(.adult-belt-rankings-page),
-body:has(.junior-belt-rankings-page) {
+body:has(.junior-belt-rankings-page),
+body:has(.student-of-the-year-page) {
   @apply bg-dojo-black text-white;
   color-scheme: dark;
 }

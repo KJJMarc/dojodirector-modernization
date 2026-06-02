@@ -5,6 +5,11 @@ import {
   KINGSTON_CLUB_SLUG,
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
 } from "@/lib/clubs.shared";
+import {
+  STUDENT_OF_THE_YEAR_PAGE_ID,
+  studentOfTheYearAdminEditPath,
+  studentOfTheYearPublicPath,
+} from "@/lib/student-of-the-year.shared";
 
 export interface AcademyPublicPageDefinition {
   id: string;
@@ -12,6 +17,7 @@ export interface AcademyPublicPageDefinition {
   description: string;
   pathLabel: string;
   resolveHref: (clubSlug: string) => string;
+  resolveEditHref?: (clubSlug: string) => string;
   /** When set, the page is shown only for these club slugs. */
   clubSlugs?: string[];
 }
@@ -42,15 +48,30 @@ const JUNIOR_BELT_RANKINGS_PAGE: AcademyPublicPageDefinition = {
   clubSlugs: [KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG],
 };
 
+const STUDENT_OF_THE_YEAR_PAGE: AcademyPublicPageDefinition = {
+  id: STUDENT_OF_THE_YEAR_PAGE_ID,
+  name: "Student of the Year",
+  description: "Annual Kingston Jiu Jitsu Adults Student of the Year winners.",
+  pathLabel: studentOfTheYearPublicPath(),
+  resolveHref: () => studentOfTheYearPublicPath(),
+  resolveEditHref: (clubSlug) => studentOfTheYearAdminEditPath(clubSlug),
+  clubSlugs: [KINGSTON_CLUB_SLUG],
+};
+
 /** Single source of truth for public academy pages shown in admin. */
 export const ACADEMY_PUBLIC_PAGES: AcademyPublicPageDefinition[] = [
   GUEST_BOOKINGS_PAGE,
   ADULT_BELT_RANKINGS_PAGE,
+  STUDENT_OF_THE_YEAR_PAGE,
   JUNIOR_BELT_RANKINGS_PAGE,
 ];
 
 export function clubAcademyPagesAdminPath(clubSlug: string) {
   return clubAdminPath(clubSlug, "academy-pages");
+}
+
+export function getAcademyPublicPageById(pageId: string) {
+  return ACADEMY_PUBLIC_PAGES.find((page) => page.id === pageId) ?? null;
 }
 
 export function getAcademyPublicPagesForClub(clubSlug: string) {
@@ -63,6 +84,7 @@ export function getAcademyPublicPagesForClub(clubSlug: string) {
   ).map((page) => ({
     ...page,
     href: page.resolveHref(clubSlug),
+    editHref: page.resolveEditHref?.(clubSlug) ?? null,
     pathLabel:
       page.id === "guest-bookings"
         ? clubBookingPath(clubSlug)

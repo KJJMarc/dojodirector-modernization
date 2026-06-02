@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   getAcademyPublicPagesForClub,
   type AcademyPublicPageDefinition,
@@ -10,12 +11,17 @@ interface AcademyPagesOverviewProps {
 const viewPageButtonClassName =
   "inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
 
+const editPageButtonClassName =
+  "inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-white transition hover:bg-dojo-red-hover";
+
 function AcademyPageCard({
   page,
   href,
+  editHref,
 }: {
   page: AcademyPublicPageDefinition;
   href: string;
+  editHref: string | null;
 }) {
   return (
     <article className="rounded-xl border border-dojo-border bg-dojo-surface p-4">
@@ -26,14 +32,21 @@ function AcademyPageCard({
           <p className="font-mono text-xs text-dojo-muted">{page.pathLabel}</p>
         </div>
 
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={viewPageButtonClassName}
-        >
-          View Page
-        </a>
+        <div className="flex flex-wrap gap-2">
+          {editHref ? (
+            <Link href={editHref} className={editPageButtonClassName}>
+              Edit Page
+            </Link>
+          ) : null}
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={viewPageButtonClassName}
+          >
+            View Page
+          </a>
+        </div>
       </div>
     </article>
   );
@@ -45,7 +58,12 @@ export function AcademyPagesOverview({ clubSlug }: AcademyPagesOverviewProps) {
   return (
     <div className="space-y-3">
       {pages.map((page) => (
-        <AcademyPageCard key={page.id} page={page} href={page.href} />
+        <AcademyPageCard
+          key={page.id}
+          page={page}
+          href={page.href}
+          editHref={page.editHref}
+        />
       ))}
     </div>
   );
