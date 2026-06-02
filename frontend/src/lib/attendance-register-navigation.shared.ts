@@ -65,9 +65,9 @@ export function withAttendanceRegisterNavContext(
   const [pathname, existingSearch = ""] = path.split("?");
   const params = new URLSearchParams(existingSearch);
 
-  for (const [key, value] of buildAttendanceRegisterNavQuery(context).entries()) {
+  buildAttendanceRegisterNavQuery(context).forEach((value, key) => {
     params.set(key, value);
-  }
+  });
 
   const query = params.toString();
   return query ? `${pathname}?${query}` : pathname;

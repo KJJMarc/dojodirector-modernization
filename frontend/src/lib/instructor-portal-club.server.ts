@@ -22,6 +22,16 @@ interface MembershipClubRow {
   } | null;
 }
 
+function normalizeClubJoin(
+  clubs: MembershipClubRow["clubs"] | NonNullable<MembershipClubRow["clubs"]>[] | null,
+): MembershipClubRow["clubs"] {
+  if (!clubs) {
+    return null;
+  }
+
+  return Array.isArray(clubs) ? (clubs[0] ?? null) : clubs;
+}
+
 function mapMembershipClub(row: MembershipClubRow): ClubRow | null {
   if (!row.clubs) {
     return null;
@@ -53,7 +63,14 @@ export async function loadInstructorPortalAccessibleClubs(
 
   const clubs = new Map<string, ClubRow>();
 
-  for (const row of (data ?? []) as MembershipClubRow[]) {
+  for (const rawRow of data ?? []) {
+    const row: MembershipClubRow = {
+      club_id: rawRow.club_id,
+      role: rawRow.role,
+      status: rawRow.status,
+      clubs: normalizeClubJoin(rawRow.clubs),
+    };
+
     if (!isInstructorPortalMembershipRole(row.role)) {
       continue;
     }
