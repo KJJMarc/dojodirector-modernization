@@ -5,6 +5,7 @@ import { submitGuestBooking } from "@/app/[clubSlug]/book/actions";
 import { BookingDateGroup } from "@/components/booking/booking-date-group";
 import { GuestBookingAgreementPanel } from "@/components/booking/guest-booking-agreement-panel";
 import { GuestBookingConfirmation } from "@/components/booking/guest-booking-confirmation";
+import { GuestBookingMemberNotice } from "@/components/booking/guest-booking-member-notice";
 import { GuestDetailsForm } from "@/components/booking/guest-details-form";
 import type { BookableSessionGroup } from "@/lib/booking";
 import { formatScheduleTimeRange } from "@/lib/class-session-schedule";
@@ -24,6 +25,7 @@ interface GuestBookingFlowProps {
   clubSlug: string;
   sessionGroups: BookableSessionGroup[];
   trainingAgreement: ClientClubAgreementContent;
+  showMemberPortalNotice?: boolean;
 }
 
 function mergeFieldErrors(
@@ -60,6 +62,7 @@ export function GuestBookingFlow({
   clubSlug,
   sessionGroups,
   trainingAgreement,
+  showMemberPortalNotice = false,
 }: GuestBookingFlowProps) {
   const detailsFormRef = useRef<HTMLFormElement>(null);
   const agreementFormRef = useRef<HTMLFormElement>(null);
@@ -220,8 +223,10 @@ export function GuestBookingFlow({
 
   return (
     <div
-      className={`space-y-4 ${isPending ? "pointer-events-none opacity-60" : ""}`}
+      className={`${showMemberPortalNotice ? "space-y-6" : "space-y-4"} ${isPending ? "pointer-events-none opacity-60" : ""}`}
     >
+      {showMemberPortalNotice ? <GuestBookingMemberNotice /> : null}
+
       <GuestDetailsForm
         formRef={detailsFormRef}
         fieldErrors={detailsFieldErrors}
@@ -280,7 +285,9 @@ export function GuestBookingFlow({
       ) : null}
 
       {!pendingSession && sessionGroups.length > 0 ? (
-        <div className="space-y-5">
+        <div
+          className={`space-y-5 ${showMemberPortalNotice ? "border-t border-dojo-border pt-6" : ""}`}
+        >
           {sessionGroups.map((group) => (
             <BookingDateGroup
               key={group.dateKey}

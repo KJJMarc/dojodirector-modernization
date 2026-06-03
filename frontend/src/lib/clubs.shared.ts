@@ -31,6 +31,11 @@ export function clubBookingPath(slug: string) {
   return normalized ? `/${normalized}/book` : `/${KINGSTON_CLUB_SLUG}/book`;
 }
 
+/** Adult KJJ guest booking shows the student portal notice; Kids does not. */
+export function shouldShowGuestBookingStudentPortalNotice(clubSlug: string) {
+  return clubSlug.trim() === KINGSTON_CLUB_SLUG;
+}
+
 /** Public junior belt rankings page for a club. */
 export function clubJuniorBeltRankingsPath(slug: string) {
   const normalized = slug.trim().replace(/^\/+|\/+$/g, "");

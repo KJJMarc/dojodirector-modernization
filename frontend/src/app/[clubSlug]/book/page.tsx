@@ -9,6 +9,7 @@ import { getUpcomingBookableSessions } from "@/lib/booking.server";
 import { toClientClubAgreementContent } from "@/lib/club-agreement-templates.shared";
 import { resolveGuestTrainingAgreementContent } from "@/lib/club-agreement-templates.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
+import { shouldShowGuestBookingStudentPortalNotice } from "@/lib/clubs.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
           clubSlug={club.slug}
           sessionGroups={sessionGroups}
           trainingAgreement={trainingAgreement}
+          showMemberPortalNotice={shouldShowGuestBookingStudentPortalNotice(club.slug)}
         />
       </main>
 
