@@ -104,7 +104,7 @@ export async function loadBeltLevelsForClub(
 
   const { data, error } = await supabase
     .from("belt_levels")
-    .select("id, name, stripe_count, sort_order, type, belt_category")
+    .select("id, name, stripe_count, sort_order, type, belt_category, colour")
     .eq("club_id", clubId)
     .order("sort_order", { ascending: true });
 

@@ -1,3 +1,5 @@
+import { AdultBeltColourBar } from "@/components/public/belt-rankings-colour-bar";
+import { BeltRankingsRecentPromotions } from "@/components/public/belt-rankings-recent-promotions";
 import {
   ADULT_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE,
   formatStripeGroupDisplayTitle,
@@ -6,7 +8,6 @@ import {
   type AdultBeltRankingStripeGroup,
   type AdultBeltRankingStudent,
   type AdultBeltRankingsPageData,
-  type AdultBeltRecentPromotion,
   type MajorAdultBeltColor,
 } from "@/lib/adult-belt-rankings.shared";
 
@@ -115,10 +116,7 @@ function BeltRankingsSection({ group }: { group: AdultBeltRankingGroup }) {
       className={`overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm ring-1 ${theme.ring}`}
     >
       <div className="flex items-center gap-3 border-b border-neutral-100 px-5 py-4 sm:px-6">
-        <span
-          aria-hidden="true"
-          className={`h-9 w-1.5 shrink-0 rounded-full ${theme.accent}`}
-        />
+        <AdultBeltColourBar beltColor={group.beltColor} />
         <div className="min-w-0 flex-1">
           <h3 className={`text-xl font-bold tracking-tight ${theme.heading}`}>
             {group.sectionLabel}
@@ -145,14 +143,6 @@ function BeltRankingsSection({ group }: { group: AdultBeltRankingGroup }) {
   );
 }
 
-function RecentPromotionLine({ promotion }: { promotion: AdultBeltRecentPromotion }) {
-  return (
-    <li className="list-none border-b border-red-100 py-2 text-[15px] leading-relaxed text-neutral-900 last:border-b-0">
-      {promotion.studentName} — {promotion.newRankLabel} — {promotion.promotionDateLabel}
-    </li>
-  );
-}
-
 export function AdultBeltRankingsView({ pageData }: AdultBeltRankingsViewProps) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white text-neutral-900 shadow-2xl shadow-black/30 ring-1 ring-white/10">
@@ -176,32 +166,12 @@ export function AdultBeltRankingsView({ pageData }: AdultBeltRankingsViewProps) 
           ))
         )}
 
-        <section className="overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 via-white to-white shadow-sm">
-          <div className="border-l-4 border-red-700 px-5 py-5 sm:px-6">
-            <h3 className="text-lg font-bold tracking-tight text-neutral-950">
-              Congratulations To Our Recently Promoted Students
-            </h3>
-
-            <p className="mt-3 text-sm leading-relaxed text-neutral-600">
-              {ADULT_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE}
-            </p>
-
-            {pageData.recentPromotions.length === 0 ? (
-              <p className="mt-3 text-sm text-neutral-600">
-                No belt promotions have been awarded in the last 30 days.
-              </p>
-            ) : (
-              <ul className="mt-3">
-                {pageData.recentPromotions.map((promotion) => (
-                  <RecentPromotionLine
-                    key={`${promotion.userId}-${promotion.promotionDateKey}-${promotion.newRankLabel}`}
-                    promotion={promotion}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
+        <BeltRankingsRecentPromotions
+          title="Congratulations To Our Recently Promoted Students"
+          message={ADULT_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE}
+          emptyMessage="No belt promotions have been awarded in the last 30 days."
+          promotions={pageData.recentPromotions}
+        />
       </div>
     </div>
   );

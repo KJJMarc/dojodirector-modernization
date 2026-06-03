@@ -36,6 +36,7 @@ export interface BeltLevelProgressionRow {
   sort_order: number;
   type?: string | null;
   belt_category?: string | null;
+  colour?: string | null;
 }
 
 export interface JuniorGradingRequirementRow {

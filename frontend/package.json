@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "verify:instructor-portal-sync": "node scripts/verify-instructor-portal-membership-sync.mjs",
-    "test:waitlist": "npx --yes tsx --test src/lib/session-waitlist.shared.test.ts"
+    "test:waitlist": "npx --yes tsx --test src/lib/session-waitlist.shared.test.ts",
+    "test:junior-belt-rankings": "npx --yes tsx --test src/lib/junior-belt-rankings.shared.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
