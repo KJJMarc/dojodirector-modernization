@@ -1,7 +1,5 @@
 import { CancelBookingsSessionRow } from "@/components/admin/cancel-bookings-session-row";
 import type { CancelBookingsSessionSummary } from "@/lib/admin-manage-bookings.shared";
-import { formatBookingDate } from "@/lib/booking";
-import { formatScheduleDayLabel } from "@/lib/class-session-schedule";
 import { formatAttendanceMonthLabel } from "@/lib/attendance-schedule";
 
 interface CancelBookingsDateGroup {
@@ -23,7 +21,7 @@ function groupCancelBookingsSessionsByMonth(
   const months = new Map<string, CancelBookingsMonthGroup>();
 
   for (const session of sessions) {
-    const monthKey = new Date(session.startsAt).toISOString().slice(0, 7);
+    const monthKey = session.scheduleDateKey.slice(0, 7);
 
     if (!months.has(monthKey)) {
       months.set(monthKey, {
@@ -34,14 +32,14 @@ function groupCancelBookingsSessionsByMonth(
     }
 
     const monthGroup = months.get(monthKey)!;
-    const dateKey = new Date(session.startsAt).toISOString().slice(0, 10);
+    const dateKey = session.scheduleDateKey;
     let dateGroup = monthGroup.dateGroups.find((group) => group.dateKey === dateKey);
 
     if (!dateGroup) {
       dateGroup = {
         dateKey,
-        dateLabel: formatBookingDate(session.startsAt),
-        dayLabel: formatScheduleDayLabel(session.startsAt),
+        dateLabel: session.dateLabel,
+        dayLabel: session.dayLabel,
         sessions: [],
       };
       monthGroup.dateGroups.push(dateGroup);

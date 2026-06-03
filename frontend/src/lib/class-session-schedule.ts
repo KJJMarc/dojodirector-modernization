@@ -114,6 +114,22 @@ export function formatScheduleTimeRange(
 }
 
 /** Class date label aligned with booking portal (timetable external_id when present). */
+/** Stable YYYY-MM-DD key for grouping sessions (timetable date when present). */
+export function resolveScheduleDateKey(input: {
+  startsAt: string;
+  externalId?: string | null;
+}) {
+  if (hasExternalSessionSlotTime(input.externalId)) {
+    const dateMatch = input.externalId?.match(/:(\d{4}-\d{2}-\d{2}):/);
+
+    if (dateMatch?.[1]) {
+      return dateMatch[1];
+    }
+  }
+
+  return utcIsoToLondonDate(input.startsAt);
+}
+
 export function formatSessionDateLabelForDisplay(input: {
   startsAt: string;
   externalId?: string | null;

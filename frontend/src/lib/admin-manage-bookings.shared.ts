@@ -3,6 +3,11 @@ export interface CancelBookingsSessionSummary {
   className: string;
   startsAt: string;
   endsAt: string | null;
+  externalId: string | null;
+  scheduleDateKey: string;
+  dateLabel: string;
+  timeLabel: string;
+  dayLabel: string;
   location: string | null;
   capacity: number | null;
   bookedCount: number;

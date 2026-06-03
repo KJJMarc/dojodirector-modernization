@@ -1,14 +1,19 @@
 import "server-only";
 
-import { getSpacesAvailable } from "@/lib/booking";
 import { buildSessionDisplayLabels } from "@/lib/class-session-schedule";
 import { assertSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
 import { assertStudentCanBookClassProgramme } from "@/lib/admin-programmes.server";
 import { assertActiveMembershipForBooking } from "@/lib/membership-access.server";
+import type { PortalMessageListItem } from "@/lib/portal-messages.shared";
 import {
   buildWaitlistOfferMessageBody,
+  isSessionPubliclyBookable,
+  parseWaitlistOfferSessionIdFromBody,
+  stripWaitlistOfferMarkerFromBody,
   WAITLIST_OFFER_DURATION_MS,
   WAITLIST_OFFER_MESSAGE_SUBJECT,
+  WAITLIST_OFFER_UNAVAILABLE_MESSAGE,
+  type SessionWaitlistBookingAvailabilityInput,
 } from "@/lib/session-waitlist.shared";
 import { createPortalMessageForRecipient } from "@/lib/portal-messages.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,7 +22,14 @@ const CLASS_FULL_MESSAGE = "This class is full. Join the waitlist instead.";
 const ALREADY_BOOKED_MESSAGE = "You are already booked onto this class.";
 const ALREADY_WAITLISTED_MESSAGE = "You are already on the waitlist for this class.";
 const NOT_ON_WAITLIST_MESSAGE = "You are not on the waitlist for this class.";
-const NO_ACTIVE_OFFER_MESSAGE = "This waitlist offer is no longer available.";
+const NO_ACTIVE_OFFER_MESSAGE = WAITLIST_OFFER_UNAVAILABLE_MESSAGE;
+
+export type AcceptSessionWaitlistOfferOutcome = "confirmed" | "already_confirmed";
+
+export interface AcceptSessionWaitlistOfferResult {
+  className: string;
+  outcome: AcceptSessionWaitlistOfferOutcome;
+}
 const OFFER_EXPIRED_MESSAGE = "This waitlist offer has expired.";
 
 interface ClassSessionRow {
@@ -66,6 +78,24 @@ export interface SessionWaitlistDisplayInfo {
   waitlistPosition: number | null;
   waitlistCount: number;
   offerExpiresAt: string | null;
+}
+
+export interface SessionWaitlistBookingAvailability {
+  hasActiveWaitlistOffer: boolean;
+  waitingQueueCount: number;
+}
+
+function buildBookingAvailabilityInput(
+  capacity: number | null,
+  bookedCount: number,
+  availability: SessionWaitlistBookingAvailability,
+): SessionWaitlistBookingAvailabilityInput {
+  return {
+    capacity,
+    bookedCount,
+    hasActiveWaitlistOffer: availability.hasActiveWaitlistOffer,
+    waitingQueueCount: availability.waitingQueueCount,
+  };
 }
 
 async function getClassSession(sessionId: string): Promise<ClassSessionRow> {
@@ -316,6 +346,7 @@ async function loadWaitingQueue(sessionId: string) {
 
 export async function processExpiredWaitlistOffersForSession(
   sessionId: string,
+  options?: { offerFromCancellationId?: string | null },
 ): Promise<{ expiredCount: number; offeredUserId: string | null }> {
   const expiredOffers = await loadExpiredOffersForSession(sessionId);
 
@@ -325,7 +356,7 @@ export async function processExpiredWaitlistOffersForSession(
 
   const offerResult = await tryCreateNextWaitlistOfferForSession({
     sessionId,
-    offerFromCancellationId: null,
+    offerFromCancellationId: options?.offerFromCancellationId ?? null,
   });
 
   return {
@@ -405,7 +436,7 @@ async function tryCreateNextWaitlistOfferForSession(input: {
       return { offeredUserId: null, clubId: null };
     }
 
-    const { error: offerError } = await supabase
+    const { data: promotedRows, error: offerError } = await supabase
       .from("session_waitlist")
       .update({
         status: "offered",
@@ -414,10 +445,21 @@ async function tryCreateNextWaitlistOfferForSession(input: {
         promoted_from_cancellation_id: input.offerFromCancellationId,
       })
       .eq("id", waitlistEntry.id)
-      .eq("status", "waiting");
+      .eq("status", "waiting")
+      .select("id, user_id");
 
     if (offerError) {
       throw new Error(`Unable to create waitlist offer: ${offerError.message}`);
+    }
+
+    if (!promotedRows?.length) {
+      continue;
+    }
+
+    const activeOfferAfterUpdate = await getActiveOfferForSession(input.sessionId);
+
+    if (!activeOfferAfterUpdate || activeOfferAfterUpdate.id !== waitlistEntry.id) {
+      continue;
     }
 
     await createPortalMessageForRecipient({
@@ -429,6 +471,7 @@ async function tryCreateNextWaitlistOfferForSession(input: {
         className: sessionContext.className,
         dateLabel: sessionContext.dateLabel,
         timeLabel: sessionContext.timeLabel,
+        sessionId: input.sessionId,
       }),
       sentByAdminUserId: null,
     });
@@ -453,14 +496,11 @@ export async function createNextWaitlistOfferAfterCancellation(input: {
     return { offeredUserId: null };
   }
 
-  await processExpiredWaitlistOffersForSession(input.sessionId);
-
-  const offer = await tryCreateNextWaitlistOfferForSession({
-    sessionId: input.sessionId,
+  const result = await processExpiredWaitlistOffersForSession(input.sessionId, {
     offerFromCancellationId: input.cancelledAttendeeId,
   });
 
-  return { offeredUserId: offer.offeredUserId };
+  return { offeredUserId: result.offeredUserId };
 }
 
 export async function loadSessionWaitlistDisplayBySessionId(
@@ -558,6 +598,143 @@ export async function loadSessionWaitlistDisplayBySessionId(
   return displayBySessionId;
 }
 
+export async function loadSessionWaitlistBookingAvailabilityBySessionId(
+  sessionIds: string[],
+): Promise<Map<string, SessionWaitlistBookingAvailability>> {
+  const availabilityBySessionId = new Map<string, SessionWaitlistBookingAvailability>();
+
+  for (const sessionId of sessionIds) {
+    availabilityBySessionId.set(sessionId, {
+      hasActiveWaitlistOffer: false,
+      waitingQueueCount: 0,
+    });
+  }
+
+  if (sessionIds.length === 0) {
+    return availabilityBySessionId;
+  }
+
+  await processExpiredWaitlistOffersForSessions(sessionIds);
+
+  const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("session_waitlist")
+    .select("session_id, status, expires_at")
+    .in("session_id", sessionIds)
+    .in("status", ["waiting", "offered"]);
+
+  if (error) {
+    throw new Error(`Failed to load waitlist availability: ${error.message}`);
+  }
+
+  for (const row of (data ?? []) as Array<{
+    session_id: string;
+    status: string;
+    expires_at: string | null;
+  }>) {
+    const existing = availabilityBySessionId.get(row.session_id);
+
+    if (!existing) {
+      continue;
+    }
+
+    if (row.status === "waiting") {
+      existing.waitingQueueCount += 1;
+      continue;
+    }
+
+    if (row.status === "offered" && row.expires_at && row.expires_at > now) {
+      existing.hasActiveWaitlistOffer = true;
+    }
+  }
+
+  return availabilityBySessionId;
+}
+
+export async function loadActiveWaitlistOffersForUser(userId: string) {
+  const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("session_waitlist")
+    .select("session_id, expires_at")
+    .eq("user_id", userId)
+    .eq("status", "offered")
+    .gt("expires_at", now);
+
+  if (error) {
+    throw new Error(`Failed to load active waitlist offers: ${error.message}`);
+  }
+
+  return new Map(
+    ((data ?? []) as Array<{ session_id: string; expires_at: string | null }>).map(
+      (row) => [row.session_id, row.expires_at] as const,
+    ),
+  );
+}
+
+export async function loadMemberBookedSessionIdsForUser(
+  userId: string,
+  sessionIds: string[],
+): Promise<Set<string>> {
+  if (sessionIds.length === 0) {
+    return new Set();
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("session_attendees")
+    .select("class_session_id")
+    .eq("user_id", userId)
+    .eq("booking_status", "booked")
+    .in("class_session_id", sessionIds);
+
+  if (error) {
+    throw new Error(`Failed to load member bookings: ${error.message}`);
+  }
+
+  return new Set(
+    ((data ?? []) as Array<{ class_session_id: string }>).map(
+      (row) => row.class_session_id,
+    ),
+  );
+}
+
+export function enrichPortalMessagesWithWaitlistOffers(
+  messages: PortalMessageListItem[],
+  activeOffersBySessionId: Map<string, string | null>,
+  bookedSessionIds: Set<string>,
+): PortalMessageListItem[] {
+  return messages.map((message) => {
+    if (message.subject !== WAITLIST_OFFER_MESSAGE_SUBJECT) {
+      return message;
+    }
+
+    const sessionId = parseWaitlistOfferSessionIdFromBody(message.body);
+
+    if (!sessionId) {
+      return {
+        ...message,
+        body: stripWaitlistOfferMarkerFromBody(message.body),
+      };
+    }
+
+    const expiresAt = activeOffersBySessionId.get(sessionId) ?? null;
+    const isBookingConfirmed = bookedSessionIds.has(sessionId);
+
+    return {
+      ...message,
+      body: stripWaitlistOfferMarkerFromBody(message.body),
+      waitlistOffer: {
+        sessionId,
+        expiresAt,
+        isBookingConfirmed,
+        isOfferActive: Boolean(expiresAt) && !isBookingConfirmed,
+      },
+    };
+  });
+}
+
 export async function joinSessionWaitlistForUser(input: {
   userId: string;
   sessionId: string;
@@ -596,12 +773,20 @@ export async function joinSessionWaitlistForUser(input: {
     classSession,
   });
 
-  const [existingBooking, existingQueueEntry, bookedCount, className] = await Promise.all([
-    getExistingMemberBooking(sessionId, userId),
-    getActiveQueueEntryForUser(sessionId, userId),
-    getBookedCount(sessionId),
-    getClassName(classSession.class_id),
-  ]);
+  const [existingBooking, existingQueueEntry, bookedCount, className, availability] =
+    await Promise.all([
+      getExistingMemberBooking(sessionId, userId),
+      getActiveQueueEntryForUser(sessionId, userId),
+      getBookedCount(sessionId),
+      getClassName(classSession.class_id),
+      loadSessionWaitlistBookingAvailabilityBySessionId([sessionId]).then(
+        (map) =>
+          map.get(sessionId) ?? {
+            hasActiveWaitlistOffer: false,
+            waitingQueueCount: 0,
+          },
+      ),
+    ]);
 
   if (existingBooking?.booking_status === "booked") {
     throw new Error(ALREADY_BOOKED_MESSAGE);
@@ -619,7 +804,11 @@ export async function joinSessionWaitlistForUser(input: {
     );
   }
 
-  if (sessionHasOpenSpace(classSession.capacity, bookedCount)) {
+  if (
+    isSessionPubliclyBookable(
+      buildBookingAvailabilityInput(classSession.capacity, bookedCount, availability),
+    )
+  ) {
     throw new Error("This class has spaces available. Book the class instead.");
   }
 
@@ -670,9 +859,12 @@ export async function leaveSessionWaitlistForUser(input: {
     throw new Error(NOT_ON_WAITLIST_MESSAGE);
   }
 
+  if (existingQueueEntry.status === "offered") {
+    throw new Error("Use Decline Place to turn down a waitlist offer.");
+  }
+
   const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
-  const wasOffered = existingQueueEntry.status === "offered";
 
   const { error } = await supabase
     .from("session_waitlist")
@@ -682,31 +874,21 @@ export async function leaveSessionWaitlistForUser(input: {
     })
     .eq("id", existingQueueEntry.id)
     .eq("user_id", userId)
-    .in("status", ["waiting", "offered"]);
+    .eq("status", "waiting");
 
   if (error) {
     throw new Error(`Unable to leave waitlist: ${error.message}`);
   }
 
-  let offeredUserId: string | null = null;
-
-  if (wasOffered) {
-    const nextOffer = await tryCreateNextWaitlistOfferForSession({
-      sessionId,
-      offerFromCancellationId: null,
-    });
-    offeredUserId = nextOffer.offeredUserId;
-  }
-
   const className = await getClassName(classSession.class_id);
-  return { className, offeredUserId };
+  return { className, offeredUserId: null };
 }
 
-export async function acceptSessionWaitlistOfferForUser(input: {
+export async function declineSessionWaitlistOfferForUser(input: {
   userId: string;
   sessionId: string;
   clubId: string;
-}): Promise<{ className: string }> {
+}): Promise<{ className: string; offeredUserId: string | null }> {
   const userId = input.userId.trim();
   const sessionId = input.sessionId.trim();
 
@@ -733,19 +915,69 @@ export async function acceptSessionWaitlistOfferForUser(input: {
   }
 
   const now = new Date().toISOString();
+
   if (!offerEntry.expires_at || offerEntry.expires_at <= now) {
     throw new Error(OFFER_EXPIRED_MESSAGE);
   }
 
-  const [existingBooking, bookedCount, className] = await Promise.all([
-    getExistingMemberBooking(sessionId, userId),
-    getBookedCount(sessionId),
-    getClassName(classSession.class_id),
-  ]);
+  await expireOfferRow(offerEntry.id);
+
+  const nextOffer = await tryCreateNextWaitlistOfferForSession({
+    sessionId,
+    offerFromCancellationId: null,
+  });
+
+  const className = await getClassName(classSession.class_id);
+  return { className, offeredUserId: nextOffer.offeredUserId };
+}
+
+export async function acceptSessionWaitlistOfferForUser(input: {
+  userId: string;
+  sessionId: string;
+  clubId: string;
+}): Promise<AcceptSessionWaitlistOfferResult> {
+  const userId = input.userId.trim();
+  const sessionId = input.sessionId.trim();
+
+  if (!userId) {
+    throw new Error("Student account is required.");
+  }
+
+  if (!sessionId) {
+    throw new Error("Please choose a class.");
+  }
+
+  const classSession = await getClassSession(sessionId);
+
+  if (classSession.club_id !== input.clubId) {
+    throw new Error("This class is not available for your club.");
+  }
+
+  const className = await getClassName(classSession.class_id);
+  const existingBooking = await getExistingMemberBooking(sessionId, userId);
 
   if (existingBooking?.booking_status === "booked") {
-    throw new Error(ALREADY_BOOKED_MESSAGE);
+    return { className, outcome: "already_confirmed" };
   }
+
+  await processExpiredWaitlistOffersForSession(sessionId);
+
+  const offerEntry = await getActiveQueueEntryForUser(sessionId, userId);
+
+  if (!offerEntry || offerEntry.status !== "offered") {
+    if (existingBooking?.booking_status === "booked") {
+      return { className, outcome: "already_confirmed" };
+    }
+
+    throw new Error(NO_ACTIVE_OFFER_MESSAGE);
+  }
+
+  const now = new Date().toISOString();
+  if (!offerEntry.expires_at || offerEntry.expires_at <= now) {
+    throw new Error(OFFER_EXPIRED_MESSAGE);
+  }
+
+  const bookedCount = await getBookedCount(sessionId);
 
   if (!sessionHasOpenSpace(classSession.capacity, bookedCount)) {
     throw new Error(CLASS_FULL_MESSAGE);
@@ -776,7 +1008,7 @@ export async function acceptSessionWaitlistOfferForUser(input: {
     throw new Error(`Unable to accept waitlist offer: ${waitlistError.message}`);
   }
 
-  return { className };
+  return { className, outcome: "confirmed" };
 }
 
 export async function cancelActiveSessionWaitlistForUserIfPresent(
@@ -814,10 +1046,22 @@ export async function assertClassSessionHasSpaceForBooking(
   sessionId: string,
   capacity: number | null,
 ) {
-  const bookedCount = await getBookedCount(sessionId);
-  const spacesAvailable = getSpacesAvailable(capacity, bookedCount);
+  const [bookedCount, availability] = await Promise.all([
+    getBookedCount(sessionId),
+    loadSessionWaitlistBookingAvailabilityBySessionId([sessionId]).then(
+      (map) =>
+        map.get(sessionId) ?? {
+          hasActiveWaitlistOffer: false,
+          waitingQueueCount: 0,
+        },
+    ),
+  ]);
 
-  if (spacesAvailable === 0) {
+  if (
+    !isSessionPubliclyBookable(
+      buildBookingAvailabilityInput(capacity, bookedCount, availability),
+    )
+  ) {
     throw new Error(CLASS_FULL_MESSAGE);
   }
 }

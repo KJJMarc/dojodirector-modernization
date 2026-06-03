@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { formatAttendanceTimeRange } from "@/lib/attendance-schedule";
 import type { CancelBookingsSessionSummary } from "@/lib/admin-manage-bookings.shared";
-import { formatBookingDate, formatSessionLocation } from "@/lib/booking";
+import { formatSessionLocation } from "@/lib/booking";
 import { clubAdminPath } from "@/lib/clubs.shared";
 
 function formatBookedCapacitySummary(session: CancelBookingsSessionSummary) {
@@ -31,10 +30,8 @@ export function CancelBookingsSessionRow({
           <h3 className="truncate text-base font-semibold text-dojo-white">
             {session.className}
           </h3>
-          <p className="text-sm text-dojo-muted">{formatBookingDate(session.startsAt)}</p>
-          <p className="text-sm text-dojo-muted">
-            {formatAttendanceTimeRange(session.startsAt, session.endsAt)}
-          </p>
+          <p className="text-sm text-dojo-muted">{session.dateLabel}</p>
+          <p className="text-sm text-dojo-muted">{session.timeLabel}</p>
           <p className="text-sm text-dojo-muted">
             {formatSessionLocation(session.location)}
           </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 import type { PortalMessageListItem } from "@/lib/portal-messages.shared";
 
@@ -7,12 +8,14 @@ interface PortalMessagesInboxProps {
   messages: PortalMessageListItem[];
   onOpenMessage: (messageId: string) => Promise<void>;
   onDeleteMessage: (messageId: string) => Promise<void>;
+  renderMessageActions?: (message: PortalMessageListItem) => ReactNode;
 }
 
 export function PortalMessagesInbox({
   messages: initialMessages,
   onOpenMessage,
   onDeleteMessage,
+  renderMessageActions,
 }: PortalMessagesInboxProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -124,6 +127,7 @@ export function PortalMessagesInbox({
                   <div className="whitespace-pre-wrap text-sm leading-relaxed text-dojo-white">
                     {message.body}
                   </div>
+                  {renderMessageActions ? renderMessageActions(message) : null}
                   <button
                     type="button"
                     onClick={() => handleDelete(message.id)}

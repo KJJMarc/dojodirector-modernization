@@ -1,6 +1,14 @@
 import type { AcademyMessageRecipientType } from "@/lib/academy-messaging.shared";
+import { WAITLIST_OFFER_SESSION_MARKER_PREFIX } from "@/lib/session-waitlist.shared";
 
 export type PortalMessageRecipientType = "student" | "instructor";
+
+export interface PortalMessageWaitlistOfferAction {
+  sessionId: string;
+  expiresAt: string | null;
+  isOfferActive: boolean;
+  isBookingConfirmed: boolean;
+}
 
 export interface PortalMessageListItem {
   id: string;
@@ -12,6 +20,7 @@ export interface PortalMessageListItem {
   sentAtListLabel: string;
   readAt: string | null;
   isUnread: boolean;
+  waitlistOffer?: PortalMessageWaitlistOfferAction;
 }
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 75;
@@ -85,7 +94,12 @@ export function mapPortalMessageRow(row: {
     id: row.id,
     subject: row.subject,
     body: row.body,
-    bodyPreview: formatPortalMessagePreview(row.body),
+    bodyPreview: formatPortalMessagePreview(
+      row.body
+        .split("\n")
+        .filter((line) => !line.trim().startsWith(WAITLIST_OFFER_SESSION_MARKER_PREFIX))
+        .join("\n"),
+    ),
     sentAt: row.sent_at,
     sentAtLabel: formatPortalMessageSentLabel(row.sent_at),
     sentAtListLabel: formatPortalMessageListDate(row.sent_at),

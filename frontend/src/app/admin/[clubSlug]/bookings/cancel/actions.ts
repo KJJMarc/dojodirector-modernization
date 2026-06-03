@@ -4,10 +4,11 @@ import { adminCancelSessionBookingPreserveAttendance } from "@/lib/admin-manage-
 import { revalidateManageBookingsPaths } from "@/lib/admin-revalidate.server";
 import { parseClubSlugFromForm } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
+import { createNextWaitlistOfferAfterCancellation } from "@/lib/session-waitlist.server";
 
 export async function cancelManageBookingAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
-  await requireClubBySlug(clubSlug);
+  const club = await requireClubBySlug(clubSlug);
 
   const attendeeId = String(formData.get("attendeeId") ?? "");
   const sessionId = String(formData.get("sessionId") ?? "");
@@ -18,10 +19,17 @@ export async function cancelManageBookingAction(formData: FormData) {
   }
 
   const result = await adminCancelSessionBookingPreserveAttendance(attendeeId);
+  const resolvedSessionId = sessionId || result.sessionId;
+
+  await createNextWaitlistOfferAfterCancellation({
+    sessionId: resolvedSessionId,
+    clubId: club.id,
+    cancelledAttendeeId: attendeeId,
+  });
 
   revalidateManageBookingsPaths(
     clubSlug,
-    sessionId || result.sessionId,
+    resolvedSessionId,
     userId || undefined,
   );
 }

@@ -5,6 +5,9 @@ import type { AdminCancelBookingsSchedulePageData } from "@/lib/admin-manage-boo
 import type { CancelBookingsSessionSummary } from "@/lib/admin-manage-bookings.shared";
 import { getSpacesAvailable } from "@/lib/booking";
 import {
+  buildSessionDisplayLabels,
+  formatScheduleDayLabel,
+  resolveScheduleDateKey,
   resolveSessionLocationFromRow,
 } from "@/lib/class-session-schedule";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -109,12 +112,27 @@ export async function getAdminCancelBookingsSchedulePageData(
   const mappedSessions: CancelBookingsSessionSummary[] = sessions.map((session) => {
     const bookedCount = bookedCountBySession.get(session.id) ?? 0;
     const location = resolveSessionLocationFromRow(session);
+    const externalId = session.external_id ?? null;
+    const displayLabels = buildSessionDisplayLabels({
+      startsAt: session.starts_at,
+      endsAt: session.ends_at,
+      externalId,
+    });
+    const scheduleDateKey = resolveScheduleDateKey({
+      startsAt: session.starts_at,
+      externalId,
+    });
 
     return {
       id: session.id,
       className: getJoinedClassName(session.classes),
       startsAt: session.starts_at,
       endsAt: session.ends_at,
+      externalId,
+      scheduleDateKey,
+      dateLabel: displayLabels.dateLabel,
+      timeLabel: displayLabels.timeLabel,
+      dayLabel: formatScheduleDayLabel(session.starts_at),
       location,
       capacity: session.capacity,
       bookedCount,

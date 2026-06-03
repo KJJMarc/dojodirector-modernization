@@ -1,18 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   acceptWaitlistOfferFromStudentPortal,
   bookClassFromStudentPortal,
+  declineWaitlistOfferFromStudentPortal,
   joinWaitlistFromStudentPortal,
   leaveWaitlistFromStudentPortal,
 } from "@/app/student-portal/[clubSlug]/[userId]/actions";
+import { WaitlistOfferActions } from "@/components/student-portal/waitlist-offer-actions";
 import {
   formatPortalWaitlistCount,
   formatPortalWaitlistPosition,
 } from "@/lib/student-portal-format.shared";
-import { formatWaitlistOfferCountdown } from "@/lib/session-waitlist.shared";
+import { WAITLIST_ACCEPT_SUCCESS_MESSAGE } from "@/lib/session-waitlist.shared";
 import type {
   StudentPortalBookableSession,
   StudentPortalBookableSessionGroup,
@@ -24,23 +26,6 @@ interface StudentPortalBookClassProps {
   sessionGroups: StudentPortalBookableSessionGroup[];
 }
 
-function OfferCountdown({ expiresAt }: { expiresAt: string }) {
-  const [label, setLabel] = useState(() => formatWaitlistOfferCountdown(expiresAt));
-
-  useEffect(() => {
-    const tick = () => setLabel(formatWaitlistOfferCountdown(expiresAt));
-    tick();
-    const intervalId = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(intervalId);
-  }, [expiresAt]);
-
-  if (!label) {
-    return null;
-  }
-
-  return <p className="text-xs font-medium text-dojo-amber-200">{label}</p>;
-}
-
 function BookableSessionCard({
   session,
   isPending,
@@ -48,6 +33,7 @@ function BookableSessionCard({
   onJoinWaitlist,
   onLeaveWaitlist,
   onAcceptOffer,
+  onDeclineOffer,
 }: {
   session: StudentPortalBookableSession;
   isPending: boolean;
@@ -55,6 +41,7 @@ function BookableSessionCard({
   onJoinWaitlist: (classSessionId: string) => void;
   onLeaveWaitlist: (classSessionId: string) => void;
   onAcceptOffer: (classSessionId: string) => void;
+  onDeclineOffer: (classSessionId: string) => void;
 }) {
   const isBooked = session.memberBookingStatus === "booked";
   const waitlistPositionLabel = formatPortalWaitlistPosition(session.waitlistPosition);
@@ -99,25 +86,12 @@ function BookableSessionCard({
             <p className="text-sm font-semibold text-dojo-white">
               You have a waitlist offer
             </p>
-            {session.offerExpiresAt ? (
-              <OfferCountdown expiresAt={session.offerExpiresAt} />
-            ) : null}
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => onAcceptOffer(session.id)}
-              className="min-h-[40px] w-full rounded-md bg-green-600 px-3 text-sm font-semibold text-white ring-1 ring-green-500 transition hover:bg-green-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Accept booking
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => onLeaveWaitlist(session.id)}
-              className="min-h-[36px] w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Decline offer
-            </button>
+            <WaitlistOfferActions
+              expiresAt={session.offerExpiresAt}
+              isPending={isPending}
+              onAccept={() => onAcceptOffer(session.id)}
+              onDecline={() => onDeclineOffer(session.id)}
+            />
           </div>
         ) : session.waitlistStatus === "waiting" ? (
           <div className="space-y-2">
@@ -216,7 +190,14 @@ export function StudentPortalBookClass({
   const handleAcceptOffer = (classSessionId: string) => {
     runAction(
       () => acceptWaitlistOfferFromStudentPortal(clubSlug, userId, classSessionId),
-      "You are booked for [class].",
+      WAITLIST_ACCEPT_SUCCESS_MESSAGE,
+    );
+  };
+
+  const handleDeclineOffer = (classSessionId: string) => {
+    runAction(
+      () => declineWaitlistOfferFromStudentPortal(clubSlug, userId, classSessionId),
+      "You declined the waitlist offer for [class].",
     );
   };
 
@@ -262,6 +243,7 @@ export function StudentPortalBookClass({
                   onJoinWaitlist={handleJoinWaitlist}
                   onLeaveWaitlist={handleLeaveWaitlist}
                   onAcceptOffer={handleAcceptOffer}
+                  onDeclineOffer={handleDeclineOffer}
                 />
               </li>
             ))}

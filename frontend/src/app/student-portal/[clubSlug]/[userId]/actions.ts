@@ -7,6 +7,7 @@ import {
 } from "@/lib/member-booking.server";
 import {
   acceptSessionWaitlistOfferForUser,
+  declineSessionWaitlistOfferForUser,
   joinSessionWaitlistForUser,
   leaveSessionWaitlistForUser,
 } from "@/lib/session-waitlist.server";
@@ -152,6 +153,44 @@ export async function acceptWaitlistOfferFromStudentPortal(
   });
 
   return result;
+}
+
+export async function declineWaitlistOfferFromStudentPortal(
+  clubSlug: string,
+  userId: string,
+  classSessionId: string,
+) {
+  const normalizedUserId = userId.trim();
+  const normalizedSessionId = classSessionId.trim();
+  const normalizedClubSlug = clubSlug.trim();
+
+  if (!normalizedUserId) {
+    throw new Error("Student account is required.");
+  }
+
+  if (!normalizedSessionId) {
+    throw new Error("Please choose a class.");
+  }
+
+  if (!normalizedClubSlug) {
+    throw new Error("Academy is required.");
+  }
+
+  const club = await requireStudentPortalClubAccess(normalizedUserId, normalizedClubSlug);
+
+  const result = await declineSessionWaitlistOfferForUser({
+    userId: normalizedUserId,
+    sessionId: normalizedSessionId,
+    clubId: club.id,
+  });
+
+  await revalidatePathsAfterMemberBooking({
+    portalUserId: normalizedUserId,
+    clubId: club.id,
+    additionalPortalUserIds: result.offeredUserId ? [result.offeredUserId] : [],
+  });
+
+  return { className: result.className };
 }
 
 export async function cancelClassBookingFromStudentPortal(

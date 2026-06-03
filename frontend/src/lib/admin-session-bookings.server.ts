@@ -15,6 +15,7 @@ import {
   syncAttendanceRecordForStatus,
 } from "@/lib/attendance-records-sync";
 import { formatSessionLocation, getSpacesAvailable } from "@/lib/booking";
+import { createNextWaitlistOfferAfterCancellation } from "@/lib/session-waitlist.server";
 import { londonLocalDateTimeToUtcIso } from "@/lib/london-datetime";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -596,6 +597,24 @@ export async function adminCancelSessionBooking(attendeeId: string) {
 
   if (updateError) {
     throw new Error(`Unable to cancel booking: ${updateError.message}`);
+  }
+
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from("class_sessions")
+    .select("club_id")
+    .eq("id", data.class_session_id)
+    .maybeSingle();
+
+  if (sessionError) {
+    throw new Error(`Unable to load class session: ${sessionError.message}`);
+  }
+
+  if (sessionRow?.club_id) {
+    await createNextWaitlistOfferAfterCancellation({
+      sessionId: data.class_session_id,
+      clubId: sessionRow.club_id,
+      cancelledAttendeeId: attendeeId,
+    });
   }
 }
 

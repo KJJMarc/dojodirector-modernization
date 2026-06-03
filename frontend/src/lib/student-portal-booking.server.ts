@@ -6,7 +6,14 @@ import {
   formatPortalMemberBookingStatus,
   formatPortalSpacesAvailable,
 } from "@/lib/student-portal-format.shared";
-import { loadSessionWaitlistDisplayBySessionId } from "@/lib/session-waitlist.server";
+import {
+  getEffectiveSpacesAvailable,
+  isSessionPubliclyBookable,
+} from "@/lib/session-waitlist.shared";
+import {
+  loadSessionWaitlistBookingAvailabilityBySessionId,
+  loadSessionWaitlistDisplayBySessionId,
+} from "@/lib/session-waitlist.server";
 import {
   formatScheduleDayLabel,
   formatScheduleTimeRange,
@@ -257,10 +264,12 @@ export async function loadStudentPortalBookableSessionGroups(
   }
 
   const sessionIds = bookableClubSessions.map((session) => session.id);
-  const [memberBookingDetailsBySessionId, waitlistBySessionId] = await Promise.all([
-    loadMemberBookingDetailsBySessionId(userId, sessionIds),
-    loadSessionWaitlistDisplayBySessionId(userId, sessionIds),
-  ]);
+  const [memberBookingDetailsBySessionId, waitlistBySessionId, waitlistAvailabilityBySessionId] =
+    await Promise.all([
+      loadMemberBookingDetailsBySessionId(userId, sessionIds),
+      loadSessionWaitlistDisplayBySessionId(userId, sessionIds),
+      loadSessionWaitlistBookingAvailabilityBySessionId(sessionIds),
+    ]);
 
   const bookableSessions: StudentPortalBookableSession[] = bookableClubSessions.map(
     (session) => {
@@ -274,6 +283,17 @@ export async function loadStudentPortalBookableSessionGroups(
       };
       const locationLabel =
         session.location?.trim() || "Location TBC";
+      const waitlistAvailability = waitlistAvailabilityBySessionId.get(session.id) ?? {
+        hasActiveWaitlistOffer: false,
+        waitingQueueCount: 0,
+      };
+      const availabilityInput = {
+        capacity: session.capacity,
+        bookedCount: session.bookedCount,
+        hasActiveWaitlistOffer: waitlistAvailability.hasActiveWaitlistOffer,
+        waitingQueueCount: waitlistAvailability.waitingQueueCount,
+      };
+      const spacesAvailable = getEffectiveSpacesAvailable(availabilityInput);
 
       return {
         id: session.id,
@@ -281,8 +301,8 @@ export async function loadStudentPortalBookableSessionGroups(
         startsAt: session.startsAt,
         endsAt: session.endsAt,
         locationLabel,
-        spacesAvailable: session.spacesAvailable,
-        spacesAvailableLabel: formatPortalSpacesAvailable(session.spacesAvailable),
+        spacesAvailable,
+        spacesAvailableLabel: formatPortalSpacesAvailable(spacesAvailable),
         memberBookingStatus,
         memberBookingStatusLabel:
           formatMemberBookingStatusLabel(memberBookingStatus),
@@ -296,7 +316,7 @@ export async function loadStudentPortalBookableSessionGroups(
           session.endsAt,
           session.externalId,
         ),
-        isFull: session.spacesAvailable === 0,
+        isFull: !isSessionPubliclyBookable(availabilityInput),
       };
     },
   );
