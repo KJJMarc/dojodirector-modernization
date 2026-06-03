@@ -3,6 +3,7 @@
 import {
   deactivateRecurringClassSchedule,
   deleteRecurringClassSchedulePermanently,
+  formatRecurringSessionCapacitySyncSummary,
   getRecurringClassScheduleById,
   reactivateRecurringClassSchedule,
   updateRecurringClassSchedule,
@@ -138,8 +139,12 @@ export async function updateRecurringClassAction(formData: FormData) {
   const input = parseUpdateRecurringClassInput(formData);
 
   await requireScheduleForClub(input.scheduleId, club.id);
-  await updateRecurringClassSchedule(input, club.id);
+  const sessionSync = await updateRecurringClassSchedule(input, club.id);
   revalidateRecurringClassPaths(clubSlug, input.scheduleId);
+
+  return {
+    sessionSyncSummary: formatRecurringSessionCapacitySyncSummary(sessionSync),
+  };
 }
 
 export async function deleteRecurringClassAction(formData: FormData) {

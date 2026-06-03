@@ -55,7 +55,7 @@ export function formatSpacesAvailable(spacesAvailable: number | null) {
   }
 
   if (spacesAvailable === 0) {
-    return "Full — join waitlist";
+    return "Full";
   }
 
   return `${spacesAvailable} space${spacesAvailable === 1 ? "" : "s"} available`;

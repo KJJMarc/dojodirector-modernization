@@ -1,13 +1,12 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
-import {
-  formatBookingDate,
-  formatBookingTime,
-  formatSessionLocation,
-} from "@/lib/booking";
+import { formatSessionLocation } from "@/lib/booking";
 import { assertSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
-import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
+import {
+  buildSessionDisplayLabels,
+  resolveSessionLocationFromRow,
+} from "@/lib/class-session-schedule";
 import { resolveGuestTrainingAgreementContent } from "@/lib/club-agreement-templates.server";
 import {
   type AdminGuestBookingRow,
@@ -315,8 +314,11 @@ async function loadClassSessionForGuestBooking(classSessionId: string) {
     clubId,
     className: classRow?.name?.trim() || "Class",
     startsAt: data.starts_at,
-    dateLabel: formatBookingDate(data.starts_at),
-    timeLabel: formatBookingTime(data.starts_at),
+    ...buildSessionDisplayLabels({
+      startsAt: data.starts_at,
+      endsAt: data.ends_at ?? null,
+      externalId: data.external_id ?? null,
+    }),
     location: formatSessionLocation(location),
   };
 }

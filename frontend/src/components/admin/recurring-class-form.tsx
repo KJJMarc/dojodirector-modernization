@@ -27,10 +27,12 @@ export function RecurringClassForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     const formData = new FormData(event.currentTarget);
     formData.set("clubSlug", clubSlug);
@@ -42,11 +44,13 @@ export function RecurringClassForm({
     startTransition(async () => {
       try {
         if (schedule) {
-          await updateRecurringClassAction(formData);
-        } else {
-          await createRecurringClassAction(formData);
+          const result = await updateRecurringClassAction(formData);
+          setSuccessMessage(result.sessionSyncSummary);
+          router.refresh();
+          return;
         }
 
+        await createRecurringClassAction(formData);
         router.push(clubAdminPath(clubSlug, "classes/edit"));
         router.refresh();
       } catch (error) {
@@ -69,6 +73,12 @@ export function RecurringClassForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {successMessage ? (
+        <p className="rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-dojo-white">
+          Saved. {successMessage}
+        </p>
+      ) : null}
+
       {errorMessage ? (
         <p className="rounded-md border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-red">
           {errorMessage}

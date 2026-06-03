@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { PortalMessageListItem } from "@/lib/portal-messages.shared";
 
 interface PortalMessagesInboxProps {
@@ -15,22 +15,16 @@ export function PortalMessagesInbox({
   onDeleteMessage,
 }: PortalMessagesInboxProps) {
   const [messages, setMessages] = useState(initialMessages);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialMessages[0]?.id ?? null,
-  );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const selectedMessage = useMemo(
-    () => messages.find((message) => message.id === selectedId) ?? null,
-    [messages, selectedId],
-  );
-
-  function handleSelect(message: PortalMessageListItem) {
+  function handleToggle(message: PortalMessageListItem) {
     setActionError(null);
-    setSelectedId(message.id);
+    const willExpand = expandedId !== message.id;
+    setExpandedId(willExpand ? message.id : null);
 
-    if (!message.isUnread) {
+    if (!willExpand || !message.isUnread) {
       return;
     }
 
@@ -52,11 +46,7 @@ export function PortalMessagesInbox({
     });
   }
 
-  function handleDelete() {
-    if (!selectedMessage) {
-      return;
-    }
-
+  function handleDelete(messageId: string) {
     if (!window.confirm("Delete this message?")) {
       return;
     }
@@ -65,10 +55,10 @@ export function PortalMessagesInbox({
 
     startTransition(async () => {
       try {
-        await onDeleteMessage(selectedMessage.id);
-        const remaining = messages.filter((row) => row.id !== selectedMessage.id);
+        await onDeleteMessage(messageId);
+        const remaining = messages.filter((row) => row.id !== messageId);
         setMessages(remaining);
-        setSelectedId(remaining[0]?.id ?? null);
+        setExpandedId((current) => (current === messageId ? null : current));
       } catch (error) {
         setActionError(
           error instanceof Error ? error.message : "Unable to delete message.",
@@ -87,76 +77,66 @@ export function PortalMessagesInbox({
 
   return (
     <div className={`space-y-3 ${isPending ? "pointer-events-none opacity-70" : ""}`}>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <ul className="max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-dojo-border bg-dojo-surface p-2">
-          {messages.map((message) => {
-            const isSelected = message.id === selectedId;
+      <ul className="space-y-2">
+        {messages.map((message) => {
+          const isExpanded = expandedId === message.id;
 
-            return (
-              <li key={message.id}>
-                <button
-                  type="button"
-                  onClick={() => handleSelect(message)}
-                  className={`w-full rounded-lg border px-3 py-2.5 text-left transition ${
-                    isSelected
-                      ? "border-dojo-red/50 bg-dojo-elevated"
-                      : "border-dojo-border bg-dojo-elevated/40 hover:border-dojo-red/30"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <span
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                        message.isUnread ? "bg-dojo-red" : "bg-transparent"
-                      }`}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 text-sm font-semibold text-dojo-white">
-                        {message.subject}
-                      </span>
-                      {message.bodyPreview ? (
-                        <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-dojo-muted">
-                          {message.bodyPreview}
-                        </span>
-                      ) : null}
-                      <span className="mt-1.5 block text-xs text-dojo-muted">
-                        {message.sentAtListLabel}
-                      </span>
-                    </span>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-
-        <section className="min-h-[16rem] rounded-xl border border-dojo-border bg-dojo-surface p-4">
-          {selectedMessage ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-dojo-white">
-                  {selectedMessage.subject}
-                </h3>
-                <p className="mt-1 text-xs text-dojo-muted">
-                  {selectedMessage.sentAtLabel}
-                </p>
-              </div>
-              <div className="whitespace-pre-wrap text-sm leading-relaxed text-dojo-white">
-                {selectedMessage.body}
-              </div>
+          return (
+            <li
+              key={message.id}
+              className={`overflow-hidden rounded-xl border bg-dojo-surface transition ${
+                isExpanded
+                  ? "border-dojo-red/50"
+                  : "border-dojo-border hover:border-dojo-red/30"
+              }`}
+            >
               <button
                 type="button"
-                onClick={handleDelete}
-                className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-3 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50"
+                onClick={() => handleToggle(message)}
+                className="flex w-full items-start gap-3 px-4 py-3 text-left"
               >
-                Delete message
+                <span
+                  className={`mt-2 h-2 w-2 shrink-0 rounded-full ${
+                    message.isUnread ? "bg-dojo-red" : "bg-transparent"
+                  }`}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-semibold text-dojo-white">
+                      {message.subject}
+                    </span>
+                    <span className="shrink-0 text-xs text-dojo-muted">
+                      {message.sentAtListLabel}
+                    </span>
+                  </span>
+                  {message.bodyPreview && !isExpanded ? (
+                    <span className="mt-1.5 line-clamp-2 block text-sm leading-relaxed text-dojo-muted">
+                      {message.bodyPreview}
+                    </span>
+                  ) : null}
+                </span>
               </button>
-            </div>
-          ) : (
-            <p className="text-sm text-dojo-muted">Select a message to read.</p>
-          )}
-        </section>
-      </div>
+
+              {isExpanded ? (
+                <div className="space-y-4 border-t border-dojo-border px-4 py-4">
+                  <p className="text-xs text-dojo-muted">{message.sentAtLabel}</p>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-dojo-white">
+                    {message.body}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(message.id)}
+                    className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-3 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50"
+                  >
+                    Delete message
+                  </button>
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
 
       {actionError ? (
         <p className="rounded-lg border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-white">

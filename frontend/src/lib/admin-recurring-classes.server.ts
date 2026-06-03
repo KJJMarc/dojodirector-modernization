@@ -12,6 +12,7 @@ import type {
   UpdateRecurringClassInput,
 } from "@/lib/admin-recurring-classes.input";
 import type { RecurringClassDeleteStatus } from "@/lib/admin-recurring-classes.shared";
+import { sessionBelongsToRecurringScheduleRow } from "@/lib/class-session-schedule";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type { RecurringClassScheduleRow, CreateRecurringClassInput };
@@ -206,6 +207,176 @@ async function findOrCreateClassTemplate(
   }
 
   return created.id as string;
+}
+
+const RECORDED_ATTENDANCE_STATUSES = ["present", "absent"] as const;
+
+export interface RecurringSessionCapacitySyncResult {
+  matchedCount: number;
+  updatedCount: number;
+  skippedAttendanceCount: number;
+  skippedCancelledCount: number;
+}
+
+interface FutureRecurringSessionRow {
+  id: string;
+  starts_at: string;
+  external_id: string | null;
+  recurring_schedule_id: string | null;
+  source: string | null;
+  status: string | null;
+}
+
+function isUpdatableSessionStatus(status: string | null) {
+  return status === "scheduled" || status === null;
+}
+
+export function formatRecurringSessionCapacitySyncSummary(
+  result: RecurringSessionCapacitySyncResult,
+) {
+  const parts = [`${result.updatedCount} future session${result.updatedCount === 1 ? "" : "s"} updated`];
+
+  if (result.skippedAttendanceCount > 0) {
+    parts.push(
+      `${result.skippedAttendanceCount} skipped (attendance recorded)`,
+    );
+  }
+
+  if (result.skippedCancelledCount > 0) {
+    parts.push(`${result.skippedCancelledCount} skipped (cancelled)`);
+  }
+
+  if (result.matchedCount === 0) {
+    return "No matching future sessions found to update.";
+  }
+
+  return parts.join(" · ");
+}
+
+async function loadSessionIdsWithRecordedAttendance(sessionIds: string[]) {
+  if (sessionIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("session_attendees")
+    .select("class_session_id")
+    .in("class_session_id", sessionIds)
+    .in("attendance_status", [...RECORDED_ATTENDANCE_STATUSES]);
+
+  if (error) {
+    throw new Error(
+      `Unable to load attendance for future sessions: ${error.message}`,
+    );
+  }
+
+  return new Set(
+    ((data ?? []) as Array<{ class_session_id: string }>).map(
+      (row) => row.class_session_id,
+    ),
+  );
+}
+
+/** Sync capacity (and schedule link) onto future generated sessions for one recurring timetable row. */
+export async function syncFutureRecurringSessionCapacity(input: {
+  scheduleId: string;
+  clubId: string;
+  classId: string;
+  dayOfWeek: number;
+  startTime: string;
+  location: string;
+  capacity: number;
+}): Promise<RecurringSessionCapacitySyncResult> {
+  const supabase = getSupabaseAdminClient();
+  const nowIso = new Date().toISOString();
+
+  const { data: sessionRows, error: sessionsError } = await supabase
+    .from("class_sessions")
+    .select("id, starts_at, external_id, recurring_schedule_id, source, status")
+    .eq("club_id", input.clubId)
+    .eq("class_id", input.classId)
+    .gte("starts_at", nowIso);
+
+  if (sessionsError) {
+    throw new Error(`Unable to load future sessions: ${sessionsError.message}`);
+  }
+
+  const rows = (sessionRows ?? []) as FutureRecurringSessionRow[];
+  let skippedCancelledCount = 0;
+
+  const matchingSessions = rows.filter((session) => {
+    const belongsToSchedule = sessionBelongsToRecurringScheduleRow(session, {
+      scheduleId: input.scheduleId,
+      dayOfWeek: input.dayOfWeek,
+      startTime: input.startTime,
+      location: input.location,
+    });
+
+    if (!belongsToSchedule) {
+      return false;
+    }
+
+    if (!isUpdatableSessionStatus(session.status)) {
+      if (session.status === "cancelled") {
+        skippedCancelledCount += 1;
+      }
+
+      return false;
+    }
+
+    return true;
+  });
+
+  if (matchingSessions.length === 0) {
+    return {
+      matchedCount: 0,
+      updatedCount: 0,
+      skippedAttendanceCount: 0,
+      skippedCancelledCount,
+    };
+  }
+
+  const sessionIdsWithAttendance = await loadSessionIdsWithRecordedAttendance(
+    matchingSessions.map((session) => session.id),
+  );
+
+  const sessionIdsToUpdate = matchingSessions
+    .map((session) => session.id)
+    .filter((sessionId) => !sessionIdsWithAttendance.has(sessionId));
+
+  const skippedAttendanceCount =
+    matchingSessions.length - sessionIdsToUpdate.length;
+
+  if (sessionIdsToUpdate.length === 0) {
+    return {
+      matchedCount: matchingSessions.length,
+      updatedCount: 0,
+      skippedAttendanceCount,
+      skippedCancelledCount,
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("class_sessions")
+    .update({
+      class_id: input.classId,
+      capacity: input.capacity,
+      recurring_schedule_id: input.scheduleId,
+      updated_at: new Date().toISOString(),
+    })
+    .in("id", sessionIdsToUpdate);
+
+  if (updateError) {
+    throw new Error(`Unable to update future sessions: ${updateError.message}`);
+  }
+
+  return {
+    matchedCount: matchingSessions.length,
+    updatedCount: sessionIdsToUpdate.length,
+    skippedAttendanceCount,
+    skippedCancelledCount,
+  };
 }
 
 export async function createRecurringClassSchedule(
@@ -522,29 +693,21 @@ export async function updateRecurringClassSchedule(
     );
   }
 
-  const nowIso = new Date().toISOString();
-
-  const { error: futureSessionUpdateError } = await supabase
-    .from("class_sessions")
-    .update({
-      class_id: classId,
-      capacity: input.capacity,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("recurring_schedule_id", input.scheduleId)
-    .eq("club_id", clubId)
-    .gte("starts_at", nowIso)
-    .eq("status", "scheduled");
-
-  if (futureSessionUpdateError) {
-    throw new Error(
-      `Unable to update future sessions: ${futureSessionUpdateError.message}`,
-    );
-  }
+  const sessionSync = await syncFutureRecurringSessionCapacity({
+    scheduleId: input.scheduleId,
+    clubId,
+    classId,
+    dayOfWeek: input.dayOfWeek,
+    startTime: input.startTime,
+    location: input.location,
+    capacity: input.capacity,
+  });
 
   if (wasActive && !willBeActive) {
     await deactivateRecurringClassSchedule(input.scheduleId);
   } else if (!wasActive && willBeActive) {
     await reactivateRecurringClassSchedule(input.scheduleId);
   }
+
+  return sessionSync;
 }

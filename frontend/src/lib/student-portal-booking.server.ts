@@ -6,6 +6,7 @@ import {
   formatPortalMemberBookingStatus,
   formatPortalSpacesAvailable,
 } from "@/lib/student-portal-format.shared";
+import { loadSessionWaitlistDisplayBySessionId } from "@/lib/session-waitlist.server";
 import {
   formatScheduleDayLabel,
   formatScheduleTimeRange,
@@ -51,61 +52,7 @@ interface InstructorUserRow {
   last_name: string | null;
 }
 
-function formatMemberBookingStatusLabel(
-  status: StudentPortalMemberBookingStatus,
-) {
-  return formatPortalMemberBookingStatus(status);
-}
-
-function normalizeMemberBookingStatus(
-  status: string | null,
-): StudentPortalMemberBookingStatus {
-  if (status === "booked" || status === "waitlisted") {
-    return status;
-  }
-
-  return null;
-}
-
-async function loadMemberBookingDetailsBySessionId(
-  userId: string,
-  sessionIds: string[],
-): Promise<Map<string, MemberBookingDetails>> {
-  const detailsBySessionId = new Map<string, MemberBookingDetails>();
-
-  if (sessionIds.length === 0) {
-    return detailsBySessionId;
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("session_attendees")
-    .select("id, class_session_id, booking_status, attendance_status")
-    .eq("user_id", userId)
-    .in("class_session_id", sessionIds)
-    .in("booking_status", ["booked", "waitlisted"]);
-
-  if (error) {
-    throw new Error(`Failed to load your booking status: ${error.message}`);
-  }
-
-  for (const row of (data ?? []) as SessionAttendeeStatusRow[]) {
-    const status = normalizeMemberBookingStatus(row.booking_status);
-
-    if (!status) {
-      continue;
-    }
-
-    detailsBySessionId.set(row.class_session_id, {
-      status,
-      attendeeId: row.id,
-      attendanceStatus: row.attendance_status,
-    });
-  }
-
-  return detailsBySessionId;
-}
-
+/** Used by bookings list and admin metrics — not shown on Book a Class cards. */
 export async function loadInstructorNameBySessionId(
   clubId: string,
   sessionIds: string[],
@@ -212,6 +159,61 @@ export async function loadInstructorNameBySessionId(
   return instructorNameBySessionId;
 }
 
+function formatMemberBookingStatusLabel(
+  status: StudentPortalMemberBookingStatus,
+) {
+  return formatPortalMemberBookingStatus(status);
+}
+
+function normalizeMemberBookingStatus(
+  status: string | null,
+): StudentPortalMemberBookingStatus {
+  if (status === "booked") {
+    return "booked";
+  }
+
+  return null;
+}
+
+async function loadMemberBookingDetailsBySessionId(
+  userId: string,
+  sessionIds: string[],
+): Promise<Map<string, MemberBookingDetails>> {
+  const detailsBySessionId = new Map<string, MemberBookingDetails>();
+
+  if (sessionIds.length === 0) {
+    return detailsBySessionId;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("session_attendees")
+    .select("id, class_session_id, booking_status, attendance_status")
+    .eq("user_id", userId)
+    .in("class_session_id", sessionIds)
+    .eq("booking_status", "booked");
+
+  if (error) {
+    throw new Error(`Failed to load your booking status: ${error.message}`);
+  }
+
+  for (const row of (data ?? []) as SessionAttendeeStatusRow[]) {
+    const status = normalizeMemberBookingStatus(row.booking_status);
+
+    if (!status) {
+      continue;
+    }
+
+    detailsBySessionId.set(row.class_session_id, {
+      status,
+      attendeeId: row.id,
+      attendanceStatus: row.attendance_status,
+    });
+  }
+
+  return detailsBySessionId;
+}
+
 function filterSessionsByStudentBookingAccess(
   sessions: ClassScheduleSession[],
   allowedProgrammeIds: Set<string> | null,
@@ -255,16 +257,21 @@ export async function loadStudentPortalBookableSessionGroups(
   }
 
   const sessionIds = bookableClubSessions.map((session) => session.id);
-  const [memberBookingDetailsBySessionId, instructorNameBySessionId] =
-    await Promise.all([
-      loadMemberBookingDetailsBySessionId(userId, sessionIds),
-      loadInstructorNameBySessionId(clubId, sessionIds),
-    ]);
+  const [memberBookingDetailsBySessionId, waitlistBySessionId] = await Promise.all([
+    loadMemberBookingDetailsBySessionId(userId, sessionIds),
+    loadSessionWaitlistDisplayBySessionId(userId, sessionIds),
+  ]);
 
   const bookableSessions: StudentPortalBookableSession[] = bookableClubSessions.map(
     (session) => {
       const bookingDetails = memberBookingDetailsBySessionId.get(session.id);
       const memberBookingStatus = bookingDetails?.status ?? null;
+      const waitlistInfo = waitlistBySessionId.get(session.id) ?? {
+        waitlistStatus: null,
+        waitlistPosition: null,
+        waitlistCount: 0,
+        offerExpiresAt: null,
+      };
       const locationLabel =
         session.location?.trim() || "Location TBC";
 
@@ -274,12 +281,15 @@ export async function loadStudentPortalBookableSessionGroups(
         startsAt: session.startsAt,
         endsAt: session.endsAt,
         locationLabel,
-        instructorName: instructorNameBySessionId.get(session.id) ?? null,
         spacesAvailable: session.spacesAvailable,
         spacesAvailableLabel: formatPortalSpacesAvailable(session.spacesAvailable),
         memberBookingStatus,
         memberBookingStatusLabel:
           formatMemberBookingStatusLabel(memberBookingStatus),
+        waitlistStatus: waitlistInfo.waitlistStatus,
+        waitlistPosition: waitlistInfo.waitlistPosition,
+        waitlistCount: waitlistInfo.waitlistCount,
+        offerExpiresAt: waitlistInfo.offerExpiresAt,
         dateLabel: formatBookingDate(session.startsAt),
         timeLabel: formatScheduleTimeRange(
           session.startsAt,

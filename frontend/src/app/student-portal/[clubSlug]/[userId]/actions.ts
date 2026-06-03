@@ -3,7 +3,13 @@
 import {
   bookClassSessionForUser,
   cancelClassSessionBookingForUser,
+  revalidatePathsAfterMemberBooking,
 } from "@/lib/member-booking.server";
+import {
+  acceptSessionWaitlistOfferForUser,
+  joinSessionWaitlistForUser,
+  leaveSessionWaitlistForUser,
+} from "@/lib/session-waitlist.server";
 import { requireStudentPortalClubAccess } from "@/lib/student-portal-club.server";
 
 export async function bookClassFromStudentPortal(
@@ -34,6 +40,118 @@ export async function bookClassFromStudentPortal(
     classSessionId: normalizedSessionId,
     clubId: club.id,
   });
+}
+
+export async function joinWaitlistFromStudentPortal(
+  clubSlug: string,
+  userId: string,
+  classSessionId: string,
+) {
+  const normalizedUserId = userId.trim();
+  const normalizedSessionId = classSessionId.trim();
+  const normalizedClubSlug = clubSlug.trim();
+
+  if (!normalizedUserId) {
+    throw new Error("Student account is required.");
+  }
+
+  if (!normalizedSessionId) {
+    throw new Error("Please choose a class.");
+  }
+
+  if (!normalizedClubSlug) {
+    throw new Error("Academy is required.");
+  }
+
+  const club = await requireStudentPortalClubAccess(normalizedUserId, normalizedClubSlug);
+
+  const result = await joinSessionWaitlistForUser({
+    userId: normalizedUserId,
+    sessionId: normalizedSessionId,
+    clubId: club.id,
+  });
+
+  await revalidatePathsAfterMemberBooking({
+    portalUserId: normalizedUserId,
+    clubId: club.id,
+  });
+
+  return result;
+}
+
+export async function leaveWaitlistFromStudentPortal(
+  clubSlug: string,
+  userId: string,
+  classSessionId: string,
+) {
+  const normalizedUserId = userId.trim();
+  const normalizedSessionId = classSessionId.trim();
+  const normalizedClubSlug = clubSlug.trim();
+
+  if (!normalizedUserId) {
+    throw new Error("Student account is required.");
+  }
+
+  if (!normalizedSessionId) {
+    throw new Error("Please choose a class.");
+  }
+
+  if (!normalizedClubSlug) {
+    throw new Error("Academy is required.");
+  }
+
+  const club = await requireStudentPortalClubAccess(normalizedUserId, normalizedClubSlug);
+
+  const result = await leaveSessionWaitlistForUser({
+    userId: normalizedUserId,
+    sessionId: normalizedSessionId,
+    clubId: club.id,
+  });
+
+  await revalidatePathsAfterMemberBooking({
+    portalUserId: normalizedUserId,
+    clubId: club.id,
+    additionalPortalUserIds: result.offeredUserId ? [result.offeredUserId] : [],
+  });
+
+  return { className: result.className };
+}
+
+export async function acceptWaitlistOfferFromStudentPortal(
+  clubSlug: string,
+  userId: string,
+  classSessionId: string,
+) {
+  const normalizedUserId = userId.trim();
+  const normalizedSessionId = classSessionId.trim();
+  const normalizedClubSlug = clubSlug.trim();
+
+  if (!normalizedUserId) {
+    throw new Error("Student account is required.");
+  }
+
+  if (!normalizedSessionId) {
+    throw new Error("Please choose a class.");
+  }
+
+  if (!normalizedClubSlug) {
+    throw new Error("Academy is required.");
+  }
+
+  const club = await requireStudentPortalClubAccess(normalizedUserId, normalizedClubSlug);
+
+  const result = await acceptSessionWaitlistOfferForUser({
+    userId: normalizedUserId,
+    sessionId: normalizedSessionId,
+    clubId: club.id,
+  });
+
+  await revalidatePathsAfterMemberBooking({
+    portalUserId: normalizedUserId,
+    clubId: club.id,
+  });
+
+  return result;
 }
 
 export async function cancelClassBookingFromStudentPortal(

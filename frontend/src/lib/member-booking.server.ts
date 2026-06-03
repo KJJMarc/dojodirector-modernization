@@ -1,10 +1,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import {
-  formatBookingDate,
-  formatBookingTime,
-} from "@/lib/booking";
+import { buildSessionDisplayLabels } from "@/lib/class-session-schedule";
 import { assertSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { assertStudentCanBookClassProgramme } from "@/lib/admin-programmes.server";
@@ -16,9 +13,14 @@ import {
   legacyStudentPortalPath,
   studentPortalPath,
 } from "@/lib/student-portal-routing.shared";
+import {
+  assertClassSessionHasSpaceForBooking,
+  cancelActiveSessionWaitlistForUserIfPresent,
+  createNextWaitlistOfferAfterCancellation,
+} from "@/lib/session-waitlist.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export type MemberBookingOutcome = "confirmed" | "waitlisted";
+export type MemberBookingOutcome = "confirmed";
 
 export interface MemberBookingResult {
   outcome: MemberBookingOutcome;
@@ -29,8 +31,6 @@ export interface MemberBookingResult {
 }
 
 const ALREADY_BOOKED_MESSAGE = "You are already booked onto this class.";
-const ALREADY_WAITLISTED_MESSAGE =
-  "You are already on the waiting list for this class.";
 
 interface ClassSessionRow {
   id: string;
@@ -40,6 +40,8 @@ interface ClassSessionRow {
   ends_at: string | null;
   capacity: number | null;
   status: string | null;
+  source: string | null;
+  external_id: string | null;
 }
 
 interface SessionAttendeeRow {
@@ -58,7 +60,7 @@ async function getClassSession(classSessionId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("class_sessions")
-    .select("id, class_id, club_id, starts_at, ends_at, capacity, status")
+    .select("id, class_id, club_id, starts_at, ends_at, capacity, status, source, external_id")
     .eq("id", classSessionId)
     .maybeSingle();
 
@@ -145,14 +147,16 @@ function buildMemberBookingResult(
   classSession: ClassSessionRow,
   location: string | null,
 ): MemberBookingResult {
-  const timeLabel = classSession.ends_at
-    ? `${formatBookingTime(classSession.starts_at)} – ${formatBookingTime(classSession.ends_at)}`
-    : formatBookingTime(classSession.starts_at);
+  const { dateLabel, timeLabel } = buildSessionDisplayLabels({
+    startsAt: classSession.starts_at,
+    endsAt: classSession.ends_at,
+    externalId: classSession.external_id,
+  });
 
   return {
     outcome,
     className,
-    dateLabel: formatBookingDate(classSession.starts_at),
+    dateLabel,
     timeLabel,
     location,
   };
@@ -161,7 +165,6 @@ function buildMemberBookingResult(
 async function createMemberSessionAttendee(
   classSessionId: string,
   userId: string,
-  bookingStatus: "booked" | "waitlisted",
   existingBooking: SessionAttendeeRow | null,
 ) {
   const supabase = getSupabaseAdminClient();
@@ -170,7 +173,7 @@ async function createMemberSessionAttendee(
     const { error: updateError } = await supabase
       .from("session_attendees")
       .update({
-        booking_status: bookingStatus,
+        booking_status: "booked",
         attendance_status: "not_marked",
         source: "student_booking",
         booked_at: new Date().toISOString(),
@@ -187,7 +190,7 @@ async function createMemberSessionAttendee(
   const { error } = await supabase.from("session_attendees").insert({
     class_session_id: classSessionId,
     user_id: userId,
-    booking_status: bookingStatus,
+    booking_status: "booked",
     attendance_status: "not_marked",
     source: "student_booking",
     booked_at: new Date().toISOString(),
@@ -198,10 +201,15 @@ async function createMemberSessionAttendee(
   }
 }
 
-export async function revalidatePathsAfterMemberBooking(
-  portalUserId?: string,
-  clubId?: string,
-) {
+export async function revalidatePathsAfterMemberBooking(input?: {
+  portalUserId?: string;
+  clubId?: string;
+  additionalPortalUserIds?: string[];
+}) {
+  const portalUserId = input?.portalUserId;
+  const clubId = input?.clubId;
+  const additionalPortalUserIds = input?.additionalPortalUserIds ?? [];
+
   revalidatePath("/book");
 
   if (clubId) {
@@ -214,18 +222,27 @@ export async function revalidatePathsAfterMemberBooking(
 
   revalidatePath("/attendance");
 
-  if (portalUserId) {
-    revalidatePath(legacyStudentPortalPath(portalUserId));
-    revalidatePath(legacyStudentPortalPath(portalUserId, "book"));
-    revalidatePath(legacyStudentPortalPath(portalUserId, "bookings"));
+  const portalUserIds = Array.from(
+    new Set(
+      [portalUserId, ...additionalPortalUserIds].filter(
+        (id): id is string => Boolean(id),
+      ),
+    ),
+  );
+
+  for (const userId of portalUserIds) {
+    revalidatePath(legacyStudentPortalPath(userId));
+    revalidatePath(legacyStudentPortalPath(userId, "book"));
+    revalidatePath(legacyStudentPortalPath(userId, "bookings"));
 
     if (clubId) {
       const clubSlug = (await getClubSlugById(clubId)) ?? undefined;
 
       if (clubSlug) {
-        revalidatePath(studentPortalPath(clubSlug, portalUserId));
-        revalidatePath(studentPortalPath(clubSlug, portalUserId, "book"));
-        revalidatePath(studentPortalPath(clubSlug, portalUserId, "bookings"));
+        revalidatePath(studentPortalPath(clubSlug, userId));
+        revalidatePath(studentPortalPath(clubSlug, userId, "book"));
+        revalidatePath(studentPortalPath(clubSlug, userId, "bookings"));
+        revalidatePath(studentPortalPath(clubSlug, userId, "messages"));
       }
     }
   }
@@ -282,33 +299,26 @@ export async function bookClassSessionForUser(
   }
 
   if (existingBooking?.booking_status === "waitlisted") {
-    throw new Error(ALREADY_WAITLISTED_MESSAGE);
+    throw new Error(
+      "You are on the legacy waiting list for this class. Leave the waitlist or contact your academy.",
+    );
   }
 
-  const bookedCount = await getBookedCount(classSessionId);
-  const hasSpacesAvailable =
-    classSession.capacity === null || bookedCount < classSession.capacity;
-  const bookingStatus = hasSpacesAvailable ? "booked" : "waitlisted";
+  await assertClassSessionHasSpaceForBooking(classSessionId, classSession.capacity);
 
-  await createMemberSessionAttendee(
-    classSessionId,
-    userId,
-    bookingStatus,
-    existingBooking,
-  );
+  await createMemberSessionAttendee(classSessionId, userId, existingBooking);
+  await cancelActiveSessionWaitlistForUserIfPresent(classSessionId, userId);
 
-  await revalidatePathsAfterMemberBooking(userId, classSession.club_id);
+  await revalidatePathsAfterMemberBooking({
+    portalUserId: userId,
+    clubId: classSession.club_id,
+  });
 
-  return buildMemberBookingResult(
-    bookingStatus === "booked" ? "confirmed" : "waitlisted",
-    className,
-    classSession,
-    location,
-  );
+  return buildMemberBookingResult("confirmed", className, classSession, location);
 }
 
 function isActiveMemberBookingStatus(status: string | null | undefined) {
-  return status === "booked" || status === "waitlisted";
+  return status === "booked";
 }
 
 export async function cancelClassSessionBookingForUser(
@@ -380,7 +390,17 @@ export async function cancelClassSessionBookingForUser(
 
   const className = await getClassName(classSession.class_id);
 
-  await revalidatePathsAfterMemberBooking(userId, classSession.club_id);
+  const offer = await createNextWaitlistOfferAfterCancellation({
+    sessionId: classSessionId,
+    clubId: classSession.club_id,
+    cancelledAttendeeId: existingBooking.id,
+  });
+
+  await revalidatePathsAfterMemberBooking({
+    portalUserId: userId,
+    clubId: classSession.club_id,
+    additionalPortalUserIds: offer.offeredUserId ? [offer.offeredUserId] : [],
+  });
 
   return { className };
 }

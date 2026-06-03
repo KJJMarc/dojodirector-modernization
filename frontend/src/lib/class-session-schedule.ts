@@ -1,7 +1,13 @@
 import {
   formatBookingDate,
 } from "@/lib/booking";
-import { utcIsoToLondonDate, utcIsoToLondonTime } from "@/lib/london-datetime";
+import {
+  londonLocalDateTimeToUtcIso,
+  normalizeLondonClockTime,
+  utcIsoToLondonDate,
+  utcIsoToLondonDayOfWeek,
+  utcIsoToLondonTime,
+} from "@/lib/london-datetime";
 
 export interface ClassScheduleSession {
   id: string;
@@ -107,6 +113,36 @@ export function formatScheduleTimeRange(
   return formatSessionTimeRangeForDisplay({ startsAt, endsAt, externalId });
 }
 
+/** Class date label aligned with booking portal (timetable external_id when present). */
+export function formatSessionDateLabelForDisplay(input: {
+  startsAt: string;
+  externalId?: string | null;
+}) {
+  if (hasExternalSessionSlotTime(input.externalId)) {
+    const dateMatch = input.externalId?.match(/:(\d{4}-\d{2}-\d{2}):/);
+
+    if (dateMatch?.[1]) {
+      return formatBookingDate(
+        londonLocalDateTimeToUtcIso(dateMatch[1], "12:00"),
+      );
+    }
+  }
+
+  return formatBookingDate(input.startsAt);
+}
+
+/** Date and time labels used consistently across portal, public booking, and messages. */
+export function buildSessionDisplayLabels(input: {
+  startsAt: string;
+  endsAt: string | null;
+  externalId?: string | null;
+}) {
+  return {
+    dateLabel: formatSessionDateLabelForDisplay(input),
+    timeLabel: formatSessionTimeRangeForDisplay(input),
+  };
+}
+
 export function formatScheduleCapacitySummary(
   session: Pick<ClassScheduleSession, "capacity" | "bookedCount">,
 ) {
@@ -156,6 +192,88 @@ export function resolveSessionSlotTimeFromRow(row: {
   }
 
   return utcIsoToLondonTime(row.starts_at);
+}
+
+/** Timetable slot day/time for matching recurring_class_schedules (prefer external_id over starts_at). */
+export function resolveRecurringScheduleSlotFromSessionRow(row: {
+  starts_at: string;
+  external_id: string | null;
+}): { dayOfWeek: number; startTime: string } {
+  if (row.external_id) {
+    const slotMatch = row.external_id.match(
+      /^(?:kjj_timetable|kids_timetable|admin_recurring):[^:]+:(\d{4}-\d{2}-\d{2}):(\d{1,2}:\d{2})/,
+    );
+
+    if (slotMatch?.[1] && slotMatch?.[2]) {
+      return {
+        dayOfWeek: utcIsoToLondonDayOfWeek(
+          londonLocalDateTimeToUtcIso(slotMatch[1], "12:00"),
+        ),
+        startTime: normalizeLondonClockTime(slotMatch[2]),
+      };
+    }
+  }
+
+  return {
+    dayOfWeek: utcIsoToLondonDayOfWeek(row.starts_at),
+    startTime: normalizeLondonClockTime(utcIsoToLondonTime(row.starts_at)),
+  };
+}
+
+function normalizeVenueLabel(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+export function sessionBelongsToRecurringScheduleRow(
+  session: {
+    starts_at: string;
+    external_id: string | null;
+    recurring_schedule_id: string | null;
+    source?: string | null;
+  },
+  schedule: {
+    scheduleId: string;
+    dayOfWeek: number;
+    startTime: string;
+    location?: string | null;
+  },
+) {
+  if (session.recurring_schedule_id === schedule.scheduleId) {
+    return true;
+  }
+
+  if (session.external_id?.startsWith(`admin_recurring:${schedule.scheduleId}:`)) {
+    return true;
+  }
+
+  const slot = resolveRecurringScheduleSlotFromSessionRow(session);
+  const scheduleTime = normalizeLondonClockTime(schedule.startTime);
+
+  if (slot.dayOfWeek !== schedule.dayOfWeek || slot.startTime !== scheduleTime) {
+    return false;
+  }
+
+  const scheduleLocation = schedule.location?.trim();
+  if (!scheduleLocation) {
+    return true;
+  }
+
+  const sessionLocation = resolveSessionLocationFromRow({
+    source: session.source ?? null,
+    external_id: session.external_id,
+  });
+
+  if (!sessionLocation) {
+    return true;
+  }
+
+  return (
+    normalizeVenueLabel(sessionLocation) === normalizeVenueLabel(scheduleLocation)
+  );
 }
 
 export function groupClassScheduleSessionsByDate(

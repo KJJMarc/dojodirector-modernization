@@ -4,7 +4,7 @@ import type {
 } from "@/lib/attendance-card";
 import type { StudentAgreementStatusSummary } from "@/lib/student-portal-agreements.shared";
 
-export type StudentPortalMemberBookingStatus = "booked" | "waitlisted" | null;
+export type StudentPortalMemberBookingStatus = "booked" | null;
 
 export interface StudentPortalBookableSession {
   id: string;
@@ -12,11 +12,14 @@ export interface StudentPortalBookableSession {
   startsAt: string;
   endsAt: string | null;
   locationLabel: string;
-  instructorName: string | null;
   spacesAvailable: number | null;
   spacesAvailableLabel: string;
   memberBookingStatus: StudentPortalMemberBookingStatus;
   memberBookingStatusLabel: string | null;
+  waitlistStatus: "waiting" | "offered" | null;
+  waitlistPosition: number | null;
+  waitlistCount: number;
+  offerExpiresAt: string | null;
   dateLabel: string;
   timeLabel: string;
   isFull: boolean;

@@ -60,6 +60,39 @@ export function utcIsoToLondonTime(iso: string) {
   return `${parts.hour}:${parts.minute}`;
 }
 
+const LONDON_WEEKDAY_TO_DOW: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+/** Day of week in Europe/London (0 = Sunday, 6 = Saturday). */
+export function utcIsoToLondonDayOfWeek(iso: string) {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: LONDON_TIMEZONE,
+    weekday: "short",
+  }).format(new Date(iso));
+
+  return LONDON_WEEKDAY_TO_DOW[weekday] ?? 0;
+}
+
+/** Normalise HH:MM or HH:MM:SS to zero-padded HH:MM for timetable comparisons. */
+export function normalizeLondonClockTime(value: string) {
+  const [hourPart, minutePart = "00"] = value.trim().split(":");
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return value.trim().slice(0, 5);
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 export function encodeLocationForExternalId(location: string) {
   return location.trim().replace(/\s+/g, "_");
 }

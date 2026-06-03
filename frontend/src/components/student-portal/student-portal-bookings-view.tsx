@@ -79,7 +79,7 @@ export function StudentPortalBookingsView({
           UPCOMING BOOKINGS
         </h2>
         <p className="mt-1 text-xs text-dojo-muted">
-          Your future booked and waitlisted class sessions.
+          Your future booked class sessions.
         </p>
       </div>
 

@@ -5,8 +5,11 @@ import {
   studentHasActiveBjjProgrammeMembership,
 } from "@/lib/admin-programmes.server";
 import { getAdminStudentProfilePageData } from "@/lib/admin-student-profile.server";
-import { formatBookingDate, formatBookingTime } from "@/lib/booking";
-import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
+import {
+  formatScheduleTimeRange,
+  formatSessionDateLabelForDisplay,
+  resolveSessionLocationFromRow,
+} from "@/lib/class-session-schedule";
 import { getStudentAttendanceCardData } from "@/lib/attendance-card.server";
 import { getStudentAgreementStatus } from "@/lib/student-portal-agreements.server";
 import {
@@ -78,14 +81,6 @@ function normalizeClassSession(
   return Array.isArray(session) ? (session[0] ?? null) : session;
 }
 
-function formatBookingTimeRange(startsAt: string, endsAt: string | null) {
-  if (!endsAt) {
-    return formatBookingTime(startsAt);
-  }
-
-  return `${formatBookingTime(startsAt)} – ${formatBookingTime(endsAt)}`;
-}
-
 function formatBookingStatusLabel(status: string | null) {
   return formatPortalBookingStatus(status);
 }
@@ -128,7 +123,7 @@ async function loadStudentUpcomingBookings(
     `,
     )
     .eq("user_id", userId)
-    .in("booking_status", ["booked", "waitlisted"])
+    .eq("booking_status", "booked")
     .order("booked_at", { ascending: true });
 
   if (error) {
@@ -165,8 +160,15 @@ async function loadStudentUpcomingBookings(
       locationLabel: resolveSessionLocationFromRow(session) ?? "Location TBC",
       instructorName: null,
       bookingStatus: formatBookingStatusLabel(row.booking_status),
-      dateLabel: formatBookingDate(session.starts_at),
-      timeLabel: formatBookingTimeRange(session.starts_at, session.ends_at),
+      dateLabel: formatSessionDateLabelForDisplay({
+        startsAt: session.starts_at,
+        externalId: session.external_id,
+      }),
+      timeLabel: formatScheduleTimeRange(
+        session.starts_at,
+        session.ends_at,
+        session.external_id,
+      ),
       canCancelBooking: cancellation.canCancelBooking,
       cancelBlockedReason: cancellation.cancelBlockedReason,
       cancelBlockedMessage: formatStudentBookingCancelBlockedMessage(
