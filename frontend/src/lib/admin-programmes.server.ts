@@ -1658,6 +1658,52 @@ export async function userHasActiveStudentPortalProgrammeMembershipAtClub(
   return (data ?? []).length > 0;
 }
 
+/** Batch variant for admin portal messaging recipient lists. */
+export async function loadUserIdsWithActiveStudentPortalProgrammeMembershipAtClub(
+  clubId: string,
+  userIds: string[],
+): Promise<Set<string>> {
+  const result = new Set<string>();
+
+  if (!(await isProgrammesSchemaAvailable()) || userIds.length === 0) {
+    return result;
+  }
+
+  const accessProgrammes = await loadPortalAccessProgrammeItems(clubId);
+
+  if (accessProgrammes.length === 0) {
+    return result;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const programmeIds = accessProgrammes.map((programme) => programme.programmeId);
+  const batchSize = 100;
+
+  for (let index = 0; index < userIds.length; index += batchSize) {
+    const batch = userIds.slice(index, index + batchSize);
+    const { data, error } = await supabase
+      .from("programme_memberships")
+      .select("user_id")
+      .in("user_id", batch)
+      .in("programme_id", programmeIds)
+      .eq("status", "active");
+
+    if (error) {
+      throw new Error(
+        `Failed to load student portal programme memberships: ${error.message}`,
+      );
+    }
+
+    for (const row of (data ?? []) as { user_id: string }[]) {
+      if (row.user_id) {
+        result.add(row.user_id);
+      }
+    }
+  }
+
+  return result;
+}
+
 export async function setProgrammeBookingAccessForUser(input: {
   clubId: string;
   userId: string;

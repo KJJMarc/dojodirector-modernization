@@ -6,6 +6,7 @@ import { StudentPortalTopBar } from "@/components/student-portal/student-portal-
 import { parseYearParam } from "@/lib/attendance-card";
 import { requireStudentPortalPageContext } from "@/lib/student-portal-page.server";
 import { getStudentPortalUiConfig } from "@/lib/student-portal-routing.shared";
+import { countUnreadPortalMessages } from "@/lib/portal-messages.server";
 import { getStudentPortalPageData } from "@/lib/student-portal.server";
 
 export const dynamic = "force-dynamic";
@@ -47,8 +48,18 @@ export default async function StudentPortalPage({
   searchParams,
 }: StudentPortalPageProps) {
   const year = parseYearParam(searchParams.year);
-  const { club } = await requireStudentPortalPageContext(params.clubSlug, params.userId);
+  const { club, profile } = await requireStudentPortalPageContext(
+    params.clubSlug,
+    params.userId,
+  );
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
+  const unreadMessageCount = uiConfig.showMessages
+    ? await countUnreadPortalMessages({
+        clubId: club.id,
+        recipientUserId: profile.userId,
+        recipientType: "student",
+      })
+    : 0;
   let pageData;
 
   try {
@@ -73,6 +84,7 @@ export default async function StudentPortalPage({
         uiConfig={uiConfig}
         pageData={pageData}
         year={year}
+        unreadMessageCount={unreadMessageCount}
       />
     </main>
   );

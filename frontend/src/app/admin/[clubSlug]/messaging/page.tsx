@@ -3,7 +3,9 @@ import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { MessagingAcademyEmailCard } from "@/components/admin/messaging-academy-email-card";
 import { MessagingGuestBookingEmailCard } from "@/components/admin/messaging-guest-booking-email-card";
+import { MessagingInstructorsCard } from "@/components/admin/messaging-instructors-card";
 import { MessagingPortalAccessCard } from "@/components/admin/messaging-portal-access-card";
+import { MessagingStudentsCard } from "@/components/admin/messaging-students-card";
 import { AppHeader } from "@/components/layout/app-header";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -39,20 +41,11 @@ export default async function AdminMessagingPage({
 
       <div className="grid gap-3">
         <MessagingAcademyEmailCard clubSlug={club.slug} />
+        <MessagingStudentsCard clubSlug={club.slug} />
+        <MessagingInstructorsCard clubSlug={club.slug} />
         <MessagingPortalAccessCard clubSlug={club.slug} />
         <MessagingGuestBookingEmailCard clubSlug={club.slug} />
       </div>
-
-      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center">
-        <h2 className="text-xl font-semibold text-dojo-white">Messaging</h2>
-        <p className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          Coming soon
-        </p>
-        <p className="mx-auto max-w-md text-sm leading-relaxed text-dojo-muted">
-          This area will allow admins to send messages to students, instructors,
-          classes and retention-risk groups.
-        </p>
-      </section>
     </main>
   );
 }

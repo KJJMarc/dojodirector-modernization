@@ -2,8 +2,10 @@ import "server-only";
 
 import {
   getProgrammesSchemaAvailable,
+  loadUserIdsWithActiveStudentPortalProgrammeMembershipAtClub,
   userHasActiveStudentPortalProgrammeMembershipAtClub,
 } from "@/lib/admin-programmes.server";
+import { isSuperAdminMembershipRole } from "@/lib/admin-auth.shared";
 import {
   isStudentMembershipRole,
 } from "@/lib/admin-student-membership.shared";
@@ -97,6 +99,71 @@ export async function userHasActiveStudentPortalAccessAtClub(
   }
 
   return isStudentMembershipRole(membership.role);
+}
+
+interface ClubMembershipAccessRow {
+  user_id: string;
+  role: string | null;
+  status: string | null;
+}
+
+/**
+ * User ids with active student portal access at a club (same rules as portal login).
+ * Includes instructors/admins when they have student role or active portal programme membership.
+ */
+export async function resolveActiveStudentPortalRecipientUserIdsAtClub(
+  clubId: string,
+  memberships: ClubMembershipAccessRow[],
+): Promise<Set<string>> {
+  const eligibleUserIds = new Set<string>();
+  const activeMemberships = memberships.filter(
+    (membership) =>
+      isActiveMembershipStatus(membership.status) &&
+      !isSuperAdminMembershipRole(membership.role),
+  );
+
+  if (activeMemberships.length === 0) {
+    return eligibleUserIds;
+  }
+
+  const programmesAvailable = await getProgrammesSchemaAvailable();
+
+  if (!programmesAvailable) {
+    for (const membership of activeMemberships) {
+      if (isStudentMembershipRole(membership.role)) {
+        eligibleUserIds.add(membership.user_id);
+      }
+    }
+
+    return eligibleUserIds;
+  }
+
+  const nonStudentRoleUserIds: string[] = [];
+
+  for (const membership of activeMemberships) {
+    if (isStudentMembershipRole(membership.role)) {
+      eligibleUserIds.add(membership.user_id);
+      continue;
+    }
+
+    nonStudentRoleUserIds.push(membership.user_id);
+  }
+
+  if (nonStudentRoleUserIds.length === 0) {
+    return eligibleUserIds;
+  }
+
+  const programmeMemberUserIds =
+    await loadUserIdsWithActiveStudentPortalProgrammeMembershipAtClub(
+      clubId,
+      nonStudentRoleUserIds,
+    );
+
+  for (const userId of Array.from(programmeMemberUserIds)) {
+    eligibleUserIds.add(userId);
+  }
+
+  return eligibleUserIds;
 }
 
 export type StudentPortalStudentMembershipAccess =

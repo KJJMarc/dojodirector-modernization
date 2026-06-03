@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { formatPortalMessagesNavLabel } from "@/lib/portal-messages.shared";
 import {
-  getStudentPortalUiConfig,
   resolveStudentPortalGradingHistoryHref,
   studentPortalPath,
   type StudentPortalUiConfig,
@@ -15,6 +15,7 @@ interface StudentPortalActionsProps {
   userId: string;
   uiConfig: StudentPortalUiConfig;
   showAdultBeltRankings: boolean;
+  unreadMessageCount?: number;
 }
 
 export function StudentPortalActions({
@@ -22,6 +23,7 @@ export function StudentPortalActions({
   userId,
   uiConfig,
   showAdultBeltRankings,
+  unreadMessageCount = 0,
 }: StudentPortalActionsProps) {
   const basePath = studentPortalPath(clubSlug, userId);
   const gradingHistoryHref = resolveStudentPortalGradingHistoryHref(
@@ -38,7 +40,11 @@ export function StudentPortalActions({
       ? { label: "Upcoming Bookings", href: `${basePath}/bookings`, openInNewTab: false }
       : null,
     uiConfig.showMessages
-      ? { label: "Messages", href: `${basePath}/messages`, openInNewTab: false }
+      ? {
+          label: formatPortalMessagesNavLabel(unreadMessageCount),
+          href: `${basePath}/messages`,
+          openInNewTab: false,
+        }
       : null,
     gradingHistoryHref && uiConfig.showGradingHistory
       ? {

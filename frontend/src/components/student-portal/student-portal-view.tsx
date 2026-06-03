@@ -11,6 +11,7 @@ interface StudentPortalViewProps {
   uiConfig: StudentPortalUiConfig;
   pageData: StudentPortalPageData;
   year: number;
+  unreadMessageCount?: number;
 }
 
 export function StudentPortalView({
@@ -19,6 +20,7 @@ export function StudentPortalView({
   uiConfig,
   pageData,
   year,
+  unreadMessageCount = 0,
 }: StudentPortalViewProps) {
   const showAdultAttendanceCard =
     uiConfig.showAdultAttendanceCard && pageData.showBjjAttendanceCard;
@@ -45,6 +47,7 @@ export function StudentPortalView({
         userId={userId}
         uiConfig={uiConfig}
         showAdultBeltRankings={pageData.showBjjPortalActions}
+        unreadMessageCount={unreadMessageCount}
       />
 
       {uiConfig.showAgreementsPanel ? (

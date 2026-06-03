@@ -6,6 +6,7 @@ export interface InstructorQuickActionItem {
   label: string;
   href: string;
   description: string;
+  badgeCount?: number;
 }
 
 interface InstructorQuickActionsProps {
@@ -46,13 +47,20 @@ export function InstructorQuickActions({
         {sectionTitle}
       </h2>
       <div className="grid gap-3">
-        {actions.map(({ label, href, description }) => (
+        {actions.map(({ label, href, description, badgeCount }) => (
           <Link
             key={href}
             href={href}
             className="flex min-h-[88px] flex-col justify-center rounded-xl border border-dojo-border bg-dojo-surface px-5 py-4 transition hover:border-dojo-red/50 hover:bg-dojo-elevated active:scale-[0.99]"
           >
-            <span className="text-lg font-semibold text-dojo-white">{label}</span>
+            <span className="text-lg font-semibold text-dojo-white">
+              {label}
+              {badgeCount && badgeCount > 0 ? (
+                <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-dojo-red px-1.5 py-0.5 text-xs font-bold text-dojo-white">
+                  {badgeCount}
+                </span>
+              ) : null}
+            </span>
             <span className="mt-1 text-sm text-dojo-muted">{description}</span>
           </Link>
         ))}

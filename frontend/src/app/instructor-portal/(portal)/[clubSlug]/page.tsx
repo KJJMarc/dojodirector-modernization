@@ -4,6 +4,8 @@ import { InstructorQuickActions } from "@/components/instructor/instructor-quick
 import { InstructorPortalHomeLink } from "@/components/instructor-portal/instructor-portal-home-link";
 import { InstructorPortalSignOutButton } from "@/components/instructor-portal/instructor-portal-sign-out-button";
 import { InstructorPortalSwitchAcademyButton } from "@/components/instructor-portal/instructor-portal-switch-academy-button";
+import { countUnreadPortalMessages } from "@/lib/portal-messages.server";
+import { formatPortalMessagesNavLabel } from "@/lib/portal-messages.shared";
 import { requireInstructorPortalPageContext } from "@/lib/instructor-portal-page.server";
 import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
 import { formatInstructorSlugFromName } from "@/lib/instructor-portal.shared";
@@ -32,6 +34,11 @@ export default async function InstructorPortalClubPage({
     params.clubSlug,
   );
   const instructorSlug = formatInstructorSlugFromName(profile.fullName);
+  const unreadMessageCount = await countUnreadPortalMessages({
+    clubId: club.id,
+    recipientUserId: profile.userId,
+    recipientType: "instructor",
+  });
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -60,9 +67,9 @@ export default async function InstructorPortalClubPage({
         sectionTitle="QUICK ACTIONS"
         extraActions={[
           {
-            label: "Messages",
+            label: formatPortalMessagesNavLabel(unreadMessageCount),
             href: instructorPortalClubPath(club.slug, "messages"),
-            description: "Club messaging",
+            description: "Academy notices in your instructor portal",
           },
         ]}
       />
