@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { signInStudentPortalAction } from "@/app/student-portal/actions";
+import { LoginForgotPasswordLink } from "@/components/auth/login-forgot-password-link";
 
 export function StudentPortalLoginForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,6 +55,8 @@ export function StudentPortalLoginForm() {
           className="w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none ring-dojo-red/0 transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30"
         />
       </div>
+
+      <LoginForgotPasswordLink context="student" />
 
       {errorMessage ? (
         <p className="rounded-lg border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-white">

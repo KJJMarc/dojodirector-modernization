@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomBytes } from "node:crypto";
+
 import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -165,6 +167,150 @@ export async function assertAuthUserAvailableForProfile(
       "This login email is already linked to another member profile.",
     );
   }
+}
+
+async function findOtherUserIdByPortalLoginEmail(
+  loginEmail: string,
+  excludeUserId: string,
+) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id")
+    .ilike("portal_login_email", loginEmail)
+    .neq("id", excludeUserId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to verify portal login email: ${error.message}`);
+  }
+
+  return data?.id ?? null;
+}
+
+/**
+ * Keeps student portal Login Access email aligned with profile email after Edit Profile.
+ * Updates portal_login_email and the linked Supabase auth user when one already exists.
+ */
+export async function syncProfileEmailWithPortalLoginAccess(input: {
+  userId: string;
+  profileEmail: string;
+  previousProfileEmail?: string | null;
+}) {
+  const profileEmail = input.profileEmail.trim().toLowerCase();
+
+  if (!profileEmail.includes("@")) {
+    return;
+  }
+
+  const previousProfileEmail = input.previousProfileEmail?.trim().toLowerCase() ?? null;
+
+  if (previousProfileEmail === profileEmail) {
+    return;
+  }
+
+  const profile = await loadPortalAuthLinkProfile(input.userId);
+
+  if (!profile) {
+    return;
+  }
+
+  const portalLoginConflict = await findOtherUserIdByPortalLoginEmail(
+    profileEmail,
+    input.userId,
+  );
+
+  if (portalLoginConflict) {
+    throw new Error("Another member already uses this email for portal login.");
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error: profileUpdateError } = await supabase
+    .from("users")
+    .update({ portal_login_email: profileEmail })
+    .eq("id", input.userId);
+
+  if (profileUpdateError) {
+    throw new Error(
+      `Failed to sync portal login email: ${profileUpdateError.message}`,
+    );
+  }
+
+  if (!profile.auth_user_id) {
+    return;
+  }
+
+  const existingAuthUserId = await findAuthUserIdByEmail(profileEmail);
+
+  if (existingAuthUserId && existingAuthUserId !== profile.auth_user_id) {
+    await assertAuthUserAvailableForProfile(existingAuthUserId, input.userId);
+  }
+
+  const { error: authError } = await supabase.auth.admin.updateUserById(
+    profile.auth_user_id,
+    { email: profileEmail },
+  );
+
+  if (authError) {
+    throw new Error(`Failed to update linked login email: ${authError.message}`);
+  }
+}
+
+/**
+ * Ensures a Supabase auth user exists for first-time setup emails without setting a password.
+ * The member sets their password via the recovery/setup link.
+ */
+export async function ensureAuthUserForPortalSetup(input: {
+  loginEmail: string;
+  existingAuthUserId?: string | null;
+  profileUserId: string;
+}) {
+  const loginEmail = input.loginEmail.trim().toLowerCase();
+  const supabase = getSupabaseAdminClient();
+
+  if (input.existingAuthUserId) {
+    await assertAuthUserAvailableForProfile(
+      input.existingAuthUserId,
+      input.profileUserId,
+    );
+
+    return input.existingAuthUserId;
+  }
+
+  const existingByEmail = await findAuthUserIdByEmail(loginEmail);
+
+  if (existingByEmail) {
+    await assertAuthUserAvailableForProfile(existingByEmail, input.profileUserId);
+    return existingByEmail;
+  }
+
+  const placeholderPassword = randomBytes(32).toString("hex");
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email: loginEmail,
+    password: placeholderPassword,
+    email_confirm: true,
+  });
+
+  if (!createError && created.user?.id) {
+    return created.user.id;
+  }
+
+  if (createError && isAuthEmailAlreadyRegisteredError(createError)) {
+    const authUserId = await findAuthUserIdByEmail(loginEmail);
+
+    if (!authUserId) {
+      throw new Error(
+        "A login already exists for this email, but it could not be linked. Contact support.",
+      );
+    }
+
+    await assertAuthUserAvailableForProfile(authUserId, input.profileUserId);
+    return authUserId;
+  }
+
+  throw new Error(
+    `Failed to create portal login: ${createError?.message ?? "Unknown error"}`,
+  );
 }
 
 export async function ensureAuthUserForPortalLogin(input: {

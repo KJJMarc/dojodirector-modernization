@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ClubRow } from "@/lib/clubs.shared";
 import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
+import { academySelectAccessLabel } from "@/lib/portal-academy-access.shared";
 
 interface InstructorPortalAcademySelectorProps {
   clubs: ClubRow[];
@@ -30,7 +31,9 @@ export function InstructorPortalAcademySelector({
             className="flex min-h-[72px] flex-col justify-center rounded-xl border border-dojo-border bg-dojo-elevated px-4 py-3 text-left transition hover:border-dojo-red/50 hover:bg-dojo-surface active:scale-[0.99]"
           >
             <span className="text-base font-semibold text-dojo-white">{club.name}</span>
-            <span className="mt-0.5 text-xs text-dojo-muted">Open instructor portal</span>
+            <span className="mt-0.5 text-xs text-dojo-muted">
+              {academySelectAccessLabel("instructor")}
+            </span>
           </Link>
         ))}
       </div>

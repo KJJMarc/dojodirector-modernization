@@ -17,6 +17,11 @@ import {
 } from "@/lib/admin-auth.shared";
 import type { AdminDashboardAccessSummary } from "@/lib/admin-student-profile.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
+import {
+  loadAcademySelectOptionsForAuthUser,
+  resolveAcademySelectLoginDestination,
+} from "@/lib/portal-academy-access.server";
+import type { AcademySelectOption } from "@/lib/portal-academy-access.shared";
 import { getClubBySlug, requireClubBySlug } from "@/lib/clubs.server";
 import {
   ensureAuthUserForPortalLogin,
@@ -431,17 +436,7 @@ export async function loadAccessibleAcademyAdminMembershipsForAuthUser(
 export async function resolveAcademyAdminLoginDestination(
   authUserId: string,
 ): Promise<string | null> {
-  const academies = await loadAccessibleAcademyAdminMembershipsForAuthUser(authUserId);
-
-  if (academies.length === 0) {
-    return null;
-  }
-
-  if (academies.length === 1) {
-    return clubAdminPath(academies[0].clubSlug);
-  }
-
-  return adminAcademySelectPath();
+  return resolveAcademySelectLoginDestination(authUserId);
 }
 
 export async function resolvePostAdminLoginRedirect(
@@ -462,51 +457,41 @@ export async function resolvePostAdminLoginRedirect(
     return resolveAcademyAdminLoginDestination(authUserId);
   }
 
-  if (options.intent === "legacy_club") {
-    const clubSlug = options.clubSlug?.trim();
-
-    if (clubSlug) {
-      const loginClub = await getClubBySlug(clubSlug);
-
-      if (loginClub) {
-        const canAccessLegacyClub =
-          access.isPlatformSuperAdmin ||
-          access.clubAdminMemberships.some(
-            (membership) =>
-              membership.clubId === loginClub.id &&
-              isClubAdminMembershipRole(membership.role) &&
-              isActiveAdminMembershipStatus(membership.status),
-          );
-
-        if (canAccessLegacyClub) {
-          return clubAdminPath(loginClub.slug);
-        }
-      }
-    }
-
-    return resolveAcademyAdminLoginDestination(authUserId);
-  }
-
-  return resolveAcademyAdminLoginDestination(authUserId);
+  return resolveAcademySelectLoginDestination(authUserId);
 }
 
-export async function requireAcademyAdminSelectionAccess(): Promise<
-  AdminMembershipWithClub[]
-> {
+/** Any authenticated user with platform or club admin login access. */
+export async function requireAdminLoginSession(): Promise<{ authUserId: string }> {
   const authUser = await getSupabaseAuthSessionUser();
 
   if (!authUser) {
     redirect(adminLoginPath());
   }
 
-  const academies = await loadAccessibleAcademyAdminMembershipsForAuthUser(authUser.id);
+  const access = await resolveAdminAccessForAuthUser(authUser.id);
+
+  if (!access) {
+    redirect(`${adminLoginPath()}?denied=1`);
+  }
+
+  return { authUserId: authUser.id };
+}
+
+export async function requireAcademyAdminSelectionAccess(): Promise<AcademySelectOption[]> {
+  const authUser = await getSupabaseAuthSessionUser();
+
+  if (!authUser) {
+    redirect(adminLoginPath());
+  }
+
+  const academies = await loadAcademySelectOptionsForAuthUser(authUser.id);
 
   if (academies.length === 0) {
     redirect(`${adminLoginPath()}?denied=1`);
   }
 
   if (academies.length === 1) {
-    redirect(clubAdminPath(academies[0].clubSlug));
+    redirect(academies[0].href);
   }
 
   return academies;

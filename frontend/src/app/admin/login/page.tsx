@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 interface AdminLoginPageProps {
-  searchParams: { denied?: string };
+  searchParams: { denied?: string; reset?: string; setup?: string };
 }
 
 export default async function AdminLoginPage({ searchParams }: AdminLoginPageProps) {
@@ -35,6 +35,8 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
       heading="Admin Access"
       loginIntent="academy_admin"
       showDeniedMessage={searchParams.denied === "1"}
+      showResetSuccessMessage={searchParams.reset === "success"}
+      showSetupSuccessMessage={searchParams.setup === "success"}
       signInAction={signInAcademyAdminLoginAction}
     />
   );

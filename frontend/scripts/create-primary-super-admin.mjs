@@ -1,0 +1,345 @@
+/**
+ * Create or repair the primary platform Super Admin account.
+ *
+ * Required env (frontend/.env.local or shell):
+ *   PRIMARY_SUPER_ADMIN_EMAIL
+ *   PRIMARY_SUPER_ADMIN_PASSWORD   (min 8 characters)
+ *
+ * Optional env:
+ *   PRIMARY_SUPER_ADMIN_FIRST_NAME (default: Marc)
+ *   PRIMARY_SUPER_ADMIN_LAST_NAME  (default: Barton)
+ *
+ * Usage:
+ *   node scripts/create-primary-super-admin.mjs
+ */
+
+import { createClient } from "@supabase/supabase-js";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const KJJ_CLUB_SLUG = "kingston-jiu-jitsu";
+const KJJ_KIDS_CLUB_SLUG = "kingston-jiu-jitsu-kids";
+const PRIMARY_SUPER_ADMIN_USER_ID = "e7c3a912-5d4b-4f81-9c2e-0a8b6d1f3e45";
+const BACKUP_SUPER_ADMIN_USER_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+
+function loadEnvLocal() {
+  const envPath = resolve(__dirname, "../.env.local");
+  if (!existsSync(envPath)) return;
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
+loadEnvLocal();
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const email = process.env.PRIMARY_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+const password = process.env.PRIMARY_SUPER_ADMIN_PASSWORD ?? "";
+const firstName = process.env.PRIMARY_SUPER_ADMIN_FIRST_NAME?.trim() || "Marc";
+const lastName = process.env.PRIMARY_SUPER_ADMIN_LAST_NAME?.trim() || "Barton";
+
+if (!url || !key) {
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  process.exit(1);
+}
+
+if (!email) {
+  console.error("Set PRIMARY_SUPER_ADMIN_EMAIL before running this script.");
+  process.exit(1);
+}
+
+if (password.length < 8) {
+  console.error("Set PRIMARY_SUPER_ADMIN_PASSWORD (minimum 8 characters).");
+  process.exit(1);
+}
+
+const supabase = createClient(url, key, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+async function countActiveSuperAdminUsers() {
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("user_id")
+    .eq("role", "super_admin")
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error(`Failed to count Super Admin users: ${error.message}`);
+  }
+
+  return new Set((data ?? []).map((row) => row.user_id)).size;
+}
+
+async function findAuthUserIdByEmail(targetEmail) {
+  let page = 1;
+  const perPage = 200;
+
+  while (page <= 20) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      throw new Error(`Failed to list auth users: ${error.message}`);
+    }
+
+    const match = (data.users ?? []).find(
+      (user) => user.email?.trim().toLowerCase() === targetEmail,
+    );
+
+    if (match?.id) {
+      return match.id;
+    }
+
+    if ((data.users ?? []).length < perPage) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return null;
+}
+
+async function resolveClubId(slug) {
+  const { data, error } = await supabase
+    .from("clubs")
+    .select("id, name, slug")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load club ${slug}: ${error.message}`);
+  }
+
+  if (!data?.id) {
+    throw new Error(`Club not found: ${slug}`);
+  }
+
+  return data;
+}
+
+async function ensureSuperAdminMembership(userId, club) {
+  const { data: existing, error: loadError } = await supabase
+    .from("memberships")
+    .select("id, role, status")
+    .eq("user_id", userId)
+    .eq("club_id", club.id)
+    .maybeSingle();
+
+  if (loadError) {
+    throw new Error(`Failed to load membership for ${club.slug}: ${loadError.message}`);
+  }
+
+  if (existing) {
+    const updates = {};
+    if (existing.role !== "super_admin") updates.role = "super_admin";
+    if (existing.status !== "active") updates.status = "active";
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase
+        .from("memberships")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+
+      if (error) {
+        throw new Error(`Failed to update membership for ${club.slug}: ${error.message}`);
+      }
+
+      console.log(`Updated membership at ${club.name}:`, updates);
+    } else {
+      console.log(`Membership already super_admin/active at ${club.name}.`);
+    }
+
+    return;
+  }
+
+  const { error } = await supabase.from("memberships").insert({
+    user_id: userId,
+    club_id: club.id,
+    role: "super_admin",
+    status: "active",
+    joined_at: new Date().toISOString().slice(0, 10),
+  });
+
+  if (error) {
+    throw new Error(`Failed to create membership for ${club.slug}: ${error.message}`);
+  }
+
+  console.log(`Created super_admin membership at ${club.name}.`);
+}
+
+async function assertNoDisallowedMemberships(userId) {
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("id, club_id, role, status, clubs(name, slug)")
+    .eq("user_id", userId)
+    .in("role", ["instructor", "student"]);
+
+  if (error) {
+    throw new Error(`Failed to load memberships for validation: ${error.message}`);
+  }
+
+  if ((data ?? []).length > 0) {
+    throw new Error(
+      `Primary Super Admin must not have instructor/student memberships: ${JSON.stringify(data)}`,
+    );
+  }
+}
+
+async function assertBackupUnchanged() {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, email, auth_user_id")
+    .eq("id", BACKUP_SUPER_ADMIN_USER_ID)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load backup Super Admin profile: ${error.message}`);
+  }
+
+  if (!data?.id || data.email !== "admin@kingstonjiujitsu.com") {
+    throw new Error("Backup Super Admin profile was modified unexpectedly.");
+  }
+
+  const { data: memberships, error: membershipsError } = await supabase
+    .from("memberships")
+    .select("club_id, role, status, clubs(slug)")
+    .eq("user_id", BACKUP_SUPER_ADMIN_USER_ID)
+    .eq("role", "super_admin")
+    .eq("status", "active");
+
+  if (membershipsError) {
+    throw new Error(`Failed to load backup Super Admin memberships: ${membershipsError.message}`);
+  }
+
+  const slugs = new Set(
+    (memberships ?? []).map((row) => {
+      const clubs = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs;
+      return clubs?.slug;
+    }),
+  );
+
+  if (!slugs.has(KJJ_CLUB_SLUG) || !slugs.has(KJJ_KIDS_CLUB_SLUG)) {
+    throw new Error("Backup Super Admin memberships were modified unexpectedly.");
+  }
+}
+
+async function main() {
+  await assertBackupUnchanged();
+
+  const beforeCount = await countActiveSuperAdminUsers();
+  console.log(`Active Super Admin users before: ${beforeCount}`);
+
+  let authUserId = await findAuthUserIdByEmail(email);
+
+  if (!authUserId) {
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+
+    if (error) {
+      throw new Error(`Failed to create auth user: ${error.message}`);
+    }
+
+    authUserId = data.user?.id ?? null;
+
+    if (!authUserId) {
+      throw new Error("Auth user creation did not return an id.");
+    }
+
+    console.log("Created Supabase auth user:", authUserId);
+  } else {
+    const { error } = await supabase.auth.admin.updateUserById(authUserId, {
+      password,
+      email_confirm: true,
+    });
+
+    if (error) {
+      throw new Error(`Failed to update auth user password: ${error.message}`);
+    }
+
+    console.log("Reused existing Supabase auth user:", authUserId);
+  }
+
+  const { data: existingProfile, error: profileLoadError } = await supabase
+    .from("users")
+    .select("id, email, auth_user_id")
+    .eq("id", PRIMARY_SUPER_ADMIN_USER_ID)
+    .maybeSingle();
+
+  if (profileLoadError) {
+    throw new Error(`Failed to load primary profile: ${profileLoadError.message}`);
+  }
+
+  if (!existingProfile) {
+    const { error: insertError } = await supabase.from("users").insert({
+      id: PRIMARY_SUPER_ADMIN_USER_ID,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      auth_user_id: authUserId,
+      portal_login_email: email,
+      portal_auth_status: "active",
+      instructor_portal_login_email: email,
+      instructor_portal_auth_status: "active",
+    });
+
+    if (insertError) {
+      throw new Error(`Failed to create primary user profile: ${insertError.message}`);
+    }
+
+    console.log("Created primary user profile:", PRIMARY_SUPER_ADMIN_USER_ID);
+  } else {
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        auth_user_id: authUserId,
+        portal_login_email: email,
+        portal_auth_status: "active",
+        instructor_portal_login_email: email,
+        instructor_portal_auth_status: "active",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", PRIMARY_SUPER_ADMIN_USER_ID);
+
+    if (updateError) {
+      throw new Error(`Failed to update primary user profile: ${updateError.message}`);
+    }
+
+    console.log("Updated primary user profile:", PRIMARY_SUPER_ADMIN_USER_ID);
+  }
+
+  const kjjClub = await resolveClubId(KJJ_CLUB_SLUG);
+  const kidsClub = await resolveClubId(KJJ_KIDS_CLUB_SLUG);
+
+  await ensureSuperAdminMembership(PRIMARY_SUPER_ADMIN_USER_ID, kjjClub);
+  await ensureSuperAdminMembership(PRIMARY_SUPER_ADMIN_USER_ID, kidsClub);
+  await assertNoDisallowedMemberships(PRIMARY_SUPER_ADMIN_USER_ID);
+
+  const afterCount = await countActiveSuperAdminUsers();
+  console.log(`Active Super Admin users after: ${afterCount}`);
+  console.log("\nPrimary Super Admin ready:");
+  console.log(`  Profile id: ${PRIMARY_SUPER_ADMIN_USER_ID}`);
+  console.log(`  Email: ${email}`);
+  console.log(`  Auth user id: ${authUserId}`);
+  console.log(`  Clubs: ${kjjClub.name}, ${kidsClub.name}`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

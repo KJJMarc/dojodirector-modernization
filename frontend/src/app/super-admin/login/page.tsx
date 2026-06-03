@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 interface SuperAdminLoginPageProps {
-  searchParams: { denied?: string };
+  searchParams: { denied?: string; reset?: string; setup?: string };
 }
 
 export default async function SuperAdminLoginPage({
@@ -37,6 +37,8 @@ export default async function SuperAdminLoginPage({
       heading="Super Admin Access"
       loginIntent="super_admin"
       showDeniedMessage={searchParams.denied === "1"}
+      showResetSuccessMessage={searchParams.reset === "success"}
+      showSetupSuccessMessage={searchParams.setup === "success"}
       signInAction={signInSuperAdminLoginAction}
     />
   );

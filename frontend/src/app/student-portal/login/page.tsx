@@ -12,7 +12,13 @@ export const metadata: Metadata = {
   description: "Sign in to the member portal.",
 };
 
-export default async function StudentPortalLoginPage() {
+interface StudentPortalLoginPageProps {
+  searchParams: { reset?: string; setup?: string };
+}
+
+export default async function StudentPortalLoginPage({
+  searchParams,
+}: StudentPortalLoginPageProps) {
   const session = await resolveStudentPortalSessionState();
 
   if (session.status !== "signed_out" && session.status !== "unlinked") {
@@ -25,7 +31,10 @@ export default async function StudentPortalLoginPage() {
 
       <StudentPortalHomeLink />
 
-      <StudentPortalLoginScreen />
+      <StudentPortalLoginScreen
+        showResetSuccessMessage={searchParams.reset === "success"}
+        showSetupSuccessMessage={searchParams.setup === "success"}
+      />
     </main>
   );
 }

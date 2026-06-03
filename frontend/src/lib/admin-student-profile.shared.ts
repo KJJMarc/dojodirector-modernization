@@ -50,10 +50,12 @@ export interface AdminStudentPortalAccessSummary {
 
 export interface AdminInstructorPortalAccessSummary {
   portalStatusLabel: string;
+  portalLoginLabel: string;
   portalLoginEmail: string | null;
   inviteSentAt: string | null;
   canSendInvite: boolean;
   canSetPassword: boolean;
+  canSignInToInstructorPortal: boolean;
 }
 
 export interface AdminStudentAgreementAccessSummary {
@@ -91,6 +93,12 @@ export interface ProfileLoginAccessSummary {
   portalAuthStatusLabel: string;
 }
 
+export interface PortalSetupAccessSummary {
+  statusLabel: string;
+  sentAtLabel: string | null;
+  canSendSetupEmail: boolean;
+}
+
 export interface AdminStudentProgrammeAccessItem {
   programmeId: string;
   name: string;
@@ -120,6 +128,7 @@ export interface AdminStudentProgrammeMembershipSummary {
 export interface AdminStudentProfilePageData {
   student: AdminStudentProfileDetails;
   loginAccess: ProfileLoginAccessSummary;
+  portalSetup: PortalSetupAccessSummary;
   showAdminDashboardAccess: boolean;
   portalAccess: AdminStudentPortalAccessSummary;
   instructorPortalAccess: AdminInstructorPortalAccessSummary | null;

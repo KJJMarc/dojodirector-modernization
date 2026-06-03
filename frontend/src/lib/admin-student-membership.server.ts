@@ -9,6 +9,7 @@ import {
   parseProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import { assertSuperAdminMembershipChangeAllowed } from "@/lib/admin-super-admin.server";
+import { syncInstructorPortalAccessAfterMembershipChange } from "@/lib/instructor-portal-membership-sync.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface MembershipManagementRow {
@@ -124,6 +125,8 @@ export async function adminUpdateMembershipRole(input: {
     throw new Error(`Unable to update role: ${error.message}`);
   }
 
+  await syncInstructorPortalAccessAfterMembershipChange(input.userId);
+
   return {
     previousRole: membership.role,
     nextRole: input.role,
@@ -167,6 +170,8 @@ export async function adminUpdateMembershipStatus(input: {
   if (error) {
     throw new Error(`Unable to update membership status: ${error.message}`);
   }
+
+  await syncInstructorPortalAccessAfterMembershipChange(input.userId);
 }
 
 export async function adminDeleteStudentMembership(input: {
@@ -228,6 +233,8 @@ export async function adminDeleteStudentMembership(input: {
   if (membershipError) {
     throw new Error(`Unable to delete membership: ${membershipError.message}`);
   }
+
+  await syncInstructorPortalAccessAfterMembershipChange(input.userId);
 
   const { count, error: countError } = await supabase
     .from("memberships")

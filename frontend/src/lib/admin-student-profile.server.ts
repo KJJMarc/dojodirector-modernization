@@ -36,7 +36,13 @@ import {
 } from "@/lib/admin-auth.server";
 import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
 import { getAdminInstructorPortalAuthSummary } from "@/lib/instructor-portal-auth.server";
+import {
+  formatInstructorPortalAdminLoginLabel,
+  instructorPortalLoginCanSignIn,
+  normalizeInstructorPortalAuthStatus,
+} from "@/lib/instructor-portal-membership-sync.shared";
 import { getProfileLoginAccessSummary } from "@/lib/profile-login-access.server";
+import { getPortalSetupAdminStatusForMember } from "@/lib/portal-setup.server";
 import { getAdminStudentAgreementSummary } from "@/lib/student-portal-agreements.server";
 import { getAdminStudentPortalAuthSummary } from "@/lib/student-portal-auth.server";
 import { resolveLastSuperAdminWarningForUser } from "@/lib/admin-super-admin.server";
@@ -181,6 +187,13 @@ export async function getAdminStudentProfilePageData(
   ]);
   const lastSuperAdminWarning = await resolveLastSuperAdminWarningForUser(userId);
 
+  const portalSetup = await getPortalSetupAdminStatusForMember({
+    userId,
+    profileEmail: user.email,
+    membershipRole: membership.role,
+    membershipStatus: membership.status,
+  });
+
   const instructorPortalAccess = isInstructorPortalMembershipRole(membership.role)
     ? await getAdminInstructorPortalAuthSummary(userId)
     : null;
@@ -244,6 +257,11 @@ export async function getAdminStudentProfilePageData(
 
   return {
     loginAccess,
+    portalSetup: {
+      statusLabel: portalSetup.statusLabel,
+      sentAtLabel: portalSetup.sentAtLabel,
+      canSendSetupEmail: portalSetup.canSendSetupEmail,
+    },
     student: {
       id: user.id,
       fullName: getStudentFullName(user.first_name, user.last_name),
@@ -270,13 +288,27 @@ export async function getAdminStudentProfilePageData(
       canSetPassword: portalAccess.canSetPassword,
     },
     instructorPortalAccess: instructorPortalAccess
-      ? {
-          portalStatusLabel: instructorPortalAccess.portalAuthStatusLabel,
-          portalLoginEmail: instructorPortalAccess.portalLoginEmail,
-          inviteSentAt: instructorPortalAccess.portalInvitedAt,
-          canSendInvite: instructorPortalAccess.canSendInvite,
-          canSetPassword: instructorPortalAccess.canSetPassword,
-        }
+      ? (() => {
+          const instructorPortalAuthStatus = normalizeInstructorPortalAuthStatus(
+            instructorPortalAccess.portalAuthStatus,
+          );
+
+          return {
+            portalStatusLabel: instructorPortalAccess.portalAuthStatusLabel,
+            portalLoginLabel: formatInstructorPortalAdminLoginLabel({
+              portalAuthStatus: instructorPortalAuthStatus,
+              hasAuthLogin: Boolean(instructorPortalAccess.authUserId),
+              hasInstructorRoleAtAcademy: true,
+            }),
+            portalLoginEmail: instructorPortalAccess.portalLoginEmail,
+            inviteSentAt: instructorPortalAccess.portalInvitedAt,
+            canSendInvite: instructorPortalAccess.canSendInvite,
+            canSetPassword: instructorPortalAccess.canSetPassword,
+            canSignInToInstructorPortal: instructorPortalLoginCanSignIn(
+              instructorPortalAuthStatus,
+            ),
+          };
+        })()
       : null,
     showAdminDashboardAccess,
     adminAccess,

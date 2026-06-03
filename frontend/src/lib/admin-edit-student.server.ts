@@ -15,6 +15,8 @@ import {
   loadUserAddressFromUsers,
   saveUserAddressOnUsers,
 } from "@/lib/user-address-field.server";
+import { syncInstructorPortalAccessAfterMembershipChange } from "@/lib/instructor-portal-membership-sync.server";
+import { syncProfileEmailWithPortalLoginAccess } from "@/lib/portal-auth-user.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type { AdminStudentEditPageData, EditAdminStudentInput };
@@ -107,6 +109,19 @@ export async function updateAdminStudentDetails(
   const membership = await loadMembershipForClub(userFields.userId, clubId);
   const canChangeRole = canChangeProfileMembershipRole(membership.role);
 
+  const supabase = getSupabaseAdminClient();
+  const { data: existingUser, error: existingUserError } = await supabase
+    .from("users")
+    .select("email")
+    .eq("id", userFields.userId)
+    .maybeSingle();
+
+  if (existingUserError) {
+    throw new Error(`Failed to load student email: ${existingUserError.message}`);
+  }
+
+  const previousProfileEmail = existingUser?.email ?? null;
+
   const duplicateUserId = await findOtherUserIdByEmail(
     userFields.email,
     userFields.userId,
@@ -115,8 +130,6 @@ export async function updateAdminStudentDetails(
   if (duplicateUserId) {
     throw new Error("Another student already uses this email address.");
   }
-
-  const supabase = getSupabaseAdminClient();
 
   const { error: userError } = await supabase
     .from("users")
@@ -133,6 +146,12 @@ export async function updateAdminStudentDetails(
   if (userError) {
     throw new Error(`Unable to update student: ${userError.message}`);
   }
+
+  await syncProfileEmailWithPortalLoginAccess({
+    userId: userFields.userId,
+    profileEmail: userFields.email,
+    previousProfileEmail,
+  });
 
   await saveUserAddressOnUsers(userFields.userId, userFields.address);
 
@@ -166,6 +185,8 @@ export async function updateAdminStudentDetails(
   if (membershipError) {
     throw new Error(`Unable to update membership: ${membershipError.message}`);
   }
+
+  await syncInstructorPortalAccessAfterMembershipChange(userFields.userId);
 
   return { previousRole, nextRole };
 }

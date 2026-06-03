@@ -1,6 +1,6 @@
 import "server-only";
 
-import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
+import { syncInstructorPortalAccessAfterMembershipChange } from "@/lib/instructor-portal-membership-sync.server";
 import {
   ensureAuthUserForPortalLogin,
   linkProfileAfterPortalPasswordSet,
@@ -101,19 +101,7 @@ export async function setProfileLoginPassword(input: {
     loginEmail,
   });
 
-  if (isInstructorPortalMembershipRole(input.membershipRole)) {
-    const supabase = getSupabaseAdminClient();
-    const { error } = await supabase
-      .from("users")
-      .update({ instructor_portal_auth_status: "active" })
-      .eq("id", input.userId);
-
-    if (error) {
-      throw new Error(
-        `Failed to update instructor portal access: ${error.message}`,
-      );
-    }
-  }
+  await syncInstructorPortalAccessAfterMembershipChange(input.userId);
 
   return { authUserId, loginEmail, hadAuthLogin };
 }

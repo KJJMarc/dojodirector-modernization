@@ -13,6 +13,8 @@ import type {
   AdminStudentPortalAccessSummary,
 } from "@/lib/admin-student-profile.shared";
 import { formatProfileDate } from "@/lib/admin-student-profile.shared";
+import { formatMembershipInstructorRoleLabel } from "@/lib/instructor-portal-membership-sync.shared";
+import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
 
 interface ProfileAccessAgreementsPanelProps {
   studentUserId: string;
@@ -67,7 +69,7 @@ export function ProfileAccessAgreementsPanel({
 }: ProfileAccessAgreementsPanelProps) {
   const agreementPdfHref = `/api/admin/students/${studentUserId}/membership-agreement-pdf`;
   const adminEnabled = showAdminDashboardAccess && Boolean(adminAccess);
-  const instructorEnabled = Boolean(instructorPortalAccess);
+  const instructorRoleAtAcademy = isInstructorPortalMembershipRole(membershipRole);
 
   return (
     <section className={profileSectionClassName}>
@@ -87,13 +89,13 @@ export function ProfileAccessAgreementsPanel({
           }
         />
         <AccessRow
-          label="Instructor access"
-          value={instructorEnabled ? "Enabled" : "Disabled"}
+          label="Membership role (this academy)"
+          value={formatMembershipInstructorRoleLabel(membershipRole)}
         />
-        {instructorEnabled ? (
+        {instructorRoleAtAcademy ? (
           <AccessRow
-            label="Instructor portal status"
-            value={instructorPortalAccess?.portalStatusLabel ?? "—"}
+            label="Instructor portal login"
+            value={instructorPortalAccess?.portalLoginLabel ?? "—"}
           />
         ) : null}
         <AccessRow

@@ -19,6 +19,7 @@ import { buildMembershipAgreementPdfBytes } from "@/lib/membership-agreement-pdf
 import {
   getGuestBookingAgreementPdfStoragePath,
 } from "@/lib/student-agreement-storage.shared";
+import { sendGuestBookingEmailsAfterBooking } from "@/lib/guest-booking-email.server";
 import { uploadGuestBookingAgreementPdf } from "@/lib/student-agreement-storage.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -373,9 +374,6 @@ export async function submitGuestBooking(
     expectedClubId?: string;
   },
 ): Promise<GuestBookingResult> {
-  // TODO: When Resend is configured, send guest booking notification to:
-  // admin@kingstonjiujitsu.com
-
   const submission = parseGuestBookingSubmission(rawInput);
   const session = await loadClassSessionForGuestBooking(submission.classSessionId);
   const clubId = await resolveGuestBookingClubId(submission.classSessionId);
@@ -445,6 +443,18 @@ export async function submitGuestBooking(
   } catch (pdfError) {
     console.error("Guest booking agreement PDF generation failed:", pdfError);
   }
+
+  await sendGuestBookingEmailsAfterBooking({
+    clubId,
+    bookingId,
+    guestName,
+    guestEmail: submission.email,
+    className: session.className,
+    dateLabel: session.dateLabel,
+    timeLabel: session.timeLabel,
+    location: session.location,
+    createdAtIso: acceptedAt,
+  });
 
   return {
     bookingId,

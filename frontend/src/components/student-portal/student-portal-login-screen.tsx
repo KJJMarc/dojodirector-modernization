@@ -1,8 +1,23 @@
 import Link from "next/link";
 import { StudentPortalLoginForm } from "@/components/student-portal/student-portal-login-form";
 import { isStudentPortalDevPickerEnabled } from "@/lib/student-portal-auth.shared";
+import { PASSWORD_RESET_SUCCESS_MESSAGE } from "@/lib/password-reset.shared";
+import { PORTAL_SETUP_SUCCESS_MESSAGE } from "@/lib/portal-setup.shared";
 
-export function StudentPortalLoginScreen() {
+interface StudentPortalLoginScreenProps {
+  showResetSuccessMessage?: boolean;
+  showSetupSuccessMessage?: boolean;
+}
+
+export function StudentPortalLoginScreen({
+  showResetSuccessMessage = false,
+  showSetupSuccessMessage = false,
+}: StudentPortalLoginScreenProps) {
+  const successMessage = showSetupSuccessMessage
+    ? PORTAL_SETUP_SUCCESS_MESSAGE
+    : showResetSuccessMessage
+      ? PASSWORD_RESET_SUCCESS_MESSAGE
+      : null;
   return (
     <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
       <div>
@@ -11,6 +26,15 @@ export function StudentPortalLoginScreen() {
           Sign in with the email address your club invited you to use.
         </p>
       </div>
+
+      {successMessage ? (
+        <p
+          className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100"
+          role="status"
+        >
+          {successMessage}
+        </p>
+      ) : null}
 
       <StudentPortalLoginForm />
 

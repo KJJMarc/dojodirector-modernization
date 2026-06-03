@@ -40,5 +40,9 @@ export const config = {
     "/admin-access/:path*",
     "/super-admin",
     "/super-admin/:path*",
+    "/forgot-password",
+    "/reset-password",
+    "/setup-password",
+    "/auth/:path*",
   ],
 };

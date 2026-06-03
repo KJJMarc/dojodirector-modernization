@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
+import { MessagingAcademyEmailCard } from "@/components/admin/messaging-academy-email-card";
+import { MessagingGuestBookingEmailCard } from "@/components/admin/messaging-guest-booking-email-card";
+import { MessagingPortalAccessCard } from "@/components/admin/messaging-portal-access-card";
 import { AppHeader } from "@/components/layout/app-header";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -33,6 +36,12 @@ export default async function AdminMessagingPage({
       <AdminNavLinks>
         <AdminBackLink clubSlug={club.slug} />
       </AdminNavLinks>
+
+      <div className="grid gap-3">
+        <MessagingAcademyEmailCard clubSlug={club.slug} />
+        <MessagingPortalAccessCard clubSlug={club.slug} />
+        <MessagingGuestBookingEmailCard clubSlug={club.slug} />
+      </div>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center">
         <h2 className="text-xl font-semibold text-dojo-white">Messaging</h2>

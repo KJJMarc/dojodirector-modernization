@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LoginAccessPanel } from "@/components/admin/login-access-panel";
+import { PortalSetupPanel } from "@/components/admin/portal-setup-panel";
 import { ProfileAccessAgreementsPanel } from "@/components/admin/profile-access-agreements-panel";
 import {
   ProfileDetailItem,
@@ -30,18 +31,6 @@ interface StudentProfileViewProps {
   pageData: AdminStudentProfilePageData;
 }
 
-function PlaceholderButton({ label }: { label: string }) {
-  return (
-    <span
-      className="inline-flex min-h-[36px] cursor-not-allowed items-center justify-center rounded-md border border-dojo-border/60 bg-dojo-elevated/60 px-3 py-1.5 text-xs font-semibold text-dojo-muted"
-      title="Coming soon"
-      aria-disabled="true"
-    >
-      {label}
-    </span>
-  );
-}
-
 function ActionButton({
   href,
   label,
@@ -70,6 +59,7 @@ export function StudentProfileView({
   const {
     student,
     loginAccess,
+    portalSetup,
     portalAccess,
     instructorPortalAccess,
     showAdminDashboardAccess,
@@ -107,7 +97,10 @@ export function StudentProfileView({
             label="Date of birth"
             value={formatProfileDate(student.dateOfBirth)}
           />
-          <ProfileDetailItem label="Role" value={student.role ?? "—"} />
+          <ProfileDetailItem
+            label="Membership role"
+            value={student.role ?? "—"}
+          />
           <ProfileDetailItem
             label="Membership status"
             value={formatMembershipStatus(student.membershipStatus)}
@@ -143,6 +136,12 @@ export function StudentProfileView({
         loginAccess={loginAccess}
       />
 
+      <PortalSetupPanel
+        clubSlug={clubSlug}
+        userId={student.id}
+        portalSetup={portalSetup}
+      />
+
       <ProfileAccessAgreementsPanel
         studentUserId={student.id}
         membershipRole={student.membershipRole}
@@ -168,15 +167,14 @@ export function StudentProfileView({
             />
           </dl>
 
-          <div className="flex flex-wrap gap-2">
-            {bjjFeatureVisibility.showAttendanceCard ? (
+          {bjjFeatureVisibility.showAttendanceCard ? (
+            <div className="flex flex-wrap gap-2">
               <ActionButton
                 href={`/students/${student.id}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
                 label="Attendance Card"
               />
-            ) : null}
-            <PlaceholderButton label="Attendance History" />
-          </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

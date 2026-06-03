@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 interface AdminAccessPageProps {
   params: { clubSlug: string };
-  searchParams: { denied?: string };
+  searchParams: { denied?: string; reset?: string; setup?: string };
 }
 
 export async function generateMetadata({
@@ -49,6 +49,8 @@ export default async function AdminAccessPage({
       loginIntent="legacy_club"
       clubSlug={club.slug}
       showDeniedMessage={searchParams.denied === "1"}
+      showResetSuccessMessage={searchParams.reset === "success"}
+      showSetupSuccessMessage={searchParams.setup === "success"}
       signInAction={signInAdminAccessAction}
     />
   );

@@ -36,17 +36,20 @@ export function LoginAccessPanel({
     <section className={profileSectionClassName}>
       <ProfileSectionHeading
         title="Login Access"
-        description="This login is used for student, instructor and admin access where enabled."
+        description="Shared Supabase login for student, instructor, and admin portals where each portal is enabled separately below."
       />
 
       <dl className={profileDetailGridClassName}>
         <ProfileDetailItem
-          label="Login email"
+          label="Shared login email"
           value={loginAccess.loginEmail ?? "—"}
         />
-        <ProfileDetailItem label="Login status" value={loginAccess.loginStatusLabel} />
         <ProfileDetailItem
-          label="Portal auth status"
+          label="Shared login"
+          value={loginAccess.loginStatusLabel}
+        />
+        <ProfileDetailItem
+          label="Student portal status"
           value={loginAccess.portalAuthStatusLabel}
         />
         <ProfileDetailItem

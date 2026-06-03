@@ -12,7 +12,13 @@ export const metadata: Metadata = {
   description: "Sign in to the instructor portal.",
 };
 
-export default async function InstructorPortalLoginPage() {
+interface InstructorPortalLoginPageProps {
+  searchParams: { reset?: string; setup?: string };
+}
+
+export default async function InstructorPortalLoginPage({
+  searchParams,
+}: InstructorPortalLoginPageProps) {
   const session = await resolveInstructorPortalSessionState();
 
   if (session.status === "authenticated") {
@@ -25,7 +31,10 @@ export default async function InstructorPortalLoginPage() {
 
       <InstructorPortalHomeLink />
 
-      <InstructorPortalLoginScreen />
+      <InstructorPortalLoginScreen
+        showResetSuccessMessage={searchParams.reset === "success"}
+        showSetupSuccessMessage={searchParams.setup === "success"}
+      />
     </main>
   );
 }

@@ -1,19 +1,30 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { LoginForgotPasswordLink } from "@/components/auth/login-forgot-password-link";
 import type { AdminLoginIntent } from "@/lib/admin-auth.shared";
+import type { PasswordResetLoginContext } from "@/lib/password-reset.shared";
 
 interface AdminAccessLoginFormProps {
   loginIntent: AdminLoginIntent;
   clubSlug?: string;
   onSubmit: (formData: FormData) => Promise<void>;
+  passwordResetContext?: PasswordResetLoginContext;
+}
+
+function passwordResetContextForIntent(
+  loginIntent: AdminLoginIntent,
+): PasswordResetLoginContext {
+  return loginIntent === "super_admin" ? "super_admin" : "admin";
 }
 
 export function AdminAccessLoginForm({
   loginIntent,
   clubSlug,
   onSubmit,
+  passwordResetContext,
 }: AdminAccessLoginFormProps) {
+  const resetContext = passwordResetContext ?? passwordResetContextForIntent(loginIntent);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -78,6 +89,8 @@ export function AdminAccessLoginForm({
           className="w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30"
         />
       </div>
+
+      <LoginForgotPasswordLink context={resetContext} />
 
       {errorMessage ? (
         <p className="rounded-lg border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-white">

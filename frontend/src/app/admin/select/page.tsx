@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "DojoDirector | Select Academy",
-  description: "Choose an academy admin dashboard.",
+  description: "Choose which academy you want to open.",
   robots: { index: false, follow: false },
 };
 
@@ -20,7 +20,8 @@ export default async function AdminAcademySelectPage() {
       <DojoDirectorWordmark className="text-xs font-semibold uppercase tracking-[0.18em]" />
       <h1 className="mt-3 text-2xl font-semibold text-dojo-white">Select Academy</h1>
       <p className="mt-2 text-sm text-dojo-muted">
-        Choose which academy admin dashboard you want to open.
+        Choose which academy you want to open. You will be taken to the admin dashboard,
+        instructor portal, or member portal for that academy based on your access.
       </p>
 
       <div className="mt-8">
