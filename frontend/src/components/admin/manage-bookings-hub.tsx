@@ -12,16 +12,6 @@ const actionCardClassName =
 export function ManageBookingsHub({ clubSlug }: ManageBookingsHubProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <Link
-        href={manageBookingsAttendanceRegisterPath(clubSlug)}
-        className={actionCardClassName}
-      >
-        <span className="text-base font-semibold text-dojo-white">
-          Attendance Register
-        </span>
-        <span className="mt-1 text-xs text-dojo-muted">Mark today&apos;s attendance</span>
-      </Link>
-
       <Link href={clubAdminPath(clubSlug, "bookings/make")} className={actionCardClassName}>
         <span className="text-base font-semibold text-dojo-white">Make Bookings</span>
         <span className="mt-1 text-xs text-dojo-muted">
@@ -37,6 +27,16 @@ export function ManageBookingsHub({ clubSlug }: ManageBookingsHubProps) {
         <span className="mt-1 text-xs text-dojo-muted">
           View upcoming sessions and cancel student bookings
         </span>
+      </Link>
+
+      <Link
+        href={manageBookingsAttendanceRegisterPath(clubSlug)}
+        className={actionCardClassName}
+      >
+        <span className="text-base font-semibold text-dojo-white">
+          Attendance Register
+        </span>
+        <span className="mt-1 text-xs text-dojo-muted">Mark today&apos;s attendance</span>
       </Link>
     </div>
   );
