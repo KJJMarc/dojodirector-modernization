@@ -1,9 +1,6 @@
 import "server-only";
 
-import {
-  loadLatestGradeAwardsByUserId,
-  loadPromotionFlagsByUserId,
-} from "@/lib/admin-belt-promotion.server";
+import { loadLatestGradeAwardsByUserId } from "@/lib/admin-belt-promotion.server";
 import { loadBjjAttendanceSummariesByUserId } from "@/lib/admin-bjj-attendance.server";
 import type { BjjAttendanceSummary } from "@/lib/admin-bjj-attendance.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
@@ -159,7 +156,6 @@ export async function getClubStudents(
 
   let latestGradeAwardByUserId = new Map<string, GradeAwardRow>();
   let bjjAttendanceByUserId = new Map<string, BjjAttendanceSummary>();
-  let promotionFlags = new Map<string, boolean>();
   let beltLevelById = new Map<string, BeltLevelRow>();
 
   if (useBjjEnrichment) {
@@ -176,15 +172,6 @@ export async function getClubStudents(
       clubId,
       awardedAtByUserId,
     );
-
-    if (programme?.promotionCandidatesEnabled !== false) {
-      promotionFlags = await loadPromotionFlagsByUserId(
-        userIds,
-        clubId,
-        latestGradeAwardByUserId,
-        bjjAttendanceByUserId,
-      );
-    }
 
     const beltLevelIds = Array.from(
       new Set(
@@ -221,8 +208,8 @@ export async function getClubStudents(
       beltLabel: useBjjEnrichment ? formatAdminBeltLabel(beltLevel) : "—",
       beltSortOrder: useBjjEnrichment ? (beltLevel?.sort_order ?? null) : null,
       attendanceTotal: bjjAttendance?.lifetimeBjjAttendanceCount ?? 0,
-      considerPromotion:
-        useBjjEnrichment && promotionFlags.get(user.id) === true,
+      // Promotion eligibility is computed only on the Promotion Candidates page.
+      considerPromotion: false,
     });
   }
 

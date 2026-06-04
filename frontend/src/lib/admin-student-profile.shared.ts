@@ -36,6 +36,7 @@ export interface AdminStudentProfileBeltSummary {
 
 export interface AdminStudentProfileGradeHistoryEntry {
   id: string;
+  beltLevelId: string | null;
   beltLabel: string;
   awardedAt: string;
   notes: string | null;
@@ -139,7 +140,6 @@ export interface AdminStudentProfilePageData {
   bjjFeatureVisibility: StudentBjjFeatureVisibility;
   attendance: AdminStudentProfileAttendanceSummary;
   belt: AdminStudentProfileBeltSummary;
-  gradeHistory: AdminStudentProfileGradeHistoryEntry[];
 }
 
 export function formatProfileDate(value: string | null) {

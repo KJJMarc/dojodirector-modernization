@@ -21,7 +21,12 @@ export function revalidateStudentAdminPaths(clubSlug: string, userId?: string) {
     userId ? clubAdminPath(clubSlug, `students/${userId}/profile`) : "",
     userId ? clubAdminPath(clubSlug, `students/${userId}/edit`) : "",
     userId ? clubAdminPath(clubSlug, `students/${userId}/change-belt`) : "",
+    userId
+      ? clubAdminPath(clubSlug, `students/${userId}/grading-history`)
+      : "",
     userId ? `/students/${userId}/attendance-card` : "",
+    "/adult-belt-rankings",
+    `/${clubSlug}/junior-belt-rankings`,
   ].filter(Boolean));
 
   // Booking dropdowns load student options from pages under /classes.

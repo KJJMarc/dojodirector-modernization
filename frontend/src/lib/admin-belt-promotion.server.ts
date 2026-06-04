@@ -5,10 +5,11 @@ import {
   buildBjjAttendanceSummary,
   type BjjAttendanceSummary,
 } from "@/lib/admin-bjj-attendance.shared";
+import { loadBjjAttendanceSummariesByUserId } from "@/lib/admin-bjj-attendance.server";
 import {
-  loadBjjAttendanceSummariesByUserId,
-  loadBjjAttendanceSummary,
-} from "@/lib/admin-bjj-attendance.server";
+  requireClubBjjProgramme,
+  resolveProgrammeStudentAreaMemberUserIds,
+} from "@/lib/admin-programmes.server";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import {
   buildStudentBeltPromotionAssessment,
@@ -34,6 +35,34 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** KJJ test/dev — promotion candidate debug focus user. */
 const CLARE_BARTON_FOCUS_USER_ID = "b3092955-e688-43c0-bb0c-adbfae7e7b62";
+
+const PROMOTION_CANDIDATES_VERBOSE_DEBUG =
+  process.env.PROMOTION_CANDIDATES_VERBOSE_DEBUG === "1";
+
+async function loadBjjPromotionEvaluationUserIds(clubId: string) {
+  const bjjProgramme = await requireClubBjjProgramme(clubId);
+  const programmeUserIds = new Set(
+    await resolveProgrammeStudentAreaMemberUserIds(clubId, bjjProgramme),
+  );
+
+  if (programmeUserIds.size === 0) {
+    return [];
+  }
+
+  const membershipRows = await loadClubMembershipRows(clubId);
+
+  return Array.from(
+    new Set(
+      membershipRows
+        .filter(
+          (membership) =>
+            programmeUserIds.has(membership.user_id) &&
+            isActiveMembershipStatus(membership.status),
+        )
+        .map((membership) => membership.user_id),
+    ),
+  );
+}
 
 type LatestGradeAwardRow = LatestGradeAwardInput;
 
@@ -413,9 +442,51 @@ export async function loadLatestGradeAwardsByUserId(
     while (true) {
       const { data, error } = await supabase
         .from("grade_awards")
-        .select("user_id, belt_level_id, awarded_at")
+        .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
         .in("user_id", userIdBatch)
         .eq("club_id", clubId)
+        .order("awarded_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        throw new Error(`Failed to load grade awards: ${error.message}`);
+      }
+
+      const page = (data ?? []) as LatestGradeAwardRow[];
+      allAwards.push(...page);
+
+      if (page.length < pageSize) {
+        break;
+      }
+
+      from += pageSize;
+    }
+  }
+
+  return pickLatestGradeAwardByUserId(allAwards);
+}
+
+export async function loadLatestGradeAwardsByUserIdForClubs(
+  userIds: string[],
+  clubIds: readonly string[],
+): Promise<Map<string, LatestGradeAwardRow>> {
+  if (userIds.length === 0 || clubIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const allAwards: LatestGradeAwardRow[] = [];
+  const pageSize = 1000;
+
+  for (const userIdBatch of chunkIds(userIds)) {
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("grade_awards")
+        .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
+        .in("user_id", userIdBatch)
+        .in("club_id", clubIds)
         .order("awarded_at", { ascending: false })
         .range(from, from + pageSize - 1);
 
@@ -612,18 +683,19 @@ async function logBillyBloggsAssertionDebug(input: {
   console.log("[promotion-candidates][BILLY_BLOGGS_ASSERT]", JSON.stringify(payload));
 }
 
-async function buildProfileAlignedPromotionAssessment(
+function buildPromotionAssessmentFromContext(
   userId: string,
-  clubId: string,
   context: PromotionEvaluationContext,
   logDiagnostics = false,
-): Promise<{
+): {
   assessment: BeltPromotionAssessment | null;
   profileAttendance: BjjAttendanceSummary;
-}> {
+} {
   const latestAward = context.latestAwardByUserId.get(userId);
   const awardedAt = context.awardedAtByUserId.get(userId) ?? null;
-  const profileAttendance = await loadBjjAttendanceSummary(userId, clubId, awardedAt);
+  const profileAttendance =
+    context.bjjAttendanceByUserId.get(userId) ??
+    buildBjjAttendanceSummary([], awardedAt);
   const assessment = buildStudentBeltPromotionAssessment({
     userId,
     latestAward,
@@ -654,17 +726,12 @@ function logPromotionCandidateDiagnostics(input: {
   );
 }
 
-/** Shared data + rules used by students list flags, profile, and promotion candidates. */
+/** Shared batched data for promotion candidates (BJJ programme members only). */
 async function loadPromotionEvaluationContext(
   clubId: string,
 ): Promise<PromotionEvaluationContext> {
+  const userIds = await loadBjjPromotionEvaluationUserIds(clubId);
   const membershipRows = await loadClubMembershipRows(clubId);
-
-  // Same membership scope as admin Students list (all roles/statuses) so red-star
-  // flags and Promotion Candidates stay aligned — e.g. admin/instructor members who train.
-  const userIds = Array.from(
-    new Set(membershipRows.map((row) => row.user_id)),
-  );
 
   if (userIds.length === 0) {
     return {
@@ -682,12 +749,14 @@ async function loadPromotionEvaluationContext(
     };
   }
 
-  // Promotion eligibility uses active membership status only; paused/inactive are excluded.
+  const scopedMembershipRows = membershipRows.filter((row) =>
+    userIds.includes(row.user_id),
+  );
   const membershipRoleByUserId = new Map(
-    membershipRows.map((row) => [row.user_id, row.role]),
+    scopedMembershipRows.map((row) => [row.user_id, row.role]),
   );
   const membershipStatusByUserId = new Map(
-    membershipRows.map((row) => [row.user_id, row.status]),
+    scopedMembershipRows.map((row) => [row.user_id, row.status]),
   );
 
   const [userById, latestAwardByUserId] = await Promise.all([
@@ -727,24 +796,29 @@ export async function loadPromotionCandidates(
   clubId: string,
 ): Promise<PromotionCandidate[]> {
   const context = await loadPromotionEvaluationContext(clubId);
-  const billyBloggsUserId = await resolveBillyBloggsUserId(context);
+  const billyBloggsUserId = PROMOTION_CANDIDATES_VERBOSE_DEBUG
+    ? await resolveBillyBloggsUserId(context)
+    : null;
 
   if (context.userIds.length === 0) {
-    logPromotionCandidateDiagnostics({
-      clubId,
-      totalStudents: 0,
-      entries: [],
-      includedCount: 0,
-    });
-    await logBillyBloggsAssertionDebug({
-      clubId,
-      context,
-      billyUserId: billyBloggsUserId,
-      assessment: null,
-      profileAttendance: null,
-      skipBranch: "SKIP:empty_club_membership_list",
-      inCandidates: false,
-    });
+    if (PROMOTION_CANDIDATES_VERBOSE_DEBUG) {
+      logPromotionCandidateDiagnostics({
+        clubId,
+        totalStudents: 0,
+        entries: [],
+        includedCount: 0,
+      });
+      await logBillyBloggsAssertionDebug({
+        clubId,
+        context,
+        billyUserId: billyBloggsUserId,
+        assessment: null,
+        profileAttendance: null,
+        skipBranch: "SKIP:empty_club_membership_list",
+        inCandidates: false,
+      });
+    }
+
     return [];
   }
 
@@ -759,24 +833,17 @@ export async function loadPromotionCandidates(
   let clareInCandidates = false;
 
   for (const userId of context.userIds) {
-    if (!isActiveMembershipStatus(context.membershipStatusByUserId.get(userId))) {
-      continue;
-    }
-
     const isBilly = billyBloggsUserId !== null && userId === billyBloggsUserId;
     const isClare = userId === CLARE_BARTON_FOCUS_USER_ID;
     let user = context.userById.get(userId);
     const latestAward = context.latestAwardByUserId.get(userId);
     const bulkAttendance = context.bjjAttendanceByUserId.get(userId);
-    const { assessment, profileAttendance } =
-      await buildProfileAlignedPromotionAssessment(
-        userId,
-        clubId,
-        context,
-        isBilly || isClare,
-      );
+    const { assessment, profileAttendance } = buildPromotionAssessmentFromContext(
+      userId,
+      context,
+      PROMOTION_CANDIDATES_VERBOSE_DEBUG && (isBilly || isClare),
+    );
     const isEligible = assessment?.isEligible === true;
-    const considerPromotion = isStudentEligibleForPromotion(assessment);
     const skipBranch = resolvePromotionCandidateSkipBranch({ isEligible });
 
     if (isBilly) {
@@ -791,36 +858,41 @@ export async function loadPromotionCandidates(
       clareSkipBranch = skipBranch;
     }
 
-    const entry: Record<string, unknown> = {
-      userId,
-      name: user
-        ? getStudentFullName(user.first_name, user.last_name)
-        : "(missing user row)",
-      email: user?.email ?? null,
-      currentBelt: assessment?.currentBeltLabel ?? null,
-      nextBelt: assessment?.nextBeltLabel ?? null,
-      attendanceSinceCurrentLevel: assessment?.attendanceSinceAward ?? null,
-      requiredAttendance: assessment?.requiredAttendance ?? null,
-      timeSinceCurrentLevel: assessment?.timeSinceAward ?? null,
-      requiredTime: assessment?.requiredTime ?? null,
-      timeUnit: assessment?.timeUnit ?? null,
-      considerPromotion,
-      assessmentIsEligible: assessment?.isEligible ?? null,
-      skipBranch,
-      bulkLifetimeBjjCount: bulkAttendance?.lifetimeBjjAttendanceCount ?? null,
-      profileAlignedLifetimeBjjCount: profileAttendance.lifetimeBjjAttendanceCount,
-      bulkVsProfileLifetimeDelta:
-        profileAttendance.lifetimeBjjAttendanceCount -
-        (bulkAttendance?.lifetimeBjjAttendanceCount ?? 0),
-    };
-
-    diagnosticEntries.push(entry);
+    if (PROMOTION_CANDIDATES_VERBOSE_DEBUG) {
+      diagnosticEntries.push({
+        userId,
+        name: user
+          ? getStudentFullName(user.first_name, user.last_name)
+          : "(missing user row)",
+        email: user?.email ?? null,
+        currentBelt: assessment?.currentBeltLabel ?? null,
+        nextBelt: assessment?.nextBeltLabel ?? null,
+        attendanceSinceCurrentLevel: assessment?.attendanceSinceAward ?? null,
+        requiredAttendance: assessment?.requiredAttendance ?? null,
+        timeSinceCurrentLevel: assessment?.timeSinceAward ?? null,
+        requiredTime: assessment?.requiredTime ?? null,
+        timeUnit: assessment?.timeUnit ?? null,
+        considerPromotion: isStudentEligibleForPromotion(assessment),
+        assessmentIsEligible: assessment?.isEligible ?? null,
+        skipBranch,
+        bulkLifetimeBjjCount: bulkAttendance?.lifetimeBjjAttendanceCount ?? null,
+        profileAlignedLifetimeBjjCount:
+          profileAttendance.lifetimeBjjAttendanceCount,
+        bulkVsProfileLifetimeDelta:
+          profileAttendance.lifetimeBjjAttendanceCount -
+          (bulkAttendance?.lifetimeBjjAttendanceCount ?? 0),
+      });
+    }
 
     if (!isEligible || !assessment) {
       continue;
     }
 
     if (!user) {
+      if (!PROMOTION_CANDIDATES_VERBOSE_DEBUG) {
+        continue;
+      }
+
       const reloadedUser = await loadUserRowById(userId);
 
       if (!reloadedUser) {
@@ -859,7 +931,8 @@ export async function loadPromotionCandidates(
       clareInCandidates = true;
     }
   }
-  if (billyBloggsUserId) {
+
+  if (PROMOTION_CANDIDATES_VERBOSE_DEBUG && billyBloggsUserId) {
     const billyInCandidates = candidates.some(
       (candidate) => candidate.id === billyBloggsUserId,
     );
@@ -910,46 +983,50 @@ export async function loadPromotionCandidates(
     }
   }
 
-  const clareLoadedInScope = context.userIds.includes(CLARE_BARTON_FOCUS_USER_ID);
-  let clareExclusionReason: string | null = null;
+  if (PROMOTION_CANDIDATES_VERBOSE_DEBUG) {
+    const clareLoadedInScope = context.userIds.includes(
+      CLARE_BARTON_FOCUS_USER_ID,
+    );
+    let clareExclusionReason: string | null = null;
 
-  if (!clareLoadedInScope) {
-    clareExclusionReason = "SKIP:not_in_promotion_scope_user_ids";
-    clareSkipBranch = clareExclusionReason;
-  } else if (!clareInCandidates) {
-    if (!clareLoopAssessment) {
-      clareExclusionReason = "SKIP:no_assessment";
-    } else if (clareLoopAssessment.isEligible !== true) {
-      clareExclusionReason = "SKIP:assessment.isEligible_not_true";
-    } else {
-      clareExclusionReason = "SKIP:eligible_but_not_in_candidates_array";
+    if (!clareLoadedInScope) {
+      clareExclusionReason = "SKIP:not_in_promotion_scope_user_ids";
+      clareSkipBranch = clareExclusionReason;
+    } else if (!clareInCandidates) {
+      if (!clareLoopAssessment) {
+        clareExclusionReason = "SKIP:no_assessment";
+      } else if (clareLoopAssessment.isEligible !== true) {
+        clareExclusionReason = "SKIP:assessment.isEligible_not_true";
+      } else {
+        clareExclusionReason = "SKIP:eligible_but_not_in_candidates_array";
+      }
     }
+
+    const clareUser =
+      context.userById.get(CLARE_BARTON_FOCUS_USER_ID) ??
+      (await loadUserRowById(CLARE_BARTON_FOCUS_USER_ID));
+
+    logClareBartonPromotionDebug({
+      clubId,
+      loadedInPromotionScope: clareLoadedInScope,
+      membershipRole:
+        context.membershipRoleByUserId.get(CLARE_BARTON_FOCUS_USER_ID) ?? null,
+      userId: CLARE_BARTON_FOCUS_USER_ID,
+      user: clareUser,
+      assessment: clareLoopAssessment,
+      profileAttendance: clareLoopAttendance,
+      skipBranch: clareSkipBranch,
+      inCandidates: clareInCandidates,
+      exclusionReason: clareExclusionReason,
+    });
+
+    logPromotionCandidateDiagnostics({
+      clubId,
+      totalStudents: context.userIds.length,
+      entries: diagnosticEntries,
+      includedCount: candidates.length,
+    });
   }
-
-  const clareUser =
-    context.userById.get(CLARE_BARTON_FOCUS_USER_ID) ??
-    (await loadUserRowById(CLARE_BARTON_FOCUS_USER_ID));
-
-  logClareBartonPromotionDebug({
-    clubId,
-    loadedInPromotionScope: clareLoadedInScope,
-    membershipRole:
-      context.membershipRoleByUserId.get(CLARE_BARTON_FOCUS_USER_ID) ?? null,
-    userId: CLARE_BARTON_FOCUS_USER_ID,
-    user: clareUser,
-    assessment: clareLoopAssessment,
-    profileAttendance: clareLoopAttendance,
-    skipBranch: clareSkipBranch,
-    inCandidates: clareInCandidates,
-    exclusionReason: clareExclusionReason,
-  });
-
-  logPromotionCandidateDiagnostics({
-    clubId,
-    totalStudents: context.userIds.length,
-    entries: diagnosticEntries,
-    includedCount: candidates.length,
-  });
 
   return sortPromotionCandidates(candidates);
 }

@@ -10,6 +10,8 @@ import {
   toBeltLevelOptions,
   type BeltLevelOption,
 } from "@/lib/admin-belt-levels.shared";
+import { pickLatestGradeAwardForUser } from "@/lib/admin-belt-promotion.shared";
+import { assertNoDuplicateGradeAward } from "@/lib/admin-grade-award.server";
 import { formatAdminBeltLabel } from "@/lib/admin-students";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -24,8 +26,12 @@ interface BeltLevelRow {
 }
 
 interface GradeAwardRow {
+  id: string;
+  user_id: string;
   belt_level_id: string | null;
   awarded_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface AdminChangeBeltPageData {
@@ -76,23 +82,20 @@ async function loadStudentName(userId: string) {
   return getStudentFullName(data.first_name, data.last_name);
 }
 
-async function loadLatestGradeAward(userId: string, clubId: string) {
+async function loadGradeAwardsForUser(userId: string, clubId: string) {
   const supabase = getSupabaseAdminClient();
 
   const { data, error } = await supabase
     .from("grade_awards")
-    .select("belt_level_id, awarded_at")
+    .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
     .eq("user_id", userId)
-    .eq("club_id", clubId)
-    .order("awarded_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("club_id", clubId);
 
   if (error) {
-    throw new Error(`Failed to load current belt: ${error.message}`);
+    throw new Error(`Failed to load grade awards: ${error.message}`);
   }
 
-  return (data as GradeAwardRow | null) ?? null;
+  return (data ?? []) as GradeAwardRow[];
 }
 
 async function loadBeltLevelById(beltLevelId: string) {
@@ -165,17 +168,33 @@ function parseAwardedAt(value: string) {
   return value;
 }
 
+export async function getAdminBeltLevelOptionsForClub(clubId: string) {
+  return loadClubBeltLevelOptions(clubId);
+}
+
 export async function getAdminChangeBeltPageData(
   userId: string,
   clubId: string = ACTIVE_CLUB_ID,
 ): Promise<AdminChangeBeltPageData> {
   await assertClubMember(userId, clubId);
 
-  const [studentName, latestAward, beltOptions] = await Promise.all([
+  const [studentName, gradeAwards, beltOptions] = await Promise.all([
     loadStudentName(userId),
-    loadLatestGradeAward(userId, clubId),
+    loadGradeAwardsForUser(userId, clubId),
     loadClubBeltLevelOptions(clubId),
   ]);
+
+  const latestAward = pickLatestGradeAwardForUser(
+    userId,
+    gradeAwards.map((award) => ({
+      user_id: userId,
+      belt_level_id: award.belt_level_id,
+      awarded_at: award.awarded_at,
+      id: award.id,
+      created_at: award.created_at,
+      updated_at: award.updated_at,
+    })),
+  );
 
   const currentBelt = latestAward?.belt_level_id
     ? await loadBeltLevelById(latestAward.belt_level_id)
@@ -219,6 +238,13 @@ export async function adminAwardBeltLevel(input: {
   if (!beltLevel) {
     throw new Error("Selected belt level was not found for this club.");
   }
+
+  await assertNoDuplicateGradeAward({
+    userId: input.userId,
+    clubId,
+    beltLevelId: input.beltLevelId,
+    awardedAt,
+  });
 
   const notes = input.notes?.trim() ?? "";
 

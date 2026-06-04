@@ -1,13 +1,14 @@
 import "server-only";
 
 import {
-  compareGradeAwardDates,
+  buildRecentPromotionEntries,
   type BeltLevelProgressionRow,
 } from "@/lib/admin-belt-promotion.shared";
 import {
   loadBeltLevelsForClub,
-  loadLatestGradeAwardsByUserId,
+  loadLatestGradeAwardsByUserIdForClubs,
 } from "@/lib/admin-belt-promotion.server";
+import { JUNIOR_BELT_RANKINGS_SOURCE_CLUB_IDS } from "@/lib/belt-rankings-clubs.shared";
 import {
   loadAdminStudentProfileRowsByIds,
   loadClubMembershipRows,
@@ -45,6 +46,8 @@ interface GradeAwardRow {
   user_id: string;
   belt_level_id: string | null;
   awarded_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const SUPABASE_PAGE_SIZE = 1000;
@@ -60,12 +63,51 @@ function chunkIds<T>(ids: T[], batchSize = SUPABASE_IN_BATCH_SIZE): T[][] {
   return chunks;
 }
 
-async function loadActiveMemberUserIds(clubId: string) {
-  const memberships = await loadClubMembershipRows(clubId);
+async function loadActiveMemberUserIdsForClubs(clubIds: readonly string[]) {
+  const userIds = new Set<string>();
 
-  return memberships
-    .filter((membership) => isActiveMembershipStatus(membership.status))
-    .map((membership) => membership.user_id);
+  for (const clubId of clubIds) {
+    const memberships = await loadClubMembershipRows(clubId);
+
+    for (const membership of memberships) {
+      if (isActiveMembershipStatus(membership.status)) {
+        userIds.add(membership.user_id);
+      }
+    }
+  }
+
+  return Array.from(userIds);
+}
+
+function buildCanonicalJuniorBeltByLabel(
+  beltLevelsByClub: BeltLevelProgressionRow[][],
+) {
+  const canonicalByLabel = new Map<string, BeltLevelProgressionRow>();
+
+  for (const beltLevels of beltLevelsByClub) {
+    for (const beltLevel of beltLevels) {
+      if (!isJuniorBeltLevel(beltLevel)) {
+        continue;
+      }
+
+      const label = formatAdminBeltLabel(beltLevel);
+
+      if (!canonicalByLabel.has(label)) {
+        canonicalByLabel.set(label, beltLevel);
+      }
+    }
+  }
+
+  return canonicalByLabel;
+}
+
+function resolveCanonicalJuniorBelt(
+  beltLevel: BeltLevelProgressionRow,
+  canonicalJuniorBeltByLabel: Map<string, BeltLevelProgressionRow>,
+) {
+  return (
+    canonicalJuniorBeltByLabel.get(formatAdminBeltLabel(beltLevel)) ?? beltLevel
+  );
 }
 
 function getRecentPromotionCutoffDate(referenceDate = new Date()) {
@@ -73,32 +115,6 @@ function getRecentPromotionCutoffDate(referenceDate = new Date()) {
   cutoff.setDate(cutoff.getDate() - JUNIOR_BELT_RANKINGS_RECENT_PROMOTION_DAYS);
   cutoff.setHours(0, 0, 0, 0);
   return cutoff;
-}
-
-function sortGradeAwardsNewestFirst(awards: GradeAwardRow[]) {
-  return [...awards].sort((left, right) => {
-    const dateCompare = compareGradeAwardDates(right.awarded_at, left.awarded_at);
-
-    if (dateCompare !== 0) {
-      return dateCompare;
-    }
-
-    return right.id.localeCompare(left.id);
-  });
-}
-
-function findPreviousGradeAward(
-  userAwards: GradeAwardRow[],
-  currentAward: GradeAwardRow,
-): GradeAwardRow | null {
-  const sorted = sortGradeAwardsNewestFirst(userAwards);
-  const currentIndex = sorted.findIndex((award) => award.id === currentAward.id);
-
-  if (currentIndex < 0) {
-    return null;
-  }
-
-  return sorted[currentIndex + 1] ?? null;
 }
 
 function isJuniorBeltLevelId(
@@ -114,9 +130,9 @@ function isJuniorBeltLevelId(
 
 async function loadGradeAwardsForUsers(
   userIds: string[],
-  clubId: string,
+  clubIds: readonly string[],
 ): Promise<GradeAwardRow[]> {
-  if (userIds.length === 0) {
+  if (userIds.length === 0 || clubIds.length === 0) {
     return [];
   }
 
@@ -129,8 +145,8 @@ async function loadGradeAwardsForUsers(
     while (true) {
       const { data, error } = await supabase
         .from("grade_awards")
-        .select("id, user_id, belt_level_id, awarded_at")
-        .eq("club_id", clubId)
+        .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
+        .in("club_id", clubIds)
         .in("user_id", userIdBatch)
         .order("awarded_at", { ascending: false })
         .range(from, from + SUPABASE_PAGE_SIZE - 1);
@@ -154,9 +170,13 @@ async function loadGradeAwardsForUsers(
 }
 
 async function loadRecentGradeAwards(
-  clubId: string,
+  clubIds: readonly string[],
   cutoffDate: Date,
 ): Promise<GradeAwardRow[]> {
+  if (clubIds.length === 0) {
+    return [];
+  }
+
   const supabase = getSupabaseAdminClient();
   const awards: GradeAwardRow[] = [];
   let from = 0;
@@ -164,8 +184,8 @@ async function loadRecentGradeAwards(
   while (true) {
     const { data, error } = await supabase
       .from("grade_awards")
-      .select("id, user_id, belt_level_id, awarded_at")
-      .eq("club_id", clubId)
+      .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
+      .in("club_id", clubIds)
       .gte("awarded_at", cutoffDate.toISOString())
       .order("awarded_at", { ascending: false })
       .range(from, from + SUPABASE_PAGE_SIZE - 1);
@@ -228,6 +248,7 @@ function buildRankedJuniorStudentEntries(input: {
     { belt_level_id: string | null; awarded_at: string }
   >;
   juniorBeltLevelById: Map<string, BeltLevelProgressionRow>;
+  canonicalJuniorBeltByLabel: Map<string, BeltLevelProgressionRow>;
   studentProfilesByUserId: Map<
     string,
     Pick<JuniorBeltRankingStudent, "fullName" | "firstName" | "lastName">
@@ -243,7 +264,11 @@ function buildRankedJuniorStudentEntries(input: {
       continue;
     }
 
-    const beltLevel = input.juniorBeltLevelById.get(beltLevelId!)!;
+    const rawBeltLevel = input.juniorBeltLevelById.get(beltLevelId!)!;
+    const beltLevel = resolveCanonicalJuniorBelt(
+      rawBeltLevel,
+      input.canonicalJuniorBeltByLabel,
+    );
     const rankParts = parseJuniorBeltRankParts(
       beltLevel.name,
       beltLevel.stripe_count,
@@ -277,13 +302,14 @@ function buildRankedJuniorStudentEntries(input: {
 function buildJuniorBeltStripeGroups(
   entries: RankedJuniorStudentEntry[],
 ): JuniorBeltRankingStripeGroup[] {
-  const groupsByBeltLevelId = new Map<
+  const groupsByRankLabel = new Map<
     string,
     { beltLevel: BeltLevelProgressionRow; students: JuniorBeltRankingStudent[] }
   >();
 
   for (const entry of entries) {
-    const existing = groupsByBeltLevelId.get(entry.beltLevel.id);
+    const groupKey = formatAdminBeltLabel(entry.beltLevel);
+    const existing = groupsByRankLabel.get(groupKey);
     const student: JuniorBeltRankingStudent = {
       userId: entry.userId,
       fullName: entry.fullName,
@@ -297,13 +323,13 @@ function buildJuniorBeltStripeGroups(
       continue;
     }
 
-    groupsByBeltLevelId.set(entry.beltLevel.id, {
+    groupsByRankLabel.set(groupKey, {
       beltLevel: entry.beltLevel,
       students: [student],
     });
   }
 
-  return Array.from(groupsByBeltLevelId.values())
+  return Array.from(groupsByRankLabel.values())
     .map(({ beltLevel, students }) => ({
       beltLevelId: beltLevel.id,
       rankLabel: formatAdminBeltLabel(beltLevel),
@@ -368,9 +394,9 @@ function groupGradeAwardsByUserId(awards: GradeAwardRow[]) {
 }
 
 function buildRecentPromotions(input: {
-  recentAwards: GradeAwardRow[];
   awardsByUserId: Map<string, GradeAwardRow[]>;
   activeMemberUserIds: Set<string>;
+  cutoffDate: Date;
   allBeltLevelById: Map<string, BeltLevelProgressionRow>;
   juniorBeltLevelById: Map<string, BeltLevelProgressionRow>;
   studentProfilesByUserId: Map<
@@ -378,64 +404,38 @@ function buildRecentPromotions(input: {
     Pick<JuniorBeltRankingStudent, "fullName">
   >;
 }): JuniorBeltRecentPromotion[] {
-  const promotions: JuniorBeltRecentPromotion[] = [];
-
-  for (const award of input.recentAwards) {
-    if (!input.activeMemberUserIds.has(award.user_id)) {
-      continue;
-    }
-
-    if (!isJuniorBeltLevelId(award.belt_level_id, input.juniorBeltLevelById)) {
-      continue;
-    }
-
-    const userAwards = input.awardsByUserId.get(award.user_id) ?? [];
-    const previousAward = findPreviousGradeAward(userAwards, award);
-
-    if (
-      previousAward &&
-      previousAward.belt_level_id === award.belt_level_id
-    ) {
-      continue;
-    }
-
-    const profile =
-      input.studentProfilesByUserId.get(award.user_id) ??
-      ({
-        fullName: "Unknown student",
-      } as Pick<JuniorBeltRankingStudent, "fullName">);
-
-    promotions.push({
-      userId: award.user_id,
-      studentName: profile.fullName,
-      previousRankLabel: previousAward?.belt_level_id
-        ? formatAdminBeltLabel(
-            input.allBeltLevelById.get(previousAward.belt_level_id) ?? null,
-          )
-        : "Not set",
-      newRankLabel: award.belt_level_id
-        ? formatAdminBeltLabel(
-            input.allBeltLevelById.get(award.belt_level_id) ?? null,
-          )
-        : "Not set",
-      promotionDateLabel: formatPromotionDateLabel(award.awarded_at),
-      promotionDateKey: normalizeToDateKey(award.awarded_at) ?? award.awarded_at,
-    });
-  }
-
-  return promotions.sort((left, right) =>
-    right.promotionDateKey.localeCompare(left.promotionDateKey),
-  );
+  return buildRecentPromotionEntries({
+    activeMemberUserIds: input.activeMemberUserIds,
+    awardsByUserId: input.awardsByUserId,
+    cutoffDate: input.cutoffDate,
+    getStudentName: (userId) =>
+      input.studentProfilesByUserId.get(userId)?.fullName ?? "Unknown student",
+    formatNewRankLabel: (beltLevelId) =>
+      formatAdminBeltLabel(
+        beltLevelId ? input.allBeltLevelById.get(beltLevelId) ?? null : null,
+      ),
+    formatPreviousRankLabel: (beltLevelId) =>
+      formatAdminBeltLabel(
+        beltLevelId ? input.allBeltLevelById.get(beltLevelId) ?? null : null,
+      ),
+    formatPromotionDateLabel,
+    shouldIncludeAward: (award) =>
+      isJuniorBeltLevelId(award.belt_level_id, input.juniorBeltLevelById),
+  });
 }
 
 export async function getJuniorBeltRankingsPageData(
   clubId: string,
   clubName: string,
 ): Promise<JuniorBeltRankingsPageData> {
-  const activeMemberUserIds = await loadActiveMemberUserIds(clubId);
+  const sourceClubIds = JUNIOR_BELT_RANKINGS_SOURCE_CLUB_IDS;
+  const activeMemberUserIds = await loadActiveMemberUserIdsForClubs(sourceClubIds);
   const activeMemberUserIdSet = new Set(activeMemberUserIds);
 
-  const allBeltLevels = await loadBeltLevelsForClub(clubId);
+  const beltLevelsByClub = await Promise.all(
+    sourceClubIds.map((sourceClubId) => loadBeltLevelsForClub(sourceClubId)),
+  );
+  const allBeltLevels = beltLevelsByClub.flat();
   const allBeltLevelById = new Map(
     allBeltLevels.map((beltLevel) => [beltLevel.id, beltLevel]),
   );
@@ -445,10 +445,30 @@ export async function getJuniorBeltRankingsPageData(
   const juniorBeltLevelById = new Map(
     juniorBeltLevels.map((beltLevel) => [beltLevel.id, beltLevel]),
   );
+  const beltLevelsOrderedForCanonical = sourceClubIds
+    .map((sourceClubId, index) => ({
+      sourceClubId,
+      beltLevels: beltLevelsByClub[index] ?? [],
+    }))
+    .sort((left, right) => {
+      if (left.sourceClubId === clubId) {
+        return -1;
+      }
 
-  const latestAwardByUserId = await loadLatestGradeAwardsByUserId(
+      if (right.sourceClubId === clubId) {
+        return 1;
+      }
+
+      return 0;
+    })
+    .map((entry) => entry.beltLevels);
+  const canonicalJuniorBeltByLabel = buildCanonicalJuniorBeltByLabel(
+    beltLevelsOrderedForCanonical,
+  );
+
+  const latestAwardByUserId = await loadLatestGradeAwardsByUserIdForClubs(
     activeMemberUserIds,
-    clubId,
+    sourceClubIds,
   );
 
   const studentProfilesByUserId = buildStudentProfilesByUserId(
@@ -460,19 +480,20 @@ export async function getJuniorBeltRankingsPageData(
     activeMemberUserIds: activeMemberUserIdSet,
     latestAwardByUserId,
     juniorBeltLevelById,
+    canonicalJuniorBeltByLabel,
     studentProfilesByUserId,
   });
 
   const beltGroups = buildJuniorBeltRankingGroups(rankedEntries);
 
   const cutoffDate = getRecentPromotionCutoffDate();
-  const recentAwards = await loadRecentGradeAwards(clubId, cutoffDate);
+  const recentAwards = await loadRecentGradeAwards(sourceClubIds, cutoffDate);
   const recentPromotionUserIds = Array.from(
     new Set(recentAwards.map((award) => award.user_id)),
   );
   const promotionHistoryAwards = await loadGradeAwardsForUsers(
     recentPromotionUserIds,
-    clubId,
+    sourceClubIds,
   );
   const promotionStudentProfilesByUserId = buildStudentProfilesByUserId(
     recentPromotionUserIds,
@@ -480,9 +501,9 @@ export async function getJuniorBeltRankingsPageData(
   );
 
   const recentPromotions = buildRecentPromotions({
-    recentAwards,
     awardsByUserId: groupGradeAwardsByUserId(promotionHistoryAwards),
     activeMemberUserIds: activeMemberUserIdSet,
+    cutoffDate,
     allBeltLevelById,
     juniorBeltLevelById,
     studentProfilesByUserId: promotionStudentProfilesByUserId,

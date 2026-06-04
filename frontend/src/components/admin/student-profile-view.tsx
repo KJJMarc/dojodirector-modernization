@@ -70,7 +70,6 @@ export function StudentProfileView({
     bjjFeatureVisibility,
     attendance,
     belt,
-    gradeHistory,
   } = pageData;
   return (
     <div className="space-y-2">
@@ -241,54 +240,16 @@ export function StudentProfileView({
             />
           ) : null}
           {bjjFeatureVisibility.showGradingHistory ? (
-            <ActionButton href="#grading-history" label="Grading History" variant="secondary" />
+            <ActionButton
+              href={clubAdminPath(
+                clubSlug,
+                `students/${student.id}/grading-history`,
+              )}
+              label="Grading History"
+              variant="secondary"
+            />
           ) : null}
         </div>
-      </section>
-      ) : null}
-
-      {bjjFeatureVisibility.showGradingHistory ? (
-      <section id="grading-history" className={profileSectionClassName}>
-        <ProfileSectionHeading
-          title="Grading History"
-          description="Previous belt and stripe awards."
-        />
-
-        {gradeHistory.length === 0 ? (
-          <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-4 text-center text-sm text-dojo-muted">
-            No grading history recorded yet.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-dojo-border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-dojo-border bg-dojo-elevated text-left text-[11px] font-medium uppercase tracking-wide text-dojo-muted">
-                  <th className="px-3 py-1.5">Belt level</th>
-                  <th className="px-3 py-1.5">Awarded</th>
-                  <th className="px-3 py-1.5">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gradeHistory.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className="border-b border-dojo-border/70 last:border-b-0"
-                  >
-                    <td className="px-3 py-1.5 font-medium leading-snug text-dojo-white">
-                      {entry.beltLabel}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-1.5 leading-snug text-dojo-muted">
-                      {formatProfileDate(entry.awardedAt)}
-                    </td>
-                    <td className="px-3 py-1.5 leading-snug text-dojo-muted">
-                      {formatProfileField(entry.notes)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
       ) : null}
     </div>

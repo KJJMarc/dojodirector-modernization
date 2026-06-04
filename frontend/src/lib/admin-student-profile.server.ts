@@ -20,7 +20,6 @@ import {
   parseProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import type { AdminStudentProfilePageData } from "@/lib/admin-student-profile.shared";
-import { formatGradeAwardNotesForDisplay } from "@/lib/admin-student-profile.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import {
@@ -70,6 +69,8 @@ interface GradeAwardRow {
   belt_level_id: string | null;
   awarded_at: string;
   notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface BeltLevelRow {
@@ -133,7 +134,7 @@ async function loadGradeAwards(userId: string, clubId: string) {
 
   const { data, error } = await supabase
     .from("grade_awards")
-    .select("id, belt_level_id, awarded_at, notes")
+    .select("id, belt_level_id, awarded_at, notes, created_at, updated_at")
     .eq("user_id", userId)
     .eq("club_id", clubId)
     .order("awarded_at", { ascending: false });
@@ -228,6 +229,9 @@ export async function getAdminStudentProfilePageData(
         user_id: userId,
         belt_level_id: award.belt_level_id,
         awarded_at: award.awarded_at,
+        id: award.id,
+        created_at: award.created_at,
+        updated_at: award.updated_at,
       })),
     ) ?? null;
   const attendanceSummary = await loadBjjAttendanceSummary(
@@ -323,16 +327,6 @@ export async function getAdminStudentProfilePageData(
       nextBeltLabel: promotion?.nextBeltLabel ?? null,
       promotion,
     },
-    gradeHistory: gradeAwards.map((award) => ({
-      id: award.id,
-      beltLabel: formatAdminBeltLabel(
-        award.belt_level_id
-          ? beltLevelById.get(award.belt_level_id) ?? null
-          : null,
-      ),
-      awardedAt: award.awarded_at,
-      notes: formatGradeAwardNotesForDisplay(award.notes),
-    })),
   };
 }
 

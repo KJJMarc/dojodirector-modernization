@@ -23,10 +23,16 @@ export function logGradingProgressDiagnostics(diagnostics: GradingProgressDiagno
   console.log("[grading-progress]", JSON.stringify(diagnostics));
 }
 
-export interface LatestGradeAwardInput {
+export interface GradeAwardRecencyFields {
+  id?: string;
+  awarded_at: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface LatestGradeAwardInput extends GradeAwardRecencyFields {
   user_id: string;
   belt_level_id: string | null;
-  awarded_at: string;
 }
 
 export interface BeltLevelProgressionRow {
@@ -208,6 +214,88 @@ export function compareGradeAwardDates(
   return leftKey.localeCompare(rightKey);
 }
 
+function compareGradeAwardTimestamps(
+  leftTimestamp: string | null | undefined,
+  rightTimestamp: string | null | undefined,
+) {
+  if (!leftTimestamp && !rightTimestamp) {
+    return 0;
+  }
+
+  if (!leftTimestamp) {
+    return -1;
+  }
+
+  if (!rightTimestamp) {
+    return 1;
+  }
+
+  return leftTimestamp.localeCompare(rightTimestamp);
+}
+
+/**
+ * Positive when left is more recent than right.
+ * Tie-breakers on the same awarded_at day: updated_at, created_at, then id.
+ */
+export function compareGradeAwardRecency(
+  left: GradeAwardRecencyFields,
+  right: GradeAwardRecencyFields,
+) {
+  const dateCompare = compareGradeAwardDates(left.awarded_at, right.awarded_at);
+
+  if (dateCompare !== 0) {
+    return dateCompare;
+  }
+
+  const updatedCompare = compareGradeAwardTimestamps(
+    left.updated_at,
+    right.updated_at,
+  );
+
+  if (updatedCompare !== 0) {
+    return updatedCompare;
+  }
+
+  const createdCompare = compareGradeAwardTimestamps(
+    left.created_at,
+    right.created_at,
+  );
+
+  if (createdCompare !== 0) {
+    return createdCompare;
+  }
+
+  if (left.id && right.id) {
+    return left.id.localeCompare(right.id);
+  }
+
+  return 0;
+}
+
+export function sortGradeAwardsNewestFirst<T extends GradeAwardRecencyFields>(
+  awards: T[],
+) {
+  return [...awards].sort(
+    (left, right) => compareGradeAwardRecency(right, left),
+  );
+}
+
+export function findPreviousGradeAward<
+  T extends GradeAwardRecencyFields & {
+    id: string;
+    belt_level_id: string | null;
+  },
+>(userAwards: T[], currentAward: T): T | null {
+  const sorted = sortGradeAwardsNewestFirst(userAwards);
+  const currentIndex = sorted.findIndex((award) => award.id === currentAward.id);
+
+  if (currentIndex < 0) {
+    return null;
+  }
+
+  return sorted[currentIndex + 1] ?? null;
+}
+
 /**
  * Latest grade award per student by awarded_at (not first row in a global sort).
  * Required when bulk-loading awards ordered club-wide — otherwise an older award
@@ -221,10 +309,7 @@ export function pickLatestGradeAwardByUserId(
   for (const award of gradeAwards) {
     const existing = latestByUserId.get(award.user_id);
 
-    if (
-      !existing ||
-      compareGradeAwardDates(award.awarded_at, existing.awarded_at) > 0
-    ) {
+    if (!existing || compareGradeAwardRecency(award, existing) > 0) {
       latestByUserId.set(award.user_id, award);
     }
   }
@@ -236,7 +321,87 @@ export function pickLatestGradeAwardForUser(
   userId: string,
   gradeAwards: LatestGradeAwardInput[],
 ): LatestGradeAwardInput | null {
-  return pickLatestGradeAwardByUserId(gradeAwards).get(userId) ?? null;
+  const awardsForUser = gradeAwards.filter((award) => award.user_id === userId);
+
+  if (awardsForUser.length === 0) {
+    return null;
+  }
+
+  return sortGradeAwardsNewestFirst(awardsForUser)[0] ?? null;
+}
+
+export interface RecentPromotionAwardRow extends GradeAwardRecencyFields {
+  id: string;
+  user_id: string;
+  belt_level_id: string | null;
+}
+
+export interface RecentPromotionEntry {
+  userId: string;
+  studentName: string;
+  previousRankLabel: string;
+  newRankLabel: string;
+  promotionDateLabel: string;
+  promotionDateKey: string;
+}
+
+export function buildRecentPromotionEntries(input: {
+  activeMemberUserIds: Set<string>;
+  awardsByUserId: Map<string, RecentPromotionAwardRow[]>;
+  cutoffDate: Date;
+  getStudentName: (userId: string) => string;
+  formatNewRankLabel: (beltLevelId: string | null) => string;
+  formatPreviousRankLabel: (beltLevelId: string | null) => string;
+  formatPromotionDateLabel: (awardedAt: string) => string;
+  shouldIncludeAward?: (award: RecentPromotionAwardRow) => boolean;
+}): RecentPromotionEntry[] {
+  const cutoffKey = normalizeToDateKey(input.cutoffDate.toISOString()) ?? "";
+  const promotions: RecentPromotionEntry[] = [];
+
+  for (const userId of Array.from(input.activeMemberUserIds)) {
+    const userAwards = sortGradeAwardsNewestFirst(
+      input.awardsByUserId.get(userId) ?? [],
+    );
+
+    if (userAwards.length === 0) {
+      continue;
+    }
+
+    const latestAward = userAwards[0];
+    const promotionDateKey = normalizeToDateKey(latestAward.awarded_at);
+
+    if (!promotionDateKey || promotionDateKey < cutoffKey) {
+      continue;
+    }
+
+    if (input.shouldIncludeAward && !input.shouldIncludeAward(latestAward)) {
+      continue;
+    }
+
+    const previousAward = userAwards[1] ?? null;
+
+    if (
+      previousAward &&
+      previousAward.belt_level_id === latestAward.belt_level_id
+    ) {
+      continue;
+    }
+
+    promotions.push({
+      userId,
+      studentName: input.getStudentName(userId),
+      previousRankLabel: previousAward
+        ? input.formatPreviousRankLabel(previousAward.belt_level_id)
+        : "Not set",
+      newRankLabel: input.formatNewRankLabel(latestAward.belt_level_id),
+      promotionDateLabel: input.formatPromotionDateLabel(latestAward.awarded_at),
+      promotionDateKey,
+    });
+  }
+
+  return promotions.sort((left, right) =>
+    right.promotionDateKey.localeCompare(left.promotionDateKey),
+  );
 }
 
 function resolveCurrentBeltForPromotion(

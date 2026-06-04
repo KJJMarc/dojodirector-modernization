@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  compareGradeAwardDates,
+  buildRecentPromotionEntries,
   type BeltLevelProgressionRow,
 } from "@/lib/admin-belt-promotion.shared";
 import {
@@ -44,6 +44,8 @@ interface GradeAwardRow {
   user_id: string;
   belt_level_id: string | null;
   awarded_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface RankedStudentEntry {
@@ -84,32 +86,6 @@ function getRecentPromotionCutoffDate(referenceDate = new Date()) {
   return cutoff;
 }
 
-function sortGradeAwardsNewestFirst(awards: GradeAwardRow[]) {
-  return [...awards].sort((left, right) => {
-    const dateCompare = compareGradeAwardDates(right.awarded_at, left.awarded_at);
-
-    if (dateCompare !== 0) {
-      return dateCompare;
-    }
-
-    return right.id.localeCompare(left.id);
-  });
-}
-
-function findPreviousGradeAward(
-  userAwards: GradeAwardRow[],
-  currentAward: GradeAwardRow,
-): GradeAwardRow | null {
-  const sorted = sortGradeAwardsNewestFirst(userAwards);
-  const currentIndex = sorted.findIndex((award) => award.id === currentAward.id);
-
-  if (currentIndex < 0) {
-    return null;
-  }
-
-  return sorted[currentIndex + 1] ?? null;
-}
-
 function isAdultBeltLevel(
   beltLevelId: string | null | undefined,
   adultBeltLevelById: Map<string, BeltLevelProgressionRow>,
@@ -138,7 +114,7 @@ async function loadGradeAwardsForUsers(
     while (true) {
       const { data, error } = await supabase
         .from("grade_awards")
-        .select("id, user_id, belt_level_id, awarded_at")
+        .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
         .eq("club_id", clubId)
         .in("user_id", userIdBatch)
         .order("awarded_at", { ascending: false })
@@ -173,7 +149,7 @@ async function loadRecentGradeAwards(
   while (true) {
     const { data, error } = await supabase
       .from("grade_awards")
-      .select("id, user_id, belt_level_id, awarded_at")
+      .select("id, user_id, belt_level_id, awarded_at, created_at, updated_at")
       .eq("club_id", clubId)
       .gte("awarded_at", cutoffDate.toISOString())
       .order("awarded_at", { ascending: false })
@@ -439,56 +415,34 @@ function buildAdultBeltRankingGroups(entries: RankedStudentEntry[]): AdultBeltRa
 }
 
 function buildRecentPromotions(input: {
-  recentAwards: GradeAwardRow[];
   awardsByUserId: Map<string, GradeAwardRow[]>;
   activeMemberUserIds: Set<string>;
+  cutoffDate: Date;
   allBeltLevelById: Map<string, BeltLevelProgressionRow>;
+  adultBeltLevelById: Map<string, BeltLevelProgressionRow>;
   studentProfilesByUserId: Map<
     string,
     Pick<AdultBeltRankingStudent, "fullName" | "firstName" | "lastName">
   >;
 }): AdultBeltRecentPromotion[] {
-  const promotions: AdultBeltRecentPromotion[] = [];
-
-  for (const award of input.recentAwards) {
-    if (!input.activeMemberUserIds.has(award.user_id)) {
-      continue;
-    }
-
-    const userAwards = input.awardsByUserId.get(award.user_id) ?? [];
-    const previousAward = findPreviousGradeAward(userAwards, award);
-
-    if (!previousAward) {
-      continue;
-    }
-
-    const profile =
-      input.studentProfilesByUserId.get(award.user_id) ??
-      ({
-        fullName: "Unknown student",
-      } as Pick<AdultBeltRankingStudent, "fullName">);
-
-    promotions.push({
-      userId: award.user_id,
-      studentName: profile.fullName,
-      previousRankLabel: previousAward.belt_level_id
-        ? formatAdminBeltLabel(
-            input.allBeltLevelById.get(previousAward.belt_level_id) ?? null,
-          )
-        : "Not set",
-      newRankLabel: award.belt_level_id
-        ? formatAdminBeltLabel(
-            input.allBeltLevelById.get(award.belt_level_id) ?? null,
-          )
-        : "Not set",
-      promotionDateLabel: formatPromotionDateLabel(award.awarded_at),
-      promotionDateKey: normalizeToDateKey(award.awarded_at) ?? award.awarded_at,
-    });
-  }
-
-  return promotions.sort((left, right) =>
-    right.promotionDateKey.localeCompare(left.promotionDateKey),
-  );
+  return buildRecentPromotionEntries({
+    activeMemberUserIds: input.activeMemberUserIds,
+    awardsByUserId: input.awardsByUserId,
+    cutoffDate: input.cutoffDate,
+    getStudentName: (userId) =>
+      input.studentProfilesByUserId.get(userId)?.fullName ?? "Unknown student",
+    formatNewRankLabel: (beltLevelId) =>
+      formatAdminBeltLabel(
+        beltLevelId ? input.allBeltLevelById.get(beltLevelId) ?? null : null,
+      ),
+    formatPreviousRankLabel: (beltLevelId) =>
+      formatAdminBeltLabel(
+        beltLevelId ? input.allBeltLevelById.get(beltLevelId) ?? null : null,
+      ),
+    formatPromotionDateLabel,
+    shouldIncludeAward: (award) =>
+      isAdultBeltLevel(award.belt_level_id, input.adultBeltLevelById),
+  });
 }
 
 function groupGradeAwardsByUserId(awards: GradeAwardRow[]) {
@@ -553,10 +507,11 @@ export async function getAdultBeltRankingsPageData(
   );
 
   const recentPromotions = buildRecentPromotions({
-    recentAwards,
     awardsByUserId: groupGradeAwardsByUserId(promotionHistoryAwards),
     activeMemberUserIds: activeMemberUserIdSet,
+    cutoffDate,
     allBeltLevelById,
+    adultBeltLevelById,
     studentProfilesByUserId: promotionStudentProfilesByUserId,
   });
 

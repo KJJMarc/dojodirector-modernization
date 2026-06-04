@@ -72,7 +72,6 @@ export function JuniorBeltColourBar({ sectionKey }: { sectionKey: string }) {
   const isWhiteBelt = sectionKey === "white";
 
   if (process.env.NODE_ENV !== "production") {
-    console.log("[JuniorBeltColourBar]", { sectionKey, segments });
   }
 
   return (

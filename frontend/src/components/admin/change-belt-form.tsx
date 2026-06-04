@@ -42,6 +42,10 @@ export function ChangeBeltForm({
   };
 
   const submitAward = () => {
+    if (isPending) {
+      return;
+    }
+
     setError(null);
 
     const formData = new FormData();
