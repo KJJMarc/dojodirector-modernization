@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PublicSiteFooter } from "@/components/layout/public-site-footer";
+import { LEGAL_LAST_UPDATED } from "@/lib/public-legal.shared";
 
 interface PublicLegalDocumentProps {
   title: string;
@@ -25,7 +26,7 @@ export function PublicLegalDocument({ title, children }: PublicLegalDocumentProp
             {title}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-dojo-muted">
-            Last updated: June 2026
+            Last updated: {LEGAL_LAST_UPDATED}
           </p>
         </header>
 

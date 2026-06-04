@@ -1,7 +1,6 @@
-import {
-  PublicLegalSection,
-} from "@/components/public/public-legal-document";
-import { LEGAL_CONTACT_EMAIL } from "@/lib/public-legal.shared";
+import { LegalContactLink, LegalDocumentFooter } from "@/components/public/legal-document-footer";
+import { PublicLegalSection } from "@/components/public/public-legal-document";
+import { LEGAL_COMPANY_NAME } from "@/lib/public-legal.shared";
 
 export function TermsAndConditionsContent() {
   return (
@@ -11,6 +10,13 @@ export function TermsAndConditionsContent() {
         Director, the platform used by martial arts academies to manage members,
         classes, bookings, attendance and related academy operations. By accessing or
         using the platform, you agree to these Terms.
+      </p>
+
+      <p>
+        These Terms are provided by {LEGAL_COMPANY_NAME}.
+      </p>
+      <p>
+        Contact: <LegalContactLink />
       </p>
 
       <PublicLegalSection title="Use of the platform">
@@ -25,6 +31,14 @@ export function TermsAndConditionsContent() {
         </p>
       </PublicLegalSection>
 
+      <PublicLegalSection title="Academy Responsibilities">
+        <p>
+          Academies are responsible for the accuracy of data entered into the platform
+          and for complying with applicable laws relating to their members&apos;
+          information.
+        </p>
+      </PublicLegalSection>
+
       <PublicLegalSection title="Academy and admin responsibilities">
         <p>
           Each academy is responsible for the information it enters into the platform,
@@ -34,6 +48,18 @@ export function TermsAndConditionsContent() {
         <p>
           Academy administrators must ensure that staff with access use the platform
           appropriately and only for legitimate academy purposes.
+        </p>
+      </PublicLegalSection>
+
+      <PublicLegalSection title="Data Protection">
+        <p>
+          Academies remain the Data Controller for their member information. Dojo
+          Director acts as a Data Processor where applicable. Further information is
+          available in the{" "}
+          <a href="/privacy" className="text-dojo-red transition hover:underline">
+            Privacy Policy
+          </a>
+          .
         </p>
       </PublicLegalSection>
 
@@ -128,8 +154,12 @@ export function TermsAndConditionsContent() {
           If you have questions about these Terms, please contact your academy in the
           first instance.
         </p>
-        <p>Platform enquiries: {LEGAL_CONTACT_EMAIL}</p>
+        <p>
+          Platform enquiries: <LegalContactLink />
+        </p>
       </PublicLegalSection>
+
+      <LegalDocumentFooter />
     </>
   );
 }

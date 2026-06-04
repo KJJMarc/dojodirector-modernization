@@ -1,2 +1,5 @@
-/** Placeholder until academy-specific contact details are configured. */
-export const LEGAL_CONTACT_EMAIL = "[academy contact email]";
+export const LEGAL_COMPANY_NAME = "Kingston Jiu Jitsu Ltd";
+
+export const LEGAL_CONTACT_EMAIL = "admin@kingstonjiujitsu.com";
+
+export const LEGAL_LAST_UPDATED = "June 2026";

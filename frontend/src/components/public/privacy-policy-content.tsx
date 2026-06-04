@@ -1,5 +1,6 @@
+import { LegalContactLink, LegalDocumentFooter } from "@/components/public/legal-document-footer";
 import { PublicLegalSection } from "@/components/public/public-legal-document";
-import { LEGAL_CONTACT_EMAIL } from "@/lib/public-legal.shared";
+import { LEGAL_COMPANY_NAME } from "@/lib/public-legal.shared";
 
 export function PrivacyPolicyContent() {
   return (
@@ -11,6 +12,15 @@ export function PrivacyPolicyContent() {
         for deciding what information it collects about you and how that information
         is used in practice.
       </p>
+
+      <PublicLegalSection title="Who We Are">
+        <p>
+          {LEGAL_COMPANY_NAME} operates Dojo Director.
+        </p>
+        <p>
+          Contact: <LegalContactLink />
+        </p>
+      </PublicLegalSection>
 
       <PublicLegalSection title="What personal data may be collected">
         <p>
@@ -26,6 +36,19 @@ export function PrivacyPolicyContent() {
           <li>portal login and account information;</li>
           <li>messages or notes entered by academy staff where relevant.</li>
         </ul>
+        <p>
+          For academies using Dojo Director, the academy is generally the Data
+          Controller for its members&apos; personal information. Dojo Director acts as
+          a Data Processor providing the software platform.
+        </p>
+      </PublicLegalSection>
+
+      <PublicLegalSection title="Children's Data">
+        <p>
+          Where academies manage junior members, Dojo Director may store information
+          relating to children and their parent or guardian contacts for attendance,
+          grading, membership and communication purposes.
+        </p>
       </PublicLegalSection>
 
       <PublicLegalSection title="Student and member details">
@@ -129,8 +152,12 @@ export function PrivacyPolicyContent() {
           For privacy questions about your member data, please contact your academy
           directly.
         </p>
-        <p>Platform enquiries: {LEGAL_CONTACT_EMAIL}</p>
+        <p>
+          Platform enquiries: <LegalContactLink />
+        </p>
       </PublicLegalSection>
+
+      <LegalDocumentFooter />
     </>
   );
 }
