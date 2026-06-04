@@ -1,4 +1,5 @@
 import {
+  ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
   groupAttendanceSessionsByMonth,
 } from "@/lib/attendance-schedule";
 import { getAttendanceScheduleSessions } from "@/lib/attendance-schedule.server";
@@ -54,7 +55,11 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const monthGroups = groupAttendanceSessionsByMonth(sessions);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+    <main
+      className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5"
+      data-attendance-time-fix={ATTENDANCE_TIME_DISPLAY_FIX_VERSION}
+      data-attendance-page="register"
+    >
       <AppHeader pageTitle="Attendance Register" />
 
       {navContext ? <AttendanceRegisterBackLink context={navContext} /> : null}

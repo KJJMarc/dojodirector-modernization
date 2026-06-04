@@ -8,7 +8,7 @@ import { getProgrammeAttendanceCardsEnabled } from "@/lib/admin-programmes.serve
 import {
   formatAttendanceCapacitySummary,
   formatAttendanceDayLabel,
-  formatAttendanceTimeRange,
+  formatAttendanceSessionTimeRange,
 } from "@/lib/attendance-schedule";
 import { getAttendanceSessionDetails } from "@/lib/attendance-session";
 import { formatBookingDate, formatSessionLocation } from "@/lib/booking";
@@ -40,7 +40,7 @@ export default async function AttendanceSessionPage({
     notFound();
   }
 
-  const { session, endsAt, capacity, isCancelled, status, clubId, programmeType } =
+  const { session, endsAt, externalId, capacity, isCancelled, status, clubId, programmeType } =
     details;
   const navContext = parseAttendanceRegisterNavContext(searchParams);
 
@@ -66,6 +66,7 @@ export default async function AttendanceSessionPage({
     programmeId: null,
     startsAt: session.starts_at,
     endsAt,
+    externalId,
     location: session.location,
     capacity,
     bookedCount: session.session_attendees.length,
@@ -95,7 +96,7 @@ export default async function AttendanceSessionPage({
             {formatAttendanceDayLabel(session.starts_at)}
           </p>
           <p className="text-sm text-dojo-muted">
-            {formatAttendanceTimeRange(session.starts_at, endsAt)}
+            {formatAttendanceSessionTimeRange(scheduleSession)}
           </p>
           <p className="text-sm text-dojo-muted">
             {formatSessionLocation(session.location)}
@@ -132,6 +133,8 @@ export default async function AttendanceSessionPage({
           ) : null}
           <SessionAttendanceSection
             session={session}
+            endsAt={endsAt}
+            externalId={externalId}
             markAttendanceAction={markAttendance}
             markingDisabled={markingDisabled}
             showAttendanceCardLink={showAttendanceCardLink}

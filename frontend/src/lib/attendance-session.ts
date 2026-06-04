@@ -25,6 +25,7 @@ interface ClassSessionMetaRow {
   club_id: string;
   starts_at: string;
   ends_at: string | null;
+  external_id: string | null;
   capacity: number | null;
   status: string | null;
   classes: { programme_type: ProgrammeType } | { programme_type: ProgrammeType }[] | null;
@@ -33,6 +34,7 @@ interface ClassSessionMetaRow {
 export interface AttendanceSessionDetails {
   session: ClassSession;
   endsAt: string | null;
+  externalId: string | null;
   capacity: number | null;
   status: string | null;
   isCancelled: boolean;
@@ -190,7 +192,7 @@ export async function getAttendanceSessionDetails(
   const { data: meta, error: metaError } = await supabase
     .from("class_sessions")
     .select(
-      "id, class_id, club_id, starts_at, ends_at, capacity, status, classes(programme_type)",
+      "id, class_id, club_id, starts_at, ends_at, external_id, capacity, status, classes(programme_type)",
     )
     .eq("id", sessionId)
     .maybeSingle();
@@ -228,6 +230,7 @@ export async function getAttendanceSessionDetails(
   return {
     session: sorted[0]!,
     endsAt: classSessionMeta.ends_at,
+    externalId: classSessionMeta.external_id,
     capacity: classSessionMeta.capacity,
     status: classSessionMeta.status,
     isCancelled: classSessionMeta.status === "cancelled",

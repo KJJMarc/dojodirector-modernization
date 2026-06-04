@@ -1,3 +1,4 @@
+import { utcIsoToLondonTime } from "@/lib/london-datetime";
 import { ClassSession } from "@/types/database";
 
 export function getStudentFullName(
@@ -9,10 +10,7 @@ export function getStudentFullName(
 }
 
 export function formatClassTime(startsAt: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(startsAt));
+  return utcIsoToLondonTime(startsAt);
 }
 
 export function getTodayUtcRange() {

@@ -1,9 +1,15 @@
 import { formatBookingDate } from "@/lib/booking";
 import {
+  ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
+  formatAttendanceSessionTimeRange,
+  isAttendanceTimeDebugEnabled,
+  resolveAttendanceSessionTimeSource,
+} from "@/lib/attendance-time-display.shared";
+import {
   ClassScheduleSession,
   formatScheduleCapacitySummary,
   formatScheduleDayLabel,
-  formatScheduleTimeRange,
+  resolveScheduleDateKey,
   type ClassScheduleDateGroup,
 } from "@/lib/class-session-schedule";
 
@@ -11,9 +17,12 @@ export type AttendanceScheduleSession = ClassScheduleSession;
 export type AttendanceScheduleDateGroup = ClassScheduleDateGroup;
 
 export {
+  ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
+  formatAttendanceSessionTimeRange,
+  isAttendanceTimeDebugEnabled,
+  resolveAttendanceSessionTimeSource,
   formatScheduleCapacitySummary as formatAttendanceCapacitySummary,
   formatScheduleDayLabel as formatAttendanceDayLabel,
-  formatScheduleTimeRange as formatAttendanceTimeRange,
 };
 
 export interface AttendanceScheduleMonthGroup {
@@ -33,11 +42,13 @@ export function getAttendanceScheduleDateRange() {
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
-export function formatAttendanceMonthLabel(startsAt: string) {
+export function formatAttendanceMonthLabel(startsAt: string, externalId?: string | null) {
+  const dateKey = resolveScheduleDateKey({ startsAt, externalId });
   return new Intl.DateTimeFormat("en-GB", {
     month: "long",
     year: "numeric",
-  }).format(new Date(startsAt));
+    timeZone: "Europe/London",
+  }).format(new Date(`${dateKey}T12:00:00Z`));
 }
 
 export function groupAttendanceSessionsByMonth(
@@ -46,18 +57,24 @@ export function groupAttendanceSessionsByMonth(
   const months = new Map<string, AttendanceScheduleMonthGroup>();
 
   for (const session of sessions) {
-    const monthKey = new Date(session.startsAt).toISOString().slice(0, 7);
+    const dateKey = resolveScheduleDateKey({
+      startsAt: session.startsAt,
+      externalId: session.externalId,
+    });
+    const monthKey = dateKey.slice(0, 7);
 
     if (!months.has(monthKey)) {
       months.set(monthKey, {
         monthKey,
-        monthLabel: formatAttendanceMonthLabel(session.startsAt),
+        monthLabel: formatAttendanceMonthLabel(
+          session.startsAt,
+          session.externalId,
+        ),
         dateGroups: [],
       });
     }
 
     const monthGroup = months.get(monthKey)!;
-    const dateKey = new Date(session.startsAt).toISOString().slice(0, 10);
     let dateGroup = monthGroup.dateGroups.find((group) => group.dateKey === dateKey);
 
     if (!dateGroup) {

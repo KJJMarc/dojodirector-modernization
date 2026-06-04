@@ -62,7 +62,7 @@ function addDurationToTimeLabel(startTime: string, durationMs: number) {
   return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
 }
 
-function hasExternalSessionSlotTime(externalId: string | null | undefined) {
+export function hasExternalSessionSlotTime(externalId: string | null | undefined) {
   if (!externalId) {
     return false;
   }

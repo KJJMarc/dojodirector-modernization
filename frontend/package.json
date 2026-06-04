@@ -11,7 +11,8 @@
     "test:waitlist": "npx --yes tsx --test src/lib/session-waitlist.shared.test.ts",
     "test:junior-belt-rankings": "npx --yes tsx --test src/lib/junior-belt-rankings.shared.test.ts",
     "test:grade-awards": "npx --yes tsx --test src/lib/admin-belt-promotion.shared.test.ts",
-    "test:grade-award-delete": "npx --yes tsx --test src/lib/admin-grade-award.shared.test.ts"
+    "test:grade-award-delete": "npx --yes tsx --test src/lib/admin-grade-award.shared.test.ts",
+    "test:class-session-schedule": "npx --yes tsx --test src/lib/class-session-schedule.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

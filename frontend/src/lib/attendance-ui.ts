@@ -1,3 +1,4 @@
+import { utcIsoToLondonTime } from "@/lib/london-datetime";
 import { AttendanceStatus } from "@/types/database";
 
 export interface AttendanceCounts {
@@ -20,6 +21,7 @@ export function countAttendance(
   return { booked, present, absent, unmarked };
 }
 
+/** @deprecated Prefer formatAttendanceSessionTimeRange from attendance-schedule. */
 export function formatSessionStartsAt(startsAt: string) {
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
@@ -27,5 +29,10 @@ export function formatSessionStartsAt(startsAt: string) {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Europe/London",
   }).format(new Date(startsAt));
+}
+
+export function formatSessionStartsAtLondon(startsAt: string) {
+  return utcIsoToLondonTime(startsAt);
 }

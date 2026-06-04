@@ -1,8 +1,11 @@
 import Link from "next/link";
 import {
   AttendanceScheduleSession,
+  ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
   formatAttendanceCapacitySummary,
-  formatAttendanceTimeRange,
+  formatAttendanceSessionTimeRange,
+  isAttendanceTimeDebugEnabled,
+  resolveAttendanceSessionTimeSource,
 } from "@/lib/attendance-schedule";
 import { formatSessionLocation } from "@/lib/booking";
 import {
@@ -19,6 +22,10 @@ export function AttendanceSessionRow({
   session,
   navContext = null,
 }: AttendanceSessionRowProps) {
+  const timeLabel = formatAttendanceSessionTimeRange(session);
+  const timeSource = resolveAttendanceSessionTimeSource(session);
+  const showTimeDebug = isAttendanceTimeDebugEnabled();
+
   const sessionHref = navContext
     ? withAttendanceRegisterNavContext(`/attendance/${session.id}`, navContext)
     : `/attendance/${session.id}`;
@@ -37,8 +44,19 @@ export function AttendanceSessionRow({
           <h3 className="truncate text-base font-semibold text-dojo-white">
             {session.className}
           </h3>
-          <p className="text-sm text-dojo-muted">
-            {formatAttendanceTimeRange(session.startsAt, session.endsAt)}
+          <p
+            className="text-sm text-dojo-muted"
+            data-attendance-time-fix={ATTENDANCE_TIME_DISPLAY_FIX_VERSION}
+            data-attendance-time-source={timeSource}
+            data-attendance-external-id={session.externalId ?? ""}
+          >
+            {timeLabel}
+            {showTimeDebug ? (
+              <span className="mt-0.5 block text-[10px] text-dojo-red">
+                DEBUG time={timeLabel} source={timeSource} fix=
+                {ATTENDANCE_TIME_DISPLAY_FIX_VERSION}
+              </span>
+            ) : null}
           </p>
           <p className="text-sm text-dojo-muted">
             {formatSessionLocation(session.location)}
