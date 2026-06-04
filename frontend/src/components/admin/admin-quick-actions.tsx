@@ -7,7 +7,6 @@ import {
   clubProgrammesAdminPath,
 } from "@/lib/admin-programmes.shared";
 import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
-import { adminDashboardAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 
 interface DashboardAction {
@@ -97,11 +96,6 @@ function buildDashboardSections(
           label: "Manage Classes",
           href: clubAdminPath(clubSlug, "classes/edit"),
           description: "Recurring classes, events and sessions",
-        },
-        {
-          label: "Attendance Register",
-          href: adminDashboardAttendanceRegisterPath(clubSlug),
-          description: "Mark attendance for upcoming classes",
         },
         {
           label: "Class Data",
