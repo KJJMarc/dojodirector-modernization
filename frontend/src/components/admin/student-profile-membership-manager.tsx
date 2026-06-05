@@ -114,6 +114,15 @@ export function StudentProfileMembershipManager({
       try {
         await deleteStudentAction(formData);
       } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "digest" in error &&
+          String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
+        ) {
+          throw error;
+        }
+
         setDeleteError(
           error instanceof Error ? error.message : "Unable to delete student.",
         );

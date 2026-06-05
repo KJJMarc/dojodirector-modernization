@@ -237,6 +237,7 @@ export async function updateStudentProgrammeAccessAction(
 
 export async function deleteStudentAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
+  await requireAdminAccessForClubSlug(clubSlug);
   const club = await requireClubBySlug(clubSlug);
   const userId = String(formData.get("userId") ?? "");
   const confirmation = String(formData.get("confirmation") ?? "");
@@ -248,5 +249,5 @@ export async function deleteStudentAction(formData: FormData) {
   });
 
   revalidateMembershipAdminPaths(clubSlug, userId);
-  redirect(clubAdminPath(clubSlug, "students"));
+  redirect(`${clubAdminPath(clubSlug, "students")}?deleted=1`);
 }

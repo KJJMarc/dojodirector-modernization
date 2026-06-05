@@ -34,6 +34,6 @@ COMMENT ON TABLE public.session_waitlist IS
 
 ALTER TABLE public.session_waitlist ENABLE ROW LEVEL SECURITY;
 
-GRANT SELECT, INSERT, UPDATE ON public.session_waitlist TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.session_waitlist TO service_role;
 
 COMMIT;

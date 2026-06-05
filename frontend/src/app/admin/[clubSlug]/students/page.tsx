@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 interface ClubAdminStudentsPageProps {
   params: { clubSlug: string };
-  searchParams: { q?: string; sort?: string; dir?: string };
+  searchParams: { q?: string; sort?: string; dir?: string; deleted?: string };
 }
 
 export async function generateMetadata({
@@ -54,6 +54,15 @@ export default async function ClubAdminStudentsPage({
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="BJJ Students" clubName={club.name} />
+
+      {searchParams.deleted === "1" ? (
+        <p
+          className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-dojo-white"
+          role="status"
+        >
+          Student deleted successfully.
+        </p>
+      ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <AdminNavLinks>
