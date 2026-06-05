@@ -6,8 +6,12 @@ import {
   updatePasswordAfterResetAction,
   updatePasswordAfterSetupAction,
 } from "@/app/reset-password/actions";
-import { PASSWORD_RESET_INVALID_LINK_MESSAGE } from "@/lib/password-reset.shared";
-import type { PasswordResetLoginContext } from "@/lib/password-reset.shared";
+import { PORTAL_SETUP_INVALID_LINK_MESSAGE } from "@/lib/portal-setup.shared";
+import {
+  forgotPasswordPath,
+  PASSWORD_RESET_INVALID_LINK_MESSAGE,
+  type PasswordResetLoginContext,
+} from "@/lib/password-reset.shared";
 
 interface ResetPasswordFormProps {
   loginPath: string;
@@ -27,8 +31,11 @@ export function ResetPasswordForm({
   hasRecoverySession,
   showInvalidLink,
 }: ResetPasswordFormProps) {
+  const invalidLinkMessage = isFirstTimeSetup
+    ? PORTAL_SETUP_INVALID_LINK_MESSAGE
+    : PASSWORD_RESET_INVALID_LINK_MESSAGE;
   const [errorMessage, setErrorMessage] = useState<string | null>(
-    showInvalidLink ? PASSWORD_RESET_INVALID_LINK_MESSAGE : null,
+    showInvalidLink ? invalidLinkMessage : null,
   );
   const [isPending, startTransition] = useTransition();
 
@@ -36,11 +43,14 @@ export function ResetPasswordForm({
     return (
       <div className="space-y-4">
         <p className="rounded-lg border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-white">
-          {errorMessage ?? PASSWORD_RESET_INVALID_LINK_MESSAGE}
+          {errorMessage ?? invalidLinkMessage}
         </p>
         <p className="text-center text-sm text-dojo-muted">
-          <Link href="/forgot-password" className="font-medium text-dojo-white hover:underline">
-            Request a new reset link
+          <Link
+            href={forgotPasswordPath(context ?? "student")}
+            className="font-medium text-dojo-white hover:underline"
+          >
+            {isFirstTimeSetup ? "Request a password reset link" : "Request a new reset link"}
           </Link>
         </p>
         <p className="text-center text-sm text-dojo-muted">

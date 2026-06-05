@@ -1,3 +1,4 @@
+import { portalAuthLinkExpiryEmailLine } from "@/lib/portal-auth-link.shared";
 import { PORTAL_SETUP_SUBJECT } from "@/lib/portal-setup.shared";
 
 export { PORTAL_SETUP_SUBJECT };
@@ -22,7 +23,7 @@ export function buildPortalSetupEmailHtml(input: {
     ${academyLine}
     <p>Use the link below to choose a password and access your portal:</p>
     <p><a href="${escapeHtml(input.setupLink)}" style="color:#c41e3a;font-weight:600;">Set up your account</a></p>
-    <p style="color:#666;font-size:13px;">This link expires after a short period for your security (typically within one hour). If you were not expecting this email, you can safely ignore it.</p>
+    <p style="color:#666;font-size:13px;">${portalAuthLinkExpiryEmailLine()} If you were not expecting this email, you can safely ignore it.</p>
     <p style="color:#666;font-size:12px;">If the button does not work, copy and paste this link into your browser:<br />${escapeHtml(input.setupLink)}</p>
   `.trim();
 }
@@ -38,7 +39,7 @@ export function buildPortalSetupEmailText(input: {
     "",
     `Set up your account: ${input.setupLink}`,
     "",
-    "This link expires after a short period for your security (typically within one hour).",
+    portalAuthLinkExpiryEmailLine(),
     "If you were not expecting this email, you can safely ignore it.",
   ];
 

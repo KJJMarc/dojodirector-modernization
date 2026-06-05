@@ -1,0 +1,7 @@
+# Local Supabase CLI auth defaults.
+# Hosted projects: Dashboard → Authentication → Providers → Email → Email OTP Expiration = 86400
+# (24 hours). Portal setup and password reset links use auth.admin.generateLink(type: recovery),
+# which honours this project-wide setting.
+
+[auth]
+otp_expiry = 86400

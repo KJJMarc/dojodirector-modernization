@@ -1,10 +1,11 @@
 import { adminLoginPath, superAdminLoginPath } from "@/lib/admin-auth.shared";
+import { PORTAL_AUTH_LINK_VALIDITY_LABEL } from "@/lib/portal-auth-link.shared";
 
 export const PASSWORD_RESET_REQUEST_SUCCESS_MESSAGE =
   "If an account exists for that email, a password reset link has been sent.";
 
 export const PASSWORD_RESET_INVALID_LINK_MESSAGE =
-  "This password reset link is invalid or has expired. Please request a new link.";
+  `This password reset link is invalid or has expired. Links are valid for ${PORTAL_AUTH_LINK_VALIDITY_LABEL}. Please request a new link.`;
 
 export const PASSWORD_RESET_SUCCESS_MESSAGE =
   "Your password has been updated. You can sign in with your new password.";
