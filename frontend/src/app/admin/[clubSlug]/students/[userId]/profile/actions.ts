@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect";
 import {
   adminDeleteStudentMembership,
   adminUpdateMembershipRole,
@@ -235,19 +235,45 @@ export async function updateStudentProgrammeAccessAction(
   return updateStudentProgrammeMembershipAction(clubSlug, userId, programmeIds);
 }
 
-export async function deleteStudentAction(formData: FormData) {
+export type DeleteStudentActionResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export async function deleteStudentAction(
+  formData: FormData,
+): Promise<DeleteStudentActionResult> {
   const clubSlug = parseClubSlugFromForm(formData);
-  await requireAdminAccessForClubSlug(clubSlug);
-  const club = await requireClubBySlug(clubSlug);
-  const userId = String(formData.get("userId") ?? "");
-  const confirmation = String(formData.get("confirmation") ?? "");
 
-  await adminDeleteStudentMembership({
-    userId,
-    clubId: club.id,
-    confirmation,
-  });
+  try {
+    await requireAdminAccessForClubSlug(clubSlug);
+    const club = await requireClubBySlug(clubSlug);
+    const userId = String(formData.get("userId") ?? "");
+    const confirmation = String(formData.get("confirmation") ?? "");
 
-  revalidateMembershipAdminPaths(clubSlug, userId);
-  redirect(`${clubAdminPath(clubSlug, "students")}?deleted=1`);
+    await adminDeleteStudentMembership({
+      userId,
+      clubId: club.id,
+      confirmation,
+    });
+
+    revalidateMembershipAdminPaths(clubSlug, userId);
+
+    return { success: true };
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    console.error("[deleteStudentAction] failed", {
+      clubSlug,
+      userId: String(formData.get("userId") ?? ""),
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unable to delete student.",
+    };
+  }
 }

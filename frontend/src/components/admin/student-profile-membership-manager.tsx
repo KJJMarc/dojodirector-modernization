@@ -20,6 +20,7 @@ import {
   STUDENT_DELETE_CONFIRMATION_TEXT,
   type ProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   formatMembershipStatus,
   type AdminStudentProfileDetails,
@@ -111,22 +112,15 @@ export function StudentProfileMembershipManager({
     formData.set("confirmation", confirmation);
 
     startDeleteTransition(async () => {
-      try {
-        await deleteStudentAction(formData);
-      } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "digest" in error &&
-          String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
-        ) {
-          throw error;
-        }
+      const result = await deleteStudentAction(formData);
 
-        setDeleteError(
-          error instanceof Error ? error.message : "Unable to delete student.",
-        );
+      if (result.success) {
+        router.push(`${clubAdminPath(clubSlug, "students")}?deleted=1`);
+        router.refresh();
+        return;
       }
+
+      setDeleteError(result.error);
     });
   };
 

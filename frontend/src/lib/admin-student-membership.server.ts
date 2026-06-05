@@ -67,11 +67,50 @@ async function deleteSessionAttendeesForClubUser(
     .eq("user_id", userId)
     .eq("class_sessions.club_id", clubId);
 
-  if (selectError) {
-    throw new Error(`Unable to load session bookings: ${selectError.message}`);
-  }
+  let attendeeIds: string[] = [];
 
-  const attendeeIds = (rows ?? []).map((row) => row.id as string);
+  if (selectError) {
+    const { data: attendees, error: attendeesError } = await supabase
+      .from("session_attendees")
+      .select("id, class_session_id")
+      .eq("user_id", userId);
+
+    if (attendeesError) {
+      throw new Error(`Unable to load session bookings: ${attendeesError.message}`);
+    }
+
+    if (!attendees?.length) {
+      return;
+    }
+
+    const sessionIds = Array.from(
+      new Set(attendees.map((row) => row.class_session_id as string)),
+    );
+    const clubSessionIds = new Set<string>();
+
+    for (let index = 0; index < sessionIds.length; index += 100) {
+      const batch = sessionIds.slice(index, index + 100);
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("class_sessions")
+        .select("id")
+        .in("id", batch)
+        .eq("club_id", clubId);
+
+      if (sessionsError) {
+        throw new Error(`Unable to load session bookings: ${sessionsError.message}`);
+      }
+
+      for (const session of sessions ?? []) {
+        clubSessionIds.add(session.id as string);
+      }
+    }
+
+    attendeeIds = attendees
+      .filter((row) => clubSessionIds.has(row.class_session_id as string))
+      .map((row) => row.id as string);
+  } else {
+    attendeeIds = (rows ?? []).map((row) => row.id as string);
+  }
 
   if (attendeeIds.length === 0) {
     return;
@@ -113,6 +152,48 @@ async function deleteSessionWaitlistForClubUser(userId: string, clubId: string) 
   }
 
   throw new Error(`Unable to delete session waitlist entries: ${error.message}`);
+}
+
+async function deleteLeadsForClubUser(userId: string, clubId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("email, first_name, last_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (userError) {
+    throw new Error(`Unable to load student email: ${userError.message}`);
+  }
+
+  const email = user?.email?.trim().toLowerCase();
+
+  if (!email) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .eq("academy_id", clubId)
+    .ilike("email", email);
+
+  if (!error) {
+    return;
+  }
+
+  const message = error.message.toLowerCase();
+
+  if (
+    message.includes("leads") &&
+    (message.includes("does not exist") ||
+      message.includes("schema cache") ||
+      message.includes("could not find"))
+  ) {
+    return;
+  }
+
+  throw new Error(`Unable to delete trial leads: ${error.message}`);
 }
 
 async function deleteProgrammeAccessForClubUser(userId: string, clubId: string) {
@@ -274,6 +355,7 @@ export async function adminDeleteStudentMembership(input: {
   await deleteSessionAttendeesForClubUser(input.userId, clubId);
   await deleteSessionWaitlistForClubUser(input.userId, clubId);
   await deleteProgrammeAccessForClubUser(input.userId, clubId);
+  await deleteLeadsForClubUser(input.userId, clubId);
 
   const { error: attendanceError } = await supabase
     .from("attendance_records")
