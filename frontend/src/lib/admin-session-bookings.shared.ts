@@ -1,19 +1,7 @@
 import type { ProgrammeType } from "@/lib/admin-programme-types";
-import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
 
-/** Maximum block-booking end date: 52 weeks from today (London calendar date). */
-export const RECURRING_BLOCK_BOOKING_MAX_DAYS_AHEAD =
-  RECURRING_CLASS_SESSION_DAYS_AHEAD;
-
-export function getRecurringBlockBookingMaxEndDate(from = new Date()) {
-  const date = new Date(from);
-  date.setDate(date.getDate() + RECURRING_BLOCK_BOOKING_MAX_DAYS_AHEAD);
-  return date.toISOString().slice(0, 10);
-}
-
-export function getRecurringBlockBookingDefaultEndDate() {
-  return getRecurringBlockBookingMaxEndDate();
-}
+/** Block-booking target: the next 52 non-cancelled future sessions (one year of weekly class). */
+export const RECURRING_BLOCK_BOOKING_SESSION_COUNT = 52;
 
 export interface SessionBookingAttendee {
   id: string;
@@ -56,6 +44,7 @@ export interface BookingStudentOption {
 
 export interface BlockBookingResult {
   bookedCount: number;
+  trimmedCount: number;
   skipped: {
     cancelled: number;
     alreadyBooked: number;

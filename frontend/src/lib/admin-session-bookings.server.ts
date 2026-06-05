@@ -3,6 +3,7 @@ import "server-only";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import { getRecurringClassScheduleById } from "@/lib/admin-recurring-classes.server";
+import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
 import {
   formatScheduleDayLabel,
   formatScheduleTimeRange,
@@ -19,7 +20,7 @@ import { createNextWaitlistOfferAfterCancellation } from "@/lib/session-waitlist
 import { londonLocalDateTimeToUtcIso } from "@/lib/london-datetime";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  getRecurringBlockBookingMaxEndDate,
+  RECURRING_BLOCK_BOOKING_SESSION_COUNT,
   type AdminSessionBookingsView,
   type BlockBookingResult,
   type BookingStudentOption,
@@ -150,6 +151,126 @@ async function loadAllFutureSessionsForRecurringSchedule(
   schedule: RecurringScheduleRow,
 ) {
   return loadFutureSessionsForRecurringSchedule(schedule, getFarFutureEndIso());
+}
+
+function isActiveBookingStatus(status: string | null | undefined) {
+  return (
+    status === "booked" || status === "waitlisted" || status === "walk_in"
+  );
+}
+
+async function loadScheduleLinkedFutureSessions(
+  schedule: RecurringScheduleRow,
+  sessionCount?: number,
+) {
+  const supabase = getSupabaseAdminClient();
+  const nowIso = new Date().toISOString();
+
+  let query = supabase
+    .from("class_sessions")
+    .select(
+      "id, capacity, status, starts_at, recurring_schedule_id, external_id, source",
+    )
+    .eq("recurring_schedule_id", schedule.id)
+    .gte("starts_at", nowIso)
+    .neq("status", "cancelled")
+    .order("starts_at", { ascending: true });
+
+  if (sessionCount !== undefined) {
+    query = query.limit(sessionCount);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Unable to load schedule-linked sessions: ${error.message}`);
+  }
+
+  return (data ?? []) as FutureSessionRow[];
+}
+
+async function getCanonicalBlockBookingSessions(
+  schedule: RecurringScheduleRow,
+  sessionCount: number = RECURRING_BLOCK_BOOKING_SESSION_COUNT,
+) {
+  const linkedSessions = await loadScheduleLinkedFutureSessions(
+    schedule,
+    sessionCount,
+  );
+
+  if (linkedSessions.length >= sessionCount) {
+    return linkedSessions.slice(0, sessionCount);
+  }
+
+  const sessions = await loadAllFutureSessionsForRecurringSchedule(schedule);
+
+  return sessions
+    .filter((session) => session.status !== "cancelled")
+    .slice(0, sessionCount);
+}
+
+async function ensureRecurringScheduleFutureSessions(
+  scheduleId: string,
+  clubId: string,
+  sessionCount: number = RECURRING_BLOCK_BOOKING_SESSION_COUNT,
+) {
+  const supabase = getSupabaseAdminClient();
+  const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
+  let canonicalSessions = await getCanonicalBlockBookingSessions(
+    schedule,
+    sessionCount,
+  );
+
+  if (canonicalSessions.length >= sessionCount) {
+    return canonicalSessions;
+  }
+
+  let daysAhead = RECURRING_CLASS_SESSION_DAYS_AHEAD;
+
+  while (canonicalSessions.length < sessionCount && daysAhead <= 420) {
+    const { error } = await supabase.rpc("generate_recurring_class_sessions", {
+      p_schedule_id: scheduleId,
+      p_days_ahead: daysAhead,
+    });
+
+    if (error) {
+      throw new Error(`Unable to generate recurring sessions: ${error.message}`);
+    }
+
+    canonicalSessions = await getCanonicalBlockBookingSessions(
+      schedule,
+      sessionCount,
+    );
+    daysAhead += 56;
+  }
+
+  if (canonicalSessions.length < sessionCount) {
+    throw new Error(
+      `Only ${canonicalSessions.length} non-cancelled future sessions available; need ${sessionCount}.`,
+    );
+  }
+
+  return canonicalSessions;
+}
+
+function parseBlockBookingSessionCount(sessionCount?: number | string) {
+  const raw =
+    sessionCount === undefined || sessionCount === ""
+      ? RECURRING_BLOCK_BOOKING_SESSION_COUNT
+      : sessionCount;
+  const parsed = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < 1 ||
+    parsed > RECURRING_BLOCK_BOOKING_SESSION_COUNT
+  ) {
+    throw new Error(
+      `Session count must be between 1 and ${RECURRING_BLOCK_BOOKING_SESSION_COUNT}.`,
+    );
+  }
+
+  return parsed;
 }
 
 async function loadRecurringScheduleRow(
@@ -619,22 +740,6 @@ export async function adminCancelSessionBooking(attendeeId: string) {
   }
 }
 
-function parseEndDate(endDate: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-    throw new Error("End date must use YYYY-MM-DD format.");
-  }
-
-  const maxEndDate = getRecurringBlockBookingMaxEndDate();
-
-  if (endDate > maxEndDate) {
-    throw new Error(
-      `End date cannot be more than 52 weeks ahead (maximum ${maxEndDate}).`,
-    );
-  }
-
-  return endDate;
-}
-
 export async function getRecurringScheduleBookedStudentOptions(
   scheduleId: string,
   clubId: string = ACTIVE_CLUB_ID,
@@ -647,25 +752,19 @@ export async function getRecurringScheduleBookedStudentOptions(
     return [];
   }
 
-  const supabase = getSupabaseAdminClient();
+  const attendeeRows = await fetchAllFutureSessionAttendees(sessionIds, [
+    "booked",
+    "waitlisted",
+    "walk_in",
+  ]);
 
-  const { data: attendeeRows, error } = await supabase
-    .from("session_attendees")
-    .select("user_id")
-    .in("class_session_id", sessionIds)
-    .in("booking_status", ["booked", "waitlisted", "walk_in"]);
-
-  if (error) {
-    throw new Error(`Unable to load booked students: ${error.message}`);
-  }
-
-  const userIds = Array.from(
-    new Set((attendeeRows ?? []).map((row) => row.user_id)),
-  );
+  const userIds = Array.from(new Set(attendeeRows.map((row) => row.user_id)));
 
   if (userIds.length === 0) {
     return [];
   }
+
+  const supabase = getSupabaseAdminClient();
 
   const { data: users, error: usersError } = await supabase
     .from("users")
@@ -691,6 +790,45 @@ interface FutureSessionAttendeeRow {
   class_session_id: string;
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchAllFutureSessionAttendees(
+  sessionIds: string[],
+  bookingStatuses: string[],
+): Promise<FutureSessionAttendeeRow[]> {
+  if (sessionIds.length === 0) {
+    return [];
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const rows: FutureSessionAttendeeRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("session_attendees")
+      .select("id, user_id, booking_status, class_session_id")
+      .in("class_session_id", sessionIds)
+      .in("booking_status", bookingStatuses)
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(`Unable to load recurring bookings: ${error.message}`);
+    }
+
+    const page = (data ?? []) as FutureSessionAttendeeRow[];
+    rows.push(...page);
+
+    if (page.length < SUPABASE_PAGE_SIZE) {
+      break;
+    }
+
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 export async function getRecurringScheduleBookingsPageData(
   scheduleId: string,
   clubId: string = ACTIVE_CLUB_ID,
@@ -702,28 +840,29 @@ export async function getRecurringScheduleBookingsPageData(
   }
 
   const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
-  const sessions = await loadAllFutureSessionsForRecurringSchedule(schedule);
-  const sessionIds = sessions.map((session) => session.id);
+  const scheduleLinkedSessions = await loadScheduleLinkedFutureSessions(schedule);
+  const allFutureSessions =
+    scheduleLinkedSessions.length > 0
+      ? scheduleLinkedSessions
+      : await loadAllFutureSessionsForRecurringSchedule(schedule);
+  const allFutureSessionIds = allFutureSessions.map((session) => session.id);
+  await ensureRecurringScheduleFutureSessions(scheduleId, clubId);
+  const canonicalSessions = await getCanonicalBlockBookingSessions(schedule);
+  const canonicalSessionIdSet = new Set(
+    canonicalSessions.map((session) => session.id),
+  );
   const sessionStartsAtById = new Map(
-    sessions.map((session) => [session.id, session.starts_at]),
+    canonicalSessions.map((session) => [session.id, session.starts_at]),
   );
 
   const studentBookings: RecurringScheduleStudentBookingSummary[] = [];
 
-  if (sessionIds.length > 0) {
-    const supabase = getSupabaseAdminClient();
-
-    const { data: attendeeRows, error } = await supabase
-      .from("session_attendees")
-      .select("id, user_id, booking_status, class_session_id")
-      .in("class_session_id", sessionIds)
-      .in("booking_status", ["booked", "waitlisted", "walk_in"]);
-
-    if (error) {
-      throw new Error(`Unable to load recurring bookings: ${error.message}`);
-    }
-
-    const attendees = (attendeeRows ?? []) as FutureSessionAttendeeRow[];
+  if (allFutureSessionIds.length > 0) {
+    const attendees = await fetchAllFutureSessionAttendees(allFutureSessionIds, [
+      "booked",
+      "waitlisted",
+      "walk_in",
+    ]);
     const userIds = Array.from(new Set(attendees.map((row) => row.user_id)));
 
     const userById = await loadUsersByIds(userIds);
@@ -732,7 +871,10 @@ export async function getRecurringScheduleBookingsPageData(
 
     for (const attendee of attendees) {
       const user = userById.get(attendee.user_id);
-      const startsAt = sessionStartsAtById.get(attendee.class_session_id) ?? null;
+      const inCanonicalWindow = canonicalSessionIdSet.has(attendee.class_session_id);
+      const startsAt = inCanonicalWindow
+        ? (sessionStartsAtById.get(attendee.class_session_id) ?? null)
+        : null;
       const existing = summaryByUserId.get(attendee.user_id);
 
       if (!existing) {
@@ -741,18 +883,25 @@ export async function getRecurringScheduleBookingsPageData(
           firstName: user?.first_name ?? null,
           lastName: user?.last_name ?? null,
           email: user?.email ?? null,
-          futureBookingCount: 1,
+          futureBookingCount:
+            inCanonicalWindow && attendee.booking_status === "booked" ? 1 : 0,
           nextSessionAt: startsAt,
-          bookedCount: attendee.booking_status === "booked" ? 1 : 0,
-          waitlistedCount: attendee.booking_status === "waitlisted" ? 1 : 0,
-          walkInCount: attendee.booking_status === "walk_in" ? 1 : 0,
+          bookedCount:
+            inCanonicalWindow && attendee.booking_status === "booked" ? 1 : 0,
+          waitlistedCount:
+            inCanonicalWindow && attendee.booking_status === "waitlisted" ? 1 : 0,
+          walkInCount:
+            inCanonicalWindow && attendee.booking_status === "walk_in" ? 1 : 0,
         });
         continue;
       }
 
-      existing.futureBookingCount += 1;
+      if (!inCanonicalWindow) {
+        continue;
+      }
 
       if (attendee.booking_status === "booked") {
+        existing.futureBookingCount += 1;
         existing.bookedCount += 1;
       } else if (attendee.booking_status === "waitlisted") {
         existing.waitlistedCount += 1;
@@ -828,24 +977,28 @@ export async function adminCancelRecurringScheduleBookings(input: {
 export async function adminBlockBookRecurringSchedule(input: {
   scheduleId: string;
   userId: string;
-  endDate: string;
+  sessionCount?: number | string;
   clubId?: string;
 }): Promise<BlockBookingResult> {
-  const endDate = parseEndDate(input.endDate);
+  const sessionCount = parseBlockBookingSessionCount(input.sessionCount);
   const supabase = getSupabaseAdminClient();
   const clubId = input.clubId ?? ACTIVE_CLUB_ID;
   const schedule = await loadRecurringScheduleRow(input.scheduleId, clubId);
 
   await assertClubMember(input.userId, schedule.club_id);
 
-  const endIso = londonLocalDateTimeToUtcIso(endDate, "23:59");
-  const sessions = await loadFutureSessionsForRecurringSchedule(
-    schedule as RecurringScheduleRow,
-    endIso,
+  const canonicalSessions = await ensureRecurringScheduleFutureSessions(
+    input.scheduleId,
+    clubId,
+    sessionCount,
+  );
+  const canonicalSessionIds = new Set(
+    canonicalSessions.map((session) => session.id),
   );
 
   const result: BlockBookingResult = {
     bookedCount: 0,
+    trimmedCount: 0,
     skipped: {
       cancelled: 0,
       alreadyBooked: 0,
@@ -853,20 +1006,45 @@ export async function adminBlockBookRecurringSchedule(input: {
     },
   };
 
-  for (const session of sessions) {
-    if (session.status === "cancelled") {
-      result.skipped.cancelled += 1;
+  const allFutureSessions = await loadAllFutureSessionsForRecurringSchedule(
+    schedule,
+  );
+
+  for (const session of allFutureSessions) {
+    if (canonicalSessionIds.has(session.id)) {
       continue;
     }
 
     const existing = await getExistingAttendee(session.id, input.userId);
 
-    if (
-      existing?.booking_status === "booked" ||
-      existing?.booking_status === "waitlisted" ||
-      existing?.booking_status === "walk_in"
-    ) {
-      result.skipped.alreadyBooked += 1;
+    if (!isActiveBookingStatus(existing?.booking_status)) {
+      continue;
+    }
+
+    await adminCancelSessionBooking(existing!.id);
+    result.trimmedCount += 1;
+  }
+
+  for (const session of canonicalSessions) {
+    const existing = await getExistingAttendee(session.id, input.userId);
+
+    if (isActiveBookingStatus(existing?.booking_status)) {
+      if (existing?.booking_status === "booked") {
+        result.skipped.alreadyBooked += 1;
+      } else {
+        const payload = buildAdminBookingPayload("booked");
+        const { error } = await supabase
+          .from("session_attendees")
+          .update(payload)
+          .eq("id", existing.id);
+
+        if (error) {
+          throw new Error(`Unable to block book session: ${error.message}`);
+        }
+
+        result.bookedCount += 1;
+      }
+
       continue;
     }
 

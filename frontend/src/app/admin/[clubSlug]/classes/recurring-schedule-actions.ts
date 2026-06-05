@@ -67,7 +67,7 @@ export async function blockBookRecurringScheduleAction(
   const club = await requireClubBySlug(clubSlug);
   const scheduleId = String(formData.get("scheduleId") ?? "");
   const userId = String(formData.get("userId") ?? "");
-  const endDate = String(formData.get("endDate") ?? "");
+  const sessionCount = String(formData.get("sessionCount") ?? "");
 
   if (!scheduleId) {
     throw new Error("Missing recurring schedule id.");
@@ -77,14 +77,10 @@ export async function blockBookRecurringScheduleAction(
     throw new Error("Please select a student.");
   }
 
-  if (!endDate) {
-    throw new Error("Please choose an end date.");
-  }
-
   const result = await adminBlockBookRecurringSchedule({
     scheduleId,
     userId,
-    endDate,
+    sessionCount: sessionCount || undefined,
     clubId: club.id,
   });
 

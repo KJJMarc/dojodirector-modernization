@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Generate recurring sessions up to 52 weeks ahead and extend block bookings for
- * Kingston Jiu Jitsu Kids students already booked on a recurring schedule.
+ * Normalize Kingston Jiu Jitsu Kids recurring block bookings to exactly 52 future
+ * booked sessions per student on a given schedule.
  *
  * Usage:
  *   set -a && source frontend/.env.local && set +a
@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const KIDS_SLUG = "kingston-jiu-jitsu-kids";
 const DEFAULT_SCHEDULE_ID = "7bbaa8b0-b587-496f-a7cc-4dcf73494a20";
+const SESSION_COUNT = 52;
 const DAYS_AHEAD = 364;
 
 function loadEnvLocal() {
@@ -117,64 +118,22 @@ function sessionMatchesRecurringSchedule(session, schedule) {
   return true;
 }
 
-function londonLocalDateTimeToUtcIso(date, time) {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-  let guess = Date.UTC(year, month - 1, day, hour, minute);
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/London",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    })
-      .formatToParts(new Date(guess))
-      .filter((part) => part.type !== "literal");
-
-    const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    const londonYear = Number(map.year);
-    const londonMonth = Number(map.month);
-    const londonDay = Number(map.day);
-    const londonHour = Number(map.hour);
-    const londonMinute = Number(map.minute);
-
-    if (
-      londonYear === year &&
-      londonMonth === month &&
-      londonDay === day &&
-      londonHour === hour &&
-      londonMinute === minute
-    ) {
-      return new Date(guess).toISOString();
-    }
-
-    const targetMinutes = hour * 60 + minute;
-    const actualMinutes = londonHour * 60 + londonMinute;
-    guess += (targetMinutes - actualMinutes) * 60 * 1000;
-  }
-
-  return new Date(guess).toISOString();
+function isActiveBookingStatus(status) {
+  return status === "booked" || status === "waitlisted" || status === "walk_in";
 }
 
-function getBlockBookingEndDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + DAYS_AHEAD);
-  return date.toISOString().slice(0, 10);
-}
-
-async function loadFutureSessionsForSchedule(schedule, endIso) {
+async function loadAllFutureSessions(schedule) {
   const nowIso = new Date().toISOString();
+  const end = new Date();
+  end.setFullYear(end.getFullYear() + 2);
+
   const { data, error } = await supabase
     .from("class_sessions")
     .select("id, capacity, status, starts_at, recurring_schedule_id, external_id, source")
     .eq("club_id", schedule.club_id)
     .eq("class_id", schedule.class_id)
     .gte("starts_at", nowIso)
-    .lte("starts_at", endIso)
+    .lte("starts_at", end.toISOString())
     .order("starts_at", { ascending: true });
 
   if (error) throw new Error(`Unable to load sessions: ${error.message}`);
@@ -184,6 +143,12 @@ async function loadFutureSessionsForSchedule(schedule, endIso) {
   );
 
   return Array.from(new Map(matched.map((session) => [session.id, session])).values());
+}
+
+function getCanonicalSessions(allFutureSessions) {
+  return allFutureSessions
+    .filter((session) => session.status !== "cancelled")
+    .slice(0, SESSION_COUNT);
 }
 
 async function getExistingAttendee(sessionId, userId) {
@@ -218,30 +183,60 @@ function buildAdminBookingPayload() {
   };
 }
 
-async function blockBookStudent(schedule, userId, endDate) {
-  const endIso = londonLocalDateTimeToUtcIso(endDate, "23:59");
-  const sessions = await loadFutureSessionsForSchedule(schedule, endIso);
+async function cancelFutureBooking(attendeeId) {
+  if (dryRun) return;
+
+  const { error } = await supabase
+    .from("session_attendees")
+    .update({
+      booking_status: "cancelled",
+      attendance_status: "not_marked",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", attendeeId);
+
+  if (error) throw new Error(`Unable to cancel booking: ${error.message}`);
+}
+
+async function normalizeStudentBookings(schedule, userId, allFutureSessions, canonicalSessions) {
+  const canonicalSessionIds = new Set(canonicalSessions.map((session) => session.id));
   const result = {
     bookedCount: 0,
-    skipped: { cancelled: 0, alreadyBooked: 0, full: 0 },
-    futureBookingCount: 0,
+    trimmedCount: 0,
+    skippedAlreadyBooked: 0,
+    skippedFull: 0,
+    finalBookedCount: 0,
   };
 
-  for (const session of sessions) {
-    if (session.status === "cancelled") {
-      result.skipped.cancelled += 1;
-      continue;
-    }
+  for (const session of allFutureSessions) {
+    if (canonicalSessionIds.has(session.id)) continue;
 
     const existing = await getExistingAttendee(session.id, userId);
+    if (!isActiveBookingStatus(existing?.booking_status)) continue;
 
-    if (
-      existing?.booking_status === "booked" ||
-      existing?.booking_status === "waitlisted" ||
-      existing?.booking_status === "walk_in"
-    ) {
-      result.skipped.alreadyBooked += 1;
-      result.futureBookingCount += 1;
+    await cancelFutureBooking(existing.id);
+    result.trimmedCount += 1;
+  }
+
+  for (const session of canonicalSessions) {
+    const existing = await getExistingAttendee(session.id, userId);
+
+    if (isActiveBookingStatus(existing?.booking_status)) {
+      if (existing.booking_status === "booked") {
+        result.skippedAlreadyBooked += 1;
+        result.finalBookedCount += 1;
+      } else {
+        const payload = buildAdminBookingPayload();
+        if (!dryRun) {
+          const { error } = await supabase
+            .from("session_attendees")
+            .update(payload)
+            .eq("id", existing.id);
+          if (error) throw new Error(`Unable to block book session: ${error.message}`);
+        }
+        result.bookedCount += 1;
+        result.finalBookedCount += 1;
+      }
       continue;
     }
 
@@ -249,7 +244,7 @@ async function blockBookStudent(schedule, userId, endDate) {
     const hasSpace = session.capacity === null || bookedCount < session.capacity;
 
     if (!hasSpace) {
-      result.skipped.full += 1;
+      result.skippedFull += 1;
       continue;
     }
 
@@ -257,7 +252,7 @@ async function blockBookStudent(schedule, userId, endDate) {
 
     if (dryRun) {
       result.bookedCount += 1;
-      result.futureBookingCount += 1;
+      result.finalBookedCount += 1;
       continue;
     }
 
@@ -277,7 +272,7 @@ async function blockBookStudent(schedule, userId, endDate) {
     }
 
     result.bookedCount += 1;
-    result.futureBookingCount += 1;
+    result.finalBookedCount += 1;
   }
 
   return result;
@@ -285,7 +280,7 @@ async function blockBookStudent(schedule, userId, endDate) {
 
 async function main() {
   console.log(
-    `${dryRun ? "[dry-run] " : ""}Extending KJJ Kids block bookings for schedule ${scheduleId}`,
+    `${dryRun ? "[dry-run] " : ""}Normalizing KJJ Kids block bookings to ${SESSION_COUNT} sessions for schedule ${scheduleId}`,
   );
 
   const { data: club, error: clubError } = await supabase
@@ -321,25 +316,23 @@ async function main() {
       throw new Error(`Session generation failed: ${generateError.message}`);
     }
 
-    console.log(`Generated ${inserted ?? 0} new session(s) up to ${DAYS_AHEAD} days ahead.`);
-  } else {
-    console.log(`Would generate sessions up to ${DAYS_AHEAD} days ahead.`);
+    console.log(`Ensured sessions exist (${inserted ?? 0} new session(s) generated).`);
   }
 
-  const endDate = getBlockBookingEndDate();
-  const endIso = londonLocalDateTimeToUtcIso(endDate, "23:59");
-  const sessions = await loadFutureSessionsForSchedule(schedule, endIso);
-  const sessionIds = sessions.map((session) => session.id);
+  const allFutureSessions = await loadAllFutureSessions(schedule);
+  const canonicalSessions = getCanonicalSessions(allFutureSessions);
 
-  if (sessionIds.length === 0) {
-    console.log("No future sessions found for this schedule.");
-    return;
+  if (canonicalSessions.length < SESSION_COUNT) {
+    throw new Error(
+      `Only ${canonicalSessions.length} non-cancelled future sessions available; need ${SESSION_COUNT}.`,
+    );
   }
 
+  const allFutureSessionIds = allFutureSessions.map((session) => session.id);
   const { data: attendeeRows, error: attendeeError } = await supabase
     .from("session_attendees")
     .select("user_id")
-    .in("class_session_id", sessionIds)
+    .in("class_session_id", allFutureSessionIds)
     .in("booking_status", ["booked", "waitlisted", "walk_in"]);
 
   if (attendeeError) {
@@ -363,15 +356,30 @@ async function main() {
   }
 
   console.log(
-    `Extending ${userIds.length} student(s) through ${endDate} across ${sessions.length} future session(s).`,
+    `Normalizing ${userIds.length} student(s) across ${canonicalSessions.length} canonical session(s).`,
   );
+
+  const counts = [];
 
   for (const user of users ?? []) {
     const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.id;
-    const result = await blockBookStudent(schedule, user.id, endDate);
-    console.log(
-      `  ${name}: +${result.bookedCount} booked, ${result.skipped.alreadyBooked} already booked, ${result.skipped.cancelled} cancelled skipped, ${result.skipped.full} full skipped → ${result.futureBookingCount} total in horizon`,
+    const result = await normalizeStudentBookings(
+      schedule,
+      user.id,
+      allFutureSessions,
+      canonicalSessions,
     );
+    counts.push(result.finalBookedCount);
+    console.log(
+      `  ${name}: +${result.bookedCount} booked, -${result.trimmedCount} trimmed, ${result.skippedAlreadyBooked} kept → ${result.finalBookedCount} future booked`,
+    );
+  }
+
+  const uniqueCounts = [...new Set(counts)];
+  console.log(`\nSummary: ${userIds.length} students, unique future booked counts: ${uniqueCounts.join(", ")}`);
+
+  if (!uniqueCounts.every((count) => count === SESSION_COUNT)) {
+    throw new Error(`Normalization failed: not all students have exactly ${SESSION_COUNT} bookings.`);
   }
 
   console.log("Done.");
