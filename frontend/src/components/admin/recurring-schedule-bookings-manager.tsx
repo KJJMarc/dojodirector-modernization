@@ -13,9 +13,11 @@ import {
   formatScheduleTimeLabel,
 } from "@/lib/admin-recurring-classes.shared";
 import { formatScheduleDayLabel } from "@/lib/class-session-schedule";
-import type {
-  BookingStudentOption,
-  RecurringScheduleBookingsPageData,
+import {
+  getRecurringBlockBookingDefaultEndDate,
+  getRecurringBlockBookingMaxEndDate,
+  type BookingStudentOption,
+  type RecurringScheduleBookingsPageData,
 } from "@/lib/admin-session-bookings.shared";
 
 interface RecurringScheduleBookingsManagerProps {
@@ -24,11 +26,7 @@ interface RecurringScheduleBookingsManagerProps {
   students: BookingStudentOption[];
 }
 
-function getDefaultEndDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 55);
-  return date.toISOString().slice(0, 10);
-}
+const maxBlockBookingEndDate = getRecurringBlockBookingMaxEndDate();
 
 export function RecurringScheduleBookingsManager({
   clubSlug,
@@ -39,7 +37,7 @@ export function RecurringScheduleBookingsManager({
   const [isPending, startTransition] = useTransition();
   const [bookSearchQuery, setBookSearchQuery] = useState("");
   const [bookUserId, setBookUserId] = useState("");
-  const [endDate, setEndDate] = useState(getDefaultEndDate);
+  const [endDate, setEndDate] = useState(getRecurringBlockBookingDefaultEndDate);
   const [cancelUserId, setCancelUserId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -243,7 +241,7 @@ export function RecurringScheduleBookingsManager({
             </h3>
             <p className="mt-1 text-xs text-dojo-muted">
               Book a student into all future non-cancelled sessions up to the selected
-              end date.
+              end date (up to 52 weeks ahead).
             </p>
           </div>
 
@@ -281,6 +279,8 @@ export function RecurringScheduleBookingsManager({
               <input
                 type="date"
                 value={endDate}
+                min={new Date().toISOString().slice(0, 10)}
+                max={maxBlockBookingEndDate}
                 onChange={(event) => setEndDate(event.target.value)}
                 className="mt-1 min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2"
               />

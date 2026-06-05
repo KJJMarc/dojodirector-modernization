@@ -2,6 +2,9 @@ import { formatProgrammeTypeLabel, type ProgrammeType } from "@/lib/admin-progra
 
 export { formatProgrammeTypeLabel, type ProgrammeType };
 
+/** How far ahead recurring class sessions are generated (52 weeks). */
+export const RECURRING_CLASS_SESSION_DAYS_AHEAD = 364;
+
 export const DAY_OF_WEEK_OPTIONS = [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },

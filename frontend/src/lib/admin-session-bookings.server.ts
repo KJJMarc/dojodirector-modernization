@@ -18,14 +18,15 @@ import { formatSessionLocation, getSpacesAvailable } from "@/lib/booking";
 import { createNextWaitlistOfferAfterCancellation } from "@/lib/session-waitlist.server";
 import { londonLocalDateTimeToUtcIso } from "@/lib/london-datetime";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import type {
-  AdminSessionBookingsView,
-  BlockBookingResult,
-  BookingStudentOption,
-  CancelRecurringBookingResult,
-  RecurringScheduleBookingsPageData,
-  RecurringScheduleStudentBookingSummary,
-  SessionBookingAttendee,
+import {
+  getRecurringBlockBookingMaxEndDate,
+  type AdminSessionBookingsView,
+  type BlockBookingResult,
+  type BookingStudentOption,
+  type CancelRecurringBookingResult,
+  type RecurringScheduleBookingsPageData,
+  type RecurringScheduleStudentBookingSummary,
+  type SessionBookingAttendee,
 } from "@/lib/admin-session-bookings.shared";
 
 export type {
@@ -621,6 +622,14 @@ export async function adminCancelSessionBooking(attendeeId: string) {
 function parseEndDate(endDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
     throw new Error("End date must use YYYY-MM-DD format.");
+  }
+
+  const maxEndDate = getRecurringBlockBookingMaxEndDate();
+
+  if (endDate > maxEndDate) {
+    throw new Error(
+      `End date cannot be more than 52 weeks ahead (maximum ${maxEndDate}).`,
+    );
   }
 
   return endDate;

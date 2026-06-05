@@ -4,14 +4,15 @@ import { getStudentFullName } from "@/lib/attendance";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import {
+  RECURRING_CLASS_SESSION_DAYS_AHEAD,
   sortRecurringClassSchedules,
+  type RecurringClassDeleteStatus,
   type RecurringClassScheduleRow,
 } from "@/lib/admin-recurring-classes.shared";
 import type {
   CreateRecurringClassInput,
   UpdateRecurringClassInput,
 } from "@/lib/admin-recurring-classes.input";
-import type { RecurringClassDeleteStatus } from "@/lib/admin-recurring-classes.shared";
 import { sessionBelongsToRecurringScheduleRow } from "@/lib/class-session-schedule";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -420,7 +421,7 @@ export async function createRecurringClassSchedule(
       "generate_recurring_class_sessions",
       {
         p_schedule_id: scheduleId,
-        p_days_ahead: 55,
+        p_days_ahead: RECURRING_CLASS_SESSION_DAYS_AHEAD,
       },
     );
 

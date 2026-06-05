@@ -312,7 +312,7 @@ async function main() {
         "generate_recurring_class_sessions",
         {
           p_schedule_id: schedule.id,
-          p_days_ahead: 55,
+          p_days_ahead: 364,
         },
       );
 
