@@ -23,6 +23,7 @@ interface SupabaseErrorLike {
 }
 
 let leadsTableAvailable: boolean | null = null;
+let leadTrackingColumnsAvailable: boolean | null = null;
 
 export { LEADS_NOT_CONFIGURED_MESSAGE };
 
@@ -48,9 +49,10 @@ function isMissingLeadTrackingColumnsError(error: SupabaseErrorLike) {
   const message = error.message?.toLowerCase() ?? "";
 
   return (
-    error.code === "42703" &&
-    (message.includes("column leads.submitted_at does not exist") ||
-      message.includes("column leads.last_activity_at does not exist"))
+    (error.code === "42703" &&
+      (message.includes("submitted_at") || message.includes("last_activity_at"))) ||
+    (error.code === "PGRST204" &&
+      (message.includes("submitted_at") || message.includes("last_activity_at")))
   );
 }
 
@@ -69,6 +71,116 @@ async function checkLeadsTableAvailable() {
 
   leadsTableAvailable = !error;
   return leadsTableAvailable;
+}
+
+async function checkLeadTrackingColumnsAvailable() {
+  if (leadTrackingColumnsAvailable !== null) {
+    return leadTrackingColumnsAvailable;
+  }
+
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    leadTrackingColumnsAvailable = false;
+    return false;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase
+    .from("leads")
+    .select("id, submitted_at, last_activity_at")
+    .limit(0);
+
+  if (error && isMissingLeadTrackingColumnsError(error)) {
+    leadTrackingColumnsAvailable = false;
+    return false;
+  }
+
+  leadTrackingColumnsAvailable = !error;
+  return leadTrackingColumnsAvailable;
+}
+
+interface LeadInsertRow {
+  academy_id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  programme_interest: string;
+  experience_level: string;
+  lead_source: string;
+  notes: string | null;
+  status: string;
+  submitted_at?: string;
+  last_activity_at?: string;
+  updated_at?: string;
+  contacted_at?: string;
+  trial_booked_at?: string;
+  trial_attended_at?: string;
+  joined_at?: string;
+}
+
+function buildLeadInsertRow(
+  input: Omit<LeadInsertRow, "submitted_at" | "last_activity_at" | "updated_at"> & {
+    status: string;
+  },
+  now: string,
+  trackingAvailable: boolean,
+  statusTimestamps: Record<string, string> = {},
+): LeadInsertRow {
+  const row: LeadInsertRow = {
+    academy_id: input.academy_id,
+    full_name: input.full_name,
+    email: input.email,
+    phone: input.phone,
+    programme_interest: input.programme_interest,
+    experience_level: input.experience_level,
+    lead_source: input.lead_source,
+    notes: input.notes,
+    status: input.status,
+    ...statusTimestamps,
+  };
+
+  if (trackingAvailable) {
+    row.submitted_at = now;
+    row.last_activity_at = now;
+    row.updated_at = now;
+  }
+
+  return row;
+}
+
+async function insertLeadRow(row: LeadInsertRow) {
+  const supabase = getSupabaseAdminClient();
+  let trackingAvailable = await checkLeadTrackingColumnsAvailable();
+  let payload = row;
+
+  if (!trackingAvailable) {
+    const { submitted_at: _submittedAt, last_activity_at: _lastActivityAt, updated_at: _updatedAt, ...baseRow } =
+      row;
+    payload = baseRow;
+  }
+
+  const attemptInsert = async (insertRow: LeadInsertRow) =>
+    supabase.from("leads").insert(insertRow).select("id, created_at").single();
+
+  let { data, error } = await attemptInsert(payload);
+
+  if (error && isMissingLeadTrackingColumnsError(error)) {
+    leadTrackingColumnsAvailable = false;
+    const {
+      submitted_at: _submittedAt,
+      last_activity_at: _lastActivityAt,
+      updated_at: _updatedAt,
+      contacted_at: _contactedAt,
+      trial_booked_at: _trialBookedAt,
+      trial_attended_at: _trialAttendedAt,
+      joined_at: _joinedAt,
+      ...baseRow
+    } = row;
+    ({ data, error } = await attemptInsert(baseRow));
+  }
+
+  return { data, error };
 }
 
 interface LeadRecordRow {
@@ -161,11 +273,17 @@ function buildStatusTimestampUpdates(
   status: LeadStatus,
   existing: LeadRecordRow,
   now: string,
+  trackingAvailable: boolean,
 ): Record<string, string> {
   const updates: Record<string, string> = {
-    last_activity_at: now,
     updated_at: now,
   };
+
+  if (!trackingAvailable) {
+    return updates;
+  }
+
+  updates.last_activity_at = now;
 
   if (status === "contacted" && !existing.contacted_at) {
     updates.contacted_at = now;
@@ -340,14 +458,26 @@ export async function loadAdminLeadDetail(
   }
 
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
+  const trackingSelect =
+    "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
+  const baseSelect =
+    "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at";
+
+  let { data, error } = await supabase
     .from("leads")
-    .select(
-      "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at",
-    )
+    .select(trackingSelect)
     .eq("academy_id", academyId)
     .eq("id", leadId)
     .maybeSingle();
+
+  if (error && isMissingLeadTrackingColumnsError(error)) {
+    ({ data, error } = await supabase
+      .from("leads")
+      .select(baseSelect)
+      .eq("academy_id", academyId)
+      .eq("id", leadId)
+      .maybeSingle());
+  }
 
   if (error) {
     if (isMissingLeadsTableError(error)) {
@@ -377,12 +507,10 @@ export async function submitLead(input: {
   }
 
   const submission = parseLeadSubmission(input.submission);
-  const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
-
-  const { data, error } = await supabase
-    .from("leads")
-    .insert({
+  const trackingAvailable = await checkLeadTrackingColumnsAvailable();
+  const insertRow = buildLeadInsertRow(
+    {
       academy_id: input.academyId,
       full_name: submission.fullName,
       email: submission.email,
@@ -392,12 +520,12 @@ export async function submitLead(input: {
       lead_source: submission.leadSource,
       notes: submission.notes || null,
       status: "new",
-      submitted_at: now,
-      last_activity_at: now,
-      updated_at: now,
-    })
-    .select("id, created_at")
-    .single();
+    },
+    now,
+    trackingAvailable,
+  );
+
+  const { data, error } = await insertLeadRow(insertRow);
 
   if (error) {
     if (isMissingLeadsTableError(error)) {
@@ -405,7 +533,18 @@ export async function submitLead(input: {
       throw new Error(LEADS_NOT_CONFIGURED_MESSAGE);
     }
 
+    console.error("[leads] submitLead insert failed", {
+      academyId: input.academyId,
+      email: submission.email,
+      trackingAvailable,
+      code: error.code,
+      message: error.message,
+    });
     throw new Error(`Failed to submit enquiry: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error("Failed to submit enquiry: lead was not created.");
   }
 
   const leadId = data.id as string;
@@ -422,6 +561,11 @@ export async function submitLead(input: {
     notes: submission.notes || null,
     createdAtIso: createdAt,
     trialAudience: input.trialAudience,
+  }).then(() => {
+    console.info("[leads] submitLead email dispatch finished", {
+      leadId,
+      academyId: input.academyId,
+    });
   });
 
   return {
@@ -443,12 +587,18 @@ export async function createAdminLead(
 
   const submission = parseLeadSubmission(input);
   const status = input.status ? parseLeadStatus(input.status) : "new";
-  const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
-
-  const { data, error } = await supabase
-    .from("leads")
-    .insert({
+  const trackingAvailable = await checkLeadTrackingColumnsAvailable();
+  const statusTimestamps = trackingAvailable
+    ? {
+        ...(status === "contacted" ? { contacted_at: now } : {}),
+        ...(status === "trial_booked" ? { trial_booked_at: now } : {}),
+        ...(status === "trial_attended" ? { trial_attended_at: now } : {}),
+        ...(status === "joined" ? { joined_at: now } : {}),
+      }
+    : {};
+  const insertRow = buildLeadInsertRow(
+    {
       academy_id: academyId,
       full_name: submission.fullName,
       email: submission.email,
@@ -458,16 +608,13 @@ export async function createAdminLead(
       lead_source: submission.leadSource,
       notes: submission.notes || null,
       status,
-      submitted_at: now,
-      last_activity_at: now,
-      updated_at: now,
-      ...(status === "contacted" ? { contacted_at: now } : {}),
-      ...(status === "trial_booked" ? { trial_booked_at: now } : {}),
-      ...(status === "trial_attended" ? { trial_attended_at: now } : {}),
-      ...(status === "joined" ? { joined_at: now } : {}),
-    })
-    .select("id")
-    .single();
+    },
+    now,
+    trackingAvailable,
+    statusTimestamps,
+  );
+
+  const { data, error } = await insertLeadRow(insertRow);
 
   if (error) {
     if (isMissingLeadsTableError(error)) {
@@ -476,6 +623,10 @@ export async function createAdminLead(
     }
 
     throw new Error(`Failed to create lead: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error("Failed to create lead: lead was not created.");
   }
 
   return { leadId: data.id as string };
@@ -510,14 +661,26 @@ export async function updateLeadAdminRecord(input: {
   });
   const status = parseLeadStatus(input.status);
   const supabase = getSupabaseAdminClient();
-  const { data: existingRow, error: existingError } = await supabase
+  const trackingSelect =
+    "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
+  const baseSelect =
+    "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at";
+
+  let { data: existingRow, error: existingError } = await supabase
     .from("leads")
-    .select(
-      "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at",
-    )
+    .select(trackingSelect)
     .eq("academy_id", input.academyId)
     .eq("id", input.leadId)
     .maybeSingle();
+
+  if (existingError && isMissingLeadTrackingColumnsError(existingError)) {
+    ({ data: existingRow, error: existingError } = await supabase
+      .from("leads")
+      .select(baseSelect)
+      .eq("academy_id", input.academyId)
+      .eq("id", input.leadId)
+      .maybeSingle());
+  }
 
   if (existingError) {
     throw new Error(`Failed to load lead for update: ${existingError.message}`);
@@ -528,10 +691,12 @@ export async function updateLeadAdminRecord(input: {
   }
 
   const now = new Date().toISOString();
+  const trackingAvailable = await checkLeadTrackingColumnsAvailable();
   const timestampUpdates = buildStatusTimestampUpdates(
     status,
     existingRow as LeadRecordRow,
     now,
+    trackingAvailable,
   );
 
   const { error } = await supabase
