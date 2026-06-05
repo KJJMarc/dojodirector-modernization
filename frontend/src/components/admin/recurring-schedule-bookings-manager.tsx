@@ -14,10 +14,16 @@ import {
 } from "@/lib/admin-recurring-classes.shared";
 import { formatScheduleDayLabel } from "@/lib/class-session-schedule";
 import {
-  RECURRING_BLOCK_BOOKING_SESSION_COUNT,
+  getRecurringBlockBookingDefaultEndDate,
+  getRecurringBlockBookingMaxEndDate,
+  getTodayDateInputValue,
+  RECURRING_BLOCK_BOOKING_MAX_WEEKS,
   type BookingStudentOption,
   type RecurringScheduleBookingsPageData,
 } from "@/lib/admin-session-bookings.shared";
+
+const maxBlockBookingEndDate = getRecurringBlockBookingMaxEndDate();
+const minBlockBookingEndDate = getTodayDateInputValue();
 
 interface RecurringScheduleBookingsManagerProps {
   clubSlug: string;
@@ -34,6 +40,7 @@ export function RecurringScheduleBookingsManager({
   const [isPending, startTransition] = useTransition();
   const [bookSearchQuery, setBookSearchQuery] = useState("");
   const [bookUserId, setBookUserId] = useState("");
+  const [endDate, setEndDate] = useState(getRecurringBlockBookingDefaultEndDate);
   const [cancelUserId, setCancelUserId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,16 +70,13 @@ export function RecurringScheduleBookingsManager({
     formData.set("clubSlug", clubSlug);
     formData.set("scheduleId", schedule.id);
     formData.set("userId", bookUserId);
-    formData.set(
-      "sessionCount",
-      String(RECURRING_BLOCK_BOOKING_SESSION_COUNT),
-    );
+    formData.set("endDate", endDate);
 
     startTransition(async () => {
       try {
         const result = await blockBookRecurringScheduleAction(formData);
         setMessage(
-          `Booked ${result.bookedCount} session(s), trimmed ${result.trimmedCount} excess future booking(s). Skipped: ${result.skipped.alreadyBooked} already booked, ${result.skipped.full} full.`,
+          `Booked ${result.bookedCount} session(s). Skipped: ${result.skipped.cancelled} cancelled, ${result.skipped.alreadyBooked} already booked, ${result.skipped.full} full.`,
         );
         setBookUserId("");
         setBookSearchQuery("");
@@ -184,7 +188,7 @@ export function RecurringScheduleBookingsManager({
                   <th className="px-4 py-3 font-semibold">Student</th>
                   <th className="px-4 py-3 font-semibold">Future sessions</th>
                   <th className="px-4 py-3 font-semibold">Next session</th>
-                  <th className="px-4 py-3 font-semibold">Booking status</th>
+                  <th className="px-4 py-3 font-semibold">BOOKING STATUS</th>
                 </tr>
               </thead>
               <tbody>
@@ -236,9 +240,9 @@ export function RecurringScheduleBookingsManager({
               ADD BOOKING
             </h3>
             <p className="mt-1 text-xs text-dojo-muted">
-              Book a student into the next {RECURRING_BLOCK_BOOKING_SESSION_COUNT}{" "}
-              non-cancelled future sessions (1 year ahead). Excess future bookings
-              beyond that window are removed automatically.
+              Book a student into all future non-cancelled sessions up to the
+              selected date. Maximum booking window is {RECURRING_BLOCK_BOOKING_MAX_WEEKS}{" "}
+              weeks.
             </p>
           </div>
 
@@ -271,16 +275,25 @@ export function RecurringScheduleBookingsManager({
               </select>
             </label>
 
-            <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-muted">
-              Block booking window:{" "}
-              <span className="font-medium text-dojo-white">
-                {RECURRING_BLOCK_BOOKING_SESSION_COUNT} future sessions
-              </span>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+              Book until date
+              <input
+                type="date"
+                value={endDate}
+                min={minBlockBookingEndDate}
+                max={maxBlockBookingEndDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="mt-1 min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2"
+              />
+            </label>
+
+            <p className="text-xs text-dojo-muted">
+              Maximum booking window is {RECURRING_BLOCK_BOOKING_MAX_WEEKS} weeks.
             </p>
 
             <button
               type="button"
-              disabled={isPending || !bookUserId}
+              disabled={isPending || !bookUserId || !endDate}
               onClick={submitBook}
               className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
             >

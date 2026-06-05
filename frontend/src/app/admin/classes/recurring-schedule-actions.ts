@@ -56,7 +56,7 @@ export async function blockBookRecurringScheduleAction(
 ): Promise<BlockBookingResult> {
   const scheduleId = String(formData.get("scheduleId") ?? "");
   const userId = String(formData.get("userId") ?? "");
-  const sessionCount = String(formData.get("sessionCount") ?? "");
+  const endDate = String(formData.get("endDate") ?? "");
 
   if (!scheduleId) {
     throw new Error("Missing recurring schedule id.");
@@ -66,10 +66,14 @@ export async function blockBookRecurringScheduleAction(
     throw new Error("Please select a student.");
   }
 
+  if (!endDate) {
+    throw new Error("Please choose a book until date.");
+  }
+
   const result = await adminBlockBookRecurringSchedule({
     scheduleId,
     userId,
-    sessionCount: sessionCount || undefined,
+    endDate,
   });
 
   revalidateRecurringClassPaths(scheduleId, userId);

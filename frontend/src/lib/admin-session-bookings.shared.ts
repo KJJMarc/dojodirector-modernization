@@ -1,7 +1,28 @@
 import type { ProgrammeType } from "@/lib/admin-programme-types";
+import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
 
-/** Block-booking target: the next 52 non-cancelled future sessions (one year of weekly class). */
+/** Repair target: exactly 52 non-cancelled future sessions (one year of weekly class). */
 export const RECURRING_BLOCK_BOOKING_SESSION_COUNT = 52;
+
+/** Maximum block-booking end date: 52 weeks from today. */
+export const RECURRING_BLOCK_BOOKING_MAX_WEEKS = 52;
+
+export const RECURRING_BLOCK_BOOKING_MAX_DAYS_AHEAD =
+  RECURRING_CLASS_SESSION_DAYS_AHEAD;
+
+export function getRecurringBlockBookingMaxEndDate(from = new Date()) {
+  const date = new Date(from);
+  date.setDate(date.getDate() + RECURRING_BLOCK_BOOKING_MAX_DAYS_AHEAD);
+  return date.toISOString().slice(0, 10);
+}
+
+export function getRecurringBlockBookingDefaultEndDate() {
+  return getRecurringBlockBookingMaxEndDate();
+}
+
+export function getTodayDateInputValue(from = new Date()) {
+  return from.toISOString().slice(0, 10);
+}
 
 export interface SessionBookingAttendee {
   id: string;

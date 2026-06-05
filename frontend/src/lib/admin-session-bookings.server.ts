@@ -20,6 +20,8 @@ import { createNextWaitlistOfferAfterCancellation } from "@/lib/session-waitlist
 import { londonLocalDateTimeToUtcIso } from "@/lib/london-datetime";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  getRecurringBlockBookingMaxEndDate,
+  RECURRING_BLOCK_BOOKING_MAX_WEEKS,
   RECURRING_BLOCK_BOOKING_SESSION_COUNT,
   type AdminSessionBookingsView,
   type BlockBookingResult,
@@ -253,24 +255,53 @@ async function ensureRecurringScheduleFutureSessions(
   return canonicalSessions;
 }
 
-function parseBlockBookingSessionCount(sessionCount?: number | string) {
-  const raw =
-    sessionCount === undefined || sessionCount === ""
-      ? RECURRING_BLOCK_BOOKING_SESSION_COUNT
-      : sessionCount;
-  const parsed = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+function parseBlockBookingEndDate(endDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    throw new Error("End date must use YYYY-MM-DD format.");
+  }
 
-  if (
-    !Number.isFinite(parsed) ||
-    parsed < 1 ||
-    parsed > RECURRING_BLOCK_BOOKING_SESSION_COUNT
-  ) {
+  const maxEndDate = getRecurringBlockBookingMaxEndDate();
+
+  if (endDate > maxEndDate) {
     throw new Error(
-      `Session count must be between 1 and ${RECURRING_BLOCK_BOOKING_SESSION_COUNT}.`,
+      `End date cannot be more than ${RECURRING_BLOCK_BOOKING_MAX_WEEKS} weeks ahead (maximum ${maxEndDate}).`,
     );
   }
 
-  return parsed;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (endDate < today) {
+    throw new Error("End date must be today or later.");
+  }
+
+  return endDate;
+}
+
+async function ensureRecurringScheduleSessionsThroughDate(
+  scheduleId: string,
+  clubId: string,
+  endDate: string,
+) {
+  const supabase = getSupabaseAdminClient();
+  const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
+  const endIso = londonLocalDateTimeToUtcIso(endDate, "23:59");
+  const today = new Date();
+  const target = new Date(`${endDate}T12:00:00`);
+  const daysAhead = Math.min(
+    Math.max(1, Math.ceil((target.getTime() - today.getTime()) / 86_400_000)),
+    RECURRING_CLASS_SESSION_DAYS_AHEAD,
+  );
+
+  const { error } = await supabase.rpc("generate_recurring_class_sessions", {
+    p_schedule_id: scheduleId,
+    p_days_ahead: daysAhead,
+  });
+
+  if (error) {
+    throw new Error(`Unable to generate recurring sessions: ${error.message}`);
+  }
+
+  return loadFutureSessionsForRecurringSchedule(schedule, endIso);
 }
 
 async function loadRecurringScheduleRow(
@@ -977,23 +1008,20 @@ export async function adminCancelRecurringScheduleBookings(input: {
 export async function adminBlockBookRecurringSchedule(input: {
   scheduleId: string;
   userId: string;
-  sessionCount?: number | string;
+  endDate: string;
   clubId?: string;
 }): Promise<BlockBookingResult> {
-  const sessionCount = parseBlockBookingSessionCount(input.sessionCount);
+  const endDate = parseBlockBookingEndDate(input.endDate);
   const supabase = getSupabaseAdminClient();
   const clubId = input.clubId ?? ACTIVE_CLUB_ID;
   const schedule = await loadRecurringScheduleRow(input.scheduleId, clubId);
 
   await assertClubMember(input.userId, schedule.club_id);
 
-  const canonicalSessions = await ensureRecurringScheduleFutureSessions(
+  const sessions = await ensureRecurringScheduleSessionsThroughDate(
     input.scheduleId,
     clubId,
-    sessionCount,
-  );
-  const canonicalSessionIds = new Set(
-    canonicalSessions.map((session) => session.id),
+    endDate,
   );
 
   const result: BlockBookingResult = {
@@ -1006,26 +1034,12 @@ export async function adminBlockBookRecurringSchedule(input: {
     },
   };
 
-  const allFutureSessions = await loadAllFutureSessionsForRecurringSchedule(
-    schedule,
-  );
-
-  for (const session of allFutureSessions) {
-    if (canonicalSessionIds.has(session.id)) {
+  for (const session of sessions) {
+    if (session.status === "cancelled") {
+      result.skipped.cancelled += 1;
       continue;
     }
 
-    const existing = await getExistingAttendee(session.id, input.userId);
-
-    if (!isActiveBookingStatus(existing?.booking_status)) {
-      continue;
-    }
-
-    await adminCancelSessionBooking(existing!.id);
-    result.trimmedCount += 1;
-  }
-
-  for (const session of canonicalSessions) {
     const existing = await getExistingAttendee(session.id, input.userId);
 
     if (isActiveBookingStatus(existing?.booking_status)) {
