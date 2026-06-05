@@ -7,6 +7,7 @@ import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import {
   formatAdminBeltLabel,
+  resolveAdminStudentLeadSource,
   type AdminStudent,
 } from "@/lib/admin-students";
 import {
@@ -199,12 +200,16 @@ export async function getClubStudents(
       : null;
     const bjjAttendance = bjjAttendanceByUserId.get(user.id);
 
+    const leadSource = resolveAdminStudentLeadSource(user.original_lead_source);
+
     students.push({
       id: user.id,
       firstName: user.first_name,
       lastName: user.last_name,
       email: user.email,
       role: membership.role,
+      originalLeadSource: leadSource.originalLeadSource,
+      originalLeadSourceLabel: leadSource.originalLeadSourceLabel,
       beltLabel: useBjjEnrichment ? formatAdminBeltLabel(beltLevel) : "—",
       beltSortOrder: useBjjEnrichment ? (beltLevel?.sort_order ?? null) : null,
       attendanceTotal: bjjAttendance?.lifetimeBjjAttendanceCount ?? 0,

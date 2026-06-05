@@ -140,79 +140,42 @@ async function resolveGuestBookingClubId(classSessionId: string): Promise<string
   return classRow.club_id;
 }
 
-async function getClassSessionIdsForClub(clubId: string): Promise<string[]> {
-  const supabase = getSupabaseAdminClient();
-  const { data: classes, error: classesError } = await supabase
-    .from("classes")
-    .select("id")
-    .eq("club_id", clubId);
-
-  if (classesError) {
-    throw new Error(`Failed to load club classes: ${classesError.message}`);
-  }
-
-  const classIds = (classes ?? []).map((row) => row.id as string);
-
-  if (classIds.length === 0) {
-    return [];
-  }
-
-  const { data: sessions, error: sessionsError } = await supabase
-    .from("class_sessions")
-    .select("id")
-    .in("class_id", classIds);
-
-  if (sessionsError) {
-    throw new Error(`Failed to load club class sessions: ${sessionsError.message}`);
-  }
-
-  return (sessions ?? []).map((row) => row.id as string);
-}
-
 async function fetchGuestBookingRowsForClub(clubId: string): Promise<GuestBookingRecordRow[]> {
   const supabase = getSupabaseAdminClient();
-  const sessionIds = await getClassSessionIdsForClub(clubId);
+  const { data, error } = await supabase
+    .from("guest_bookings")
+    .select(GUEST_BOOKING_LIST_COLUMNS)
+    .eq("club_id", clubId)
+    .order("created_at", { ascending: false });
 
-  const [byClubIdResult, bySessionResult] = await Promise.all([
-    supabase
-      .from("guest_bookings")
-      .select(GUEST_BOOKING_LIST_COLUMNS)
-      .eq("club_id", clubId)
-      .order("created_at", { ascending: false }),
-    sessionIds.length > 0
-      ? supabase
-          .from("guest_bookings")
-          .select(GUEST_BOOKING_LIST_COLUMNS)
-          .in("session_id", sessionIds)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  const listError = byClubIdResult.error ?? bySessionResult.error;
-
-  if (listError) {
-    if (isMissingGuestBookingsTableError(listError)) {
+  if (error) {
+    if (isMissingGuestBookingsTableError(error)) {
       guestBookingsTableAvailable = false;
       return [];
     }
 
-    throw new Error(`Failed to load guest bookings: ${listError.message}`);
+    console.error("[guest-bookings]", {
+      kind: "list_load_failed",
+      clubId,
+      message: error.message,
+    });
+    return [];
   }
 
   guestBookingsTableAvailable = true;
+  return (data ?? []) as GuestBookingRecordRow[];
+}
 
-  const merged = new Map<string, GuestBookingRecordRow>();
+const GUEST_BOOKING_LOOKUP_BATCH_SIZE = 100;
 
-  for (const row of [
-    ...((byClubIdResult.data ?? []) as GuestBookingRecordRow[]),
-    ...((bySessionResult.data ?? []) as GuestBookingRecordRow[]),
-  ]) {
-    merged.set(row.id, row);
+function chunkIds<T>(ids: T[], batchSize = GUEST_BOOKING_LOOKUP_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < ids.length; index += batchSize) {
+    chunks.push(ids.slice(index, index + batchSize));
   }
 
-  return Array.from(merged.values()).sort((left, right) =>
-    right.created_at.localeCompare(left.created_at),
-  );
+  return chunks;
 }
 
 async function mapGuestBookingsToAdminRows(
@@ -224,32 +187,48 @@ async function mapGuestBookingsToAdminRows(
 
   const supabase = getSupabaseAdminClient();
   const sessionIds = Array.from(new Set(rows.map((row) => row.session_id)));
+  const sessions: ClassSessionSummaryRow[] = [];
 
-  const { data: sessionRows, error: sessionsError } = await supabase
-    .from("class_sessions")
-    .select("id, starts_at, class_id")
-    .in("id", sessionIds);
+  for (const sessionIdBatch of chunkIds(sessionIds)) {
+    const { data: sessionRows, error: sessionsError } = await supabase
+      .from("class_sessions")
+      .select("id, starts_at, class_id")
+      .in("id", sessionIdBatch);
 
-  if (sessionsError) {
-    throw new Error(`Failed to load class sessions: ${sessionsError.message}`);
+    if (sessionsError) {
+      console.error("[guest-bookings]", {
+        kind: "session_lookup_failed",
+        message: sessionsError.message,
+      });
+      continue;
+    }
+
+    sessions.push(...((sessionRows ?? []) as ClassSessionSummaryRow[]));
   }
 
-  const sessions = (sessionRows ?? []) as ClassSessionSummaryRow[];
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
+  const classNameById = new Map<string, string>();
 
-  const { data: classRows, error: classesError } = await supabase
-    .from("classes")
-    .select("id, name")
-    .in("id", classIds);
+  for (const classIdBatch of chunkIds(classIds)) {
+    const { data: classRows, error: classesError } = await supabase
+      .from("classes")
+      .select("id, name")
+      .in("id", classIdBatch);
 
-  if (classesError) {
-    throw new Error(`Failed to load classes: ${classesError.message}`);
+    if (classesError) {
+      console.error("[guest-bookings]", {
+        kind: "class_lookup_failed",
+        message: classesError.message,
+      });
+      continue;
+    }
+
+    for (const row of (classRows ?? []) as ClassSummaryRow[]) {
+      classNameById.set(row.id, row.name?.trim() || "Class");
+    }
   }
 
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
-  const classNameById = new Map(
-    ((classRows ?? []) as ClassSummaryRow[]).map((row) => [row.id, row.name?.trim() || "Class"]),
-  );
 
   return rows.map((row) => {
     const session = sessionById.get(row.session_id);

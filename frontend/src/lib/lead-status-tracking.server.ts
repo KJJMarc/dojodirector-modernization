@@ -5,6 +5,7 @@ import {
   normalizeLeadMatchEmail,
   normalizeLeadMatchPhone,
 } from "@/lib/lead-guest-booking-match.shared";
+import { preserveStudentOriginalLeadSource } from "@/lib/lead-source-analytics.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface SupabaseErrorLike {
@@ -16,6 +17,7 @@ interface LeadTrackingRow {
   id: string;
   email: string;
   phone: string | null;
+  lead_source: string | null;
   status: string;
   notes: string | null;
   trial_attended_at: string | null;
@@ -37,7 +39,7 @@ async function findLeadByEmail(academyId: string, email: string): Promise<LeadTr
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, email, phone, status, notes, trial_attended_at, joined_at")
+    .select("id, email, phone, lead_source, status, notes, trial_attended_at, joined_at")
     .eq("academy_id", academyId)
     .ilike("email", email)
     .order("created_at", { ascending: false })
@@ -62,7 +64,7 @@ async function findLeadByPhone(
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, email, phone, status, notes, trial_attended_at, joined_at")
+    .select("id, email, phone, lead_source, status, notes, trial_attended_at, joined_at")
     .eq("academy_id", academyId)
     .not("phone", "is", null)
     .order("created_at", { ascending: false });
@@ -154,6 +156,7 @@ async function updateLeadTracking(input: {
  */
 export async function matchLeadOnStudentJoined(input: {
   academyId: string;
+  userId: string;
   email: string;
   phone: string | null;
   studentName: string;
@@ -175,6 +178,11 @@ export async function matchLeadOnStudentJoined(input: {
       joinedAt: now,
       noteEntry,
       existingNotes: lead.notes,
+    });
+
+    await preserveStudentOriginalLeadSource({
+      userId: input.userId,
+      leadSource: lead.lead_source,
     });
   } catch (error) {
     console.error("[lead-status-tracking]", {

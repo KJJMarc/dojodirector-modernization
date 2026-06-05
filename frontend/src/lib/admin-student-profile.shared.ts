@@ -126,8 +126,13 @@ export interface AdminStudentProgrammeMembershipSummary {
   programmes: AdminStudentProgrammeMembershipItem[];
 }
 
+export interface AdminStudentProfileLeadSourceSummary {
+  sourceLabel: string | null;
+}
+
 export interface AdminStudentProfilePageData {
   student: AdminStudentProfileDetails;
+  leadSource: AdminStudentProfileLeadSourceSummary;
   loginAccess: ProfileLoginAccessSummary;
   portalSetup: PortalSetupAccessSummary;
   showAdminDashboardAccess: boolean;

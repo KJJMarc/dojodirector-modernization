@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin-programmes.shared";
 import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
+import { clubLeadSourceAnalyticsAdminPath } from "@/lib/lead-source-analytics.shared";
 
 interface DashboardAction {
   label: string;
@@ -123,6 +124,11 @@ function buildDashboardSections(
           label: "Manage Leads",
           href: clubAdminPath(clubSlug, "leads"),
           description: "Trial enquiries and follow-up",
+        },
+        {
+          label: "Lead Source Analytics",
+          href: clubLeadSourceAnalyticsAdminPath(clubSlug),
+          description: "Funnel and student quality by enquiry source",
         },
       ],
       showProgrammesUnavailableNotice: false,

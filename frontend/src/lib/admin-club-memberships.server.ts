@@ -14,6 +14,7 @@ export interface AdminStudentProfileRow {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  original_lead_source: string | null;
 }
 
 const SUPABASE_PAGE_SIZE = 1000;
@@ -159,10 +160,23 @@ export async function loadAdminStudentProfileRowsByIds(
   const users: AdminStudentProfileRow[] = [];
 
   for (const batch of chunkIds(userIds)) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("users")
-      .select("id, first_name, last_name, email")
+      .select("id, first_name, last_name, email, original_lead_source")
       .in("id", batch);
+
+    if (error?.message?.includes("original_lead_source")) {
+      const fallback = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email")
+        .in("id", batch);
+
+      data = (fallback.data ?? []).map((row) => ({
+        ...row,
+        original_lead_source: null,
+      }));
+      error = fallback.error;
+    }
 
     if (error) {
       throw new Error(`Failed to load student profiles: ${error.message}`);

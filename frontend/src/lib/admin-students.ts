@@ -1,5 +1,10 @@
 import { formatBeltOptionLabel } from "@/lib/admin-belt-levels.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
+import {
+  formatAnalyticsLeadSourceLabel,
+  normalizeLeadSourceForAnalytics,
+  type AnalyticsLeadSource,
+} from "@/lib/lead-source-analytics.shared";
 import { BeltLevel } from "@/types/database";
 
 export interface AdminStudent {
@@ -8,6 +13,8 @@ export interface AdminStudent {
   lastName: string | null;
   email: string | null;
   role: string | null;
+  originalLeadSource: AnalyticsLeadSource | null;
+  originalLeadSourceLabel: string | null;
   beltLabel: string;
   beltSortOrder: number | null;
   attendanceTotal: number;
@@ -101,6 +108,7 @@ export function buildAdminStudentsListHref(options: {
   sort: AdminStudentSortKey;
   dir: AdminStudentSortDir;
   searchQuery?: string;
+  leadSourceFilter?: AnalyticsLeadSource;
   studentsPath?: string;
 }) {
   const params = new URLSearchParams();
@@ -109,6 +117,10 @@ export function buildAdminStudentsListHref(options: {
 
   if (options.searchQuery) {
     params.set("q", options.searchQuery);
+  }
+
+  if (options.leadSourceFilter) {
+    params.set("source", options.leadSourceFilter);
   }
 
   const section = options.studentsPath ?? "students";
@@ -172,24 +184,44 @@ export function sortAdminStudents(
 export function filterAdminStudents(
   students: AdminStudent[],
   query?: string,
+  leadSourceFilter?: AnalyticsLeadSource,
 ): AdminStudent[] {
   const normalizedQuery = query?.trim().toLowerCase();
 
-  if (!normalizedQuery) {
-    return students;
-  }
-
   return students.filter((student) => {
+    if (leadSourceFilter && student.originalLeadSource !== leadSourceFilter) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
     const firstName = student.firstName?.toLowerCase() ?? "";
     const lastName = student.lastName?.toLowerCase() ?? "";
     const email = student.email?.toLowerCase() ?? "";
+    const leadSourceLabel = student.originalLeadSourceLabel?.toLowerCase() ?? "";
 
     return (
       firstName.includes(normalizedQuery) ||
       lastName.includes(normalizedQuery) ||
-      email.includes(normalizedQuery)
+      email.includes(normalizedQuery) ||
+      leadSourceLabel.includes(normalizedQuery)
     );
   });
+}
+
+export function resolveAdminStudentLeadSource(
+  value: string | null | undefined,
+): Pick<AdminStudent, "originalLeadSource" | "originalLeadSourceLabel"> {
+  const originalLeadSource = normalizeLeadSourceForAnalytics(value);
+
+  return {
+    originalLeadSource,
+    originalLeadSourceLabel: originalLeadSource
+      ? formatAnalyticsLeadSourceLabel(originalLeadSource)
+      : null,
+  };
 }
 
 export function formatStudentRole(role: string | null) {

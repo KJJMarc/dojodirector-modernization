@@ -221,6 +221,7 @@ export async function createAdminStudent(
 
     void matchLeadOnStudentJoined({
       academyId: clubId,
+      userId: existingUserId,
       email: input.email,
       phone: input.phone || null,
       studentName: getStudentFullName(input.firstName, input.lastName),
@@ -251,6 +252,7 @@ export async function createAdminStudent(
 
   void matchLeadOnStudentJoined({
     academyId: clubId,
+    userId,
     email: input.email,
     phone: input.phone || null,
     studentName: getStudentFullName(input.firstName, input.lastName),

@@ -6,11 +6,13 @@ import {
   AdminStudentSortKey,
   buildAdminStudentsListHref,
 } from "@/lib/admin-students";
+import type { AnalyticsLeadSource } from "@/lib/lead-source-analytics.shared";
 
 interface StudentMobileSortProps {
   clubSlug: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
+  leadSourceFilter?: AnalyticsLeadSource;
   studentsPath?: string;
   showBjjColumns?: boolean;
 }
@@ -41,6 +43,7 @@ export function StudentMobileSort({
   clubSlug,
   currentSort,
   searchQuery,
+  leadSourceFilter,
   studentsPath = "students",
   showBjjColumns = true,
 }: StudentMobileSortProps) {
@@ -72,6 +75,7 @@ export function StudentMobileSort({
               sort: nextSort.key,
               dir: nextSort.dir,
               searchQuery,
+              leadSourceFilter,
               studentsPath,
             }),
           );

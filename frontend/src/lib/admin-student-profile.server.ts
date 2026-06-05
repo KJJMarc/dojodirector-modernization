@@ -12,7 +12,7 @@ import {
   buildStudentBeltPromotionAssessment,
   pickLatestGradeAwardForUser,
 } from "@/lib/admin-belt-promotion.shared";
-import { formatAdminBeltLabel } from "@/lib/admin-students";
+import { formatAdminBeltLabel, resolveAdminStudentLeadSource } from "@/lib/admin-students";
 import { formatInstructorRoleLabel } from "@/lib/admin-instructors.shared";
 import {
   canChangeProfileMembershipRole,
@@ -53,6 +53,7 @@ interface UserProfileRow {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  original_lead_source?: string | null;
   phone: string | null;
   date_of_birth: string | null;
   notes: string | null;
@@ -81,16 +82,29 @@ interface BeltLevelRow {
 }
 
 const USER_PROFILE_COLUMNS =
-  "id, first_name, last_name, email, phone, date_of_birth, notes";
+  "id, first_name, last_name, email, phone, date_of_birth, notes, original_lead_source";
 
 async function loadUserProfileRow(userId: string) {
   const supabase = getSupabaseAdminClient();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("users")
     .select(USER_PROFILE_COLUMNS)
     .eq("id", userId)
     .maybeSingle();
+
+  if (error?.message?.includes("original_lead_source")) {
+    const fallback = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email, phone, date_of_birth, notes")
+      .eq("id", userId)
+      .maybeSingle();
+
+    data = fallback.data
+      ? { ...fallback.data, original_lead_source: null }
+      : null;
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(`Failed to load student profile: ${error.message}`);
@@ -258,8 +272,12 @@ export async function getAdminStudentProfilePageData(
         logDiagnostics: true,
       })
     : null;
+  const leadSource = resolveAdminStudentLeadSource(user.original_lead_source);
 
   return {
+    leadSource: {
+      sourceLabel: leadSource.originalLeadSourceLabel,
+    },
     loginAccess,
     portalSetup: {
       statusLabel: portalSetup.statusLabel,

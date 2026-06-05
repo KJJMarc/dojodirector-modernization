@@ -58,6 +58,7 @@ export function StudentProfileView({
 }: StudentProfileViewProps) {
   const {
     student,
+    leadSource,
     loginAccess,
     portalSetup,
     portalAccess,
@@ -117,6 +118,19 @@ export function StudentProfileView({
               </dd>
             </div>
           ) : null}
+        </dl>
+      </section>
+
+      <section className={profileSectionClassName}>
+        <ProfileSectionHeading title="Lead Source" />
+        <p className="mb-2 text-xs text-dojo-muted">
+          Original enquiry source preserved when this student was converted from a lead.
+        </p>
+        <dl className={profileDetailGridClassName}>
+          <ProfileDetailItem
+            label="Original lead source"
+            value={formatProfileField(leadSource.sourceLabel)}
+          />
         </dl>
       </section>
 

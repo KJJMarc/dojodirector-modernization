@@ -24,12 +24,13 @@ import {
 } from "@/lib/admin-students";
 import { getClubStudents } from "@/lib/admin-students.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
+import { parseAnalyticsLeadSourceFilter } from "@/lib/lead-source-analytics.shared";
 
 export const dynamic = "force-dynamic";
 
 interface ProgrammeStudentsPageProps {
   params: { clubSlug: string; programmeSlug: string };
-  searchParams: { q?: string; sort?: string; dir?: string };
+  searchParams: { q?: string; source?: string; sort?: string; dir?: string };
 }
 
 export async function generateMetadata({
@@ -88,13 +89,14 @@ export default async function ProgrammeStudentsPage({
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
   const pageTitle = formatProgrammeStudentsLabel(programme);
   const searchQuery = searchParams.q?.trim();
+  const leadSourceFilter = parseAnalyticsLeadSourceFilter(searchParams.source);
   const currentSort = parseAdminStudentSort(
     searchParams.sort,
     searchParams.dir,
   );
   const allStudents = await getClubStudents(club.id, programme);
   const students = sortAdminStudents(
-    filterAdminStudents(allStudents, searchQuery),
+    filterAdminStudents(allStudents, searchQuery, leadSourceFilter),
     currentSort,
   );
 
@@ -138,12 +140,14 @@ export default async function ProgrammeStudentsPage({
             FIND MEMBERS
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Search by first name, last name or email.
+            Search by first name, last name, email or lead source. Filter by
+            original lead source.
           </p>
         </div>
         <StudentSearchForm
           clubSlug={club.slug}
           initialQuery={searchQuery ?? ""}
+          initialLeadSource={leadSourceFilter}
           sortKey={currentSort.key}
           sortDir={currentSort.dir}
           studentsPath={`programmes/${programme.slug}/students`}
@@ -155,6 +159,7 @@ export default async function ProgrammeStudentsPage({
         students={students}
         totalCount={allStudents.length}
         searchQuery={searchQuery}
+        leadSourceFilter={leadSourceFilter}
         currentSort={currentSort}
         memberLabel="member"
         memberLabelPlural="members"
