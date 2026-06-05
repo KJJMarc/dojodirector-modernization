@@ -6,18 +6,18 @@ import {
 } from "./attendance.ts";
 
 describe("compareAttendanceRegisterNames", () => {
-  it("sorts by surname then first name", () => {
+  it("sorts by first name then surname", () => {
     assert.equal(
       compareAttendanceRegisterNames("Alex", "Silva", "Bob", "Silva"),
       -1,
     );
     assert.equal(
       compareAttendanceRegisterNames("Bob", "Adams", "Alex", "Silva"),
-      -1,
+      1,
     );
   });
 
-  it("falls back to full name when surname is unavailable", () => {
+  it("falls back to full name when only one name field exists", () => {
     assert.equal(
       compareAttendanceRegisterNames("Charlie Brown", null, "Alex", null),
       1,
@@ -42,7 +42,7 @@ describe("sortByAttendanceRegisterName", () => {
 
     assert.deepEqual(
       sorted.map((row) => row.id),
-      ["1", "4", "3", "2"],
+      ["3", "2", "4", "1"],
     );
   });
 });

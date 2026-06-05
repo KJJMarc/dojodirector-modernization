@@ -20,25 +20,27 @@ function resolveAttendanceRegisterSortKey(
   const normalizedLastName = lastName?.trim() ?? "";
   const normalizedFirstName = firstName?.trim() ?? "";
 
-  if (normalizedLastName) {
+  if (normalizedFirstName) {
     return {
-      primary: normalizedLastName,
-      secondary: normalizedFirstName,
+      primary: normalizedFirstName,
+      secondary: normalizedLastName,
     };
   }
 
-  const fullName = getStudentFullName(
-    normalizedFirstName || null,
-    null,
-  );
+  if (normalizedLastName) {
+    return {
+      primary: normalizedLastName,
+      secondary: "",
+    };
+  }
 
   return {
-    primary: fullName === "Unknown student" ? "" : fullName,
+    primary: "",
     secondary: "",
   };
 }
 
-/** Sort attendance register rows by surname, then first name, or full name when surname is unavailable. */
+/** Sort attendance register rows by first name, then surname, or full name when only one name field exists. */
 export function compareAttendanceRegisterNames(
   leftFirstName: string | null | undefined,
   leftLastName: string | null | undefined,
