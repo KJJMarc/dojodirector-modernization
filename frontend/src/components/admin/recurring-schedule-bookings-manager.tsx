@@ -45,7 +45,8 @@ export function RecurringScheduleBookingsManager({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { schedule, studentBookings } = pageData;
+  const { schedule, studentBookings, sessionHealth } = pageData;
+  const canAddBookings = schedule.isActive && sessionHealth.canBlockBook;
 
   const filteredBookStudents = useMemo(() => {
     const normalized = bookSearchQuery.trim().toLowerCase();
@@ -144,7 +145,7 @@ export function RecurringScheduleBookingsManager({
           </span>
         </div>
 
-        <dl className="grid gap-3 sm:grid-cols-3">
+        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-dojo-border bg-dojo-elevated p-3">
             <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
               Capacity
@@ -159,11 +160,29 @@ export function RecurringScheduleBookingsManager({
           </div>
           <div className="rounded-lg border border-dojo-border bg-dojo-elevated p-3">
             <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+              Future sessions
+            </dt>
+            <dd className="mt-1 text-sm text-dojo-white">
+              {sessionHealth.futureSessionCount}
+              {sessionHealth.futureSessionCount < sessionHealth.requiredSessionCount
+                ? ` of ${sessionHealth.requiredSessionCount}`
+                : ""}
+            </dd>
+          </div>
+          <div className="rounded-lg border border-dojo-border bg-dojo-elevated p-3">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
               Students booked
             </dt>
             <dd className="mt-1 text-sm text-dojo-white">{studentBookings.length}</dd>
           </div>
         </dl>
+
+        {sessionHealth.warning ? (
+          <p className="rounded-md border border-amber-700/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+            {sessionHealth.warning} Bookings can still be made for sessions that are
+            already scheduled.
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
@@ -233,7 +252,7 @@ export function RecurringScheduleBookingsManager({
         )}
       </section>
 
-      {schedule.isActive ? (
+      {canAddBookings ? (
         <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
@@ -243,6 +262,9 @@ export function RecurringScheduleBookingsManager({
               Book a student into all future non-cancelled sessions up to the
               selected date. Maximum booking window is {RECURRING_BLOCK_BOOKING_MAX_WEEKS}{" "}
               weeks.
+              {sessionHealth.futureSessionCount < sessionHealth.requiredSessionCount
+                ? ` Only ${sessionHealth.futureSessionCount} session${sessionHealth.futureSessionCount === 1 ? "" : "s"} are currently scheduled.`
+                : ""}
             </p>
           </div>
 
@@ -304,8 +326,9 @@ export function RecurringScheduleBookingsManager({
       ) : (
         <section className="rounded-xl border border-dojo-border bg-dojo-surface p-4">
           <p className="text-sm text-dojo-muted">
-            This recurring class is inactive. New bookings cannot be added until it is
-            reactivated.
+            {!schedule.isActive
+              ? "This recurring class is inactive. New bookings cannot be added until it is reactivated."
+              : "No future sessions are scheduled for this class. New bookings cannot be added until sessions are generated."}
           </p>
         </section>
       )}

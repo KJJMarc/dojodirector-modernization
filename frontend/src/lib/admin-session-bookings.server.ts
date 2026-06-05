@@ -28,6 +28,7 @@ import {
   type BookingStudentOption,
   type CancelRecurringBookingResult,
   type RecurringScheduleBookingsPageData,
+  type RecurringScheduleSessionHealth,
   type RecurringScheduleStudentBookingSummary,
   type SessionBookingAttendee,
 } from "@/lib/admin-session-bookings.shared";
@@ -38,6 +39,7 @@ export type {
   BookingStudentOption,
   CancelRecurringBookingResult,
   RecurringScheduleBookingsPageData,
+  RecurringScheduleSessionHealth,
   RecurringScheduleStudentBookingSummary,
   SessionBookingAttendee,
 };
@@ -211,11 +213,18 @@ async function getCanonicalBlockBookingSessions(
     .slice(0, sessionCount);
 }
 
-async function ensureRecurringScheduleFutureSessions(
+interface EnsureRecurringSessionsResult {
+  sessions: FutureSessionRow[];
+  futureSessionCount: number;
+  requiredSessionCount: number;
+  generationError: string | null;
+}
+
+async function tryEnsureRecurringScheduleFutureSessions(
   scheduleId: string,
   clubId: string,
   sessionCount: number = RECURRING_BLOCK_BOOKING_SESSION_COUNT,
-) {
+): Promise<EnsureRecurringSessionsResult> {
   const supabase = getSupabaseAdminClient();
   const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
   let canonicalSessions = await getCanonicalBlockBookingSessions(
@@ -224,10 +233,16 @@ async function ensureRecurringScheduleFutureSessions(
   );
 
   if (canonicalSessions.length >= sessionCount) {
-    return canonicalSessions;
+    return {
+      sessions: canonicalSessions,
+      futureSessionCount: canonicalSessions.length,
+      requiredSessionCount: sessionCount,
+      generationError: null,
+    };
   }
 
   let daysAhead = RECURRING_CLASS_SESSION_DAYS_AHEAD;
+  let generationError: string | null = null;
 
   while (canonicalSessions.length < sessionCount && daysAhead <= 420) {
     const { error } = await supabase.rpc("generate_recurring_class_sessions", {
@@ -236,7 +251,8 @@ async function ensureRecurringScheduleFutureSessions(
     });
 
     if (error) {
-      throw new Error(`Unable to generate recurring sessions: ${error.message}`);
+      generationError = `Unable to generate recurring sessions: ${error.message}`;
+      break;
     }
 
     canonicalSessions = await getCanonicalBlockBookingSessions(
@@ -246,13 +262,34 @@ async function ensureRecurringScheduleFutureSessions(
     daysAhead += 56;
   }
 
-  if (canonicalSessions.length < sessionCount) {
-    throw new Error(
-      `Only ${canonicalSessions.length} non-cancelled future sessions available; need ${sessionCount}.`,
-    );
+  if (canonicalSessions.length < sessionCount && !generationError) {
+    generationError = `Only ${canonicalSessions.length} non-cancelled future sessions are scheduled; ${sessionCount} are expected for full-year block booking.`;
   }
 
-  return canonicalSessions;
+  return {
+    sessions: canonicalSessions,
+    futureSessionCount: canonicalSessions.length,
+    requiredSessionCount: sessionCount,
+    generationError,
+  };
+}
+
+function buildRecurringScheduleSessionHealth(
+  scheduleIsActive: boolean,
+  result: EnsureRecurringSessionsResult,
+  listedFutureSessionCount: number,
+): RecurringScheduleSessionHealth {
+  const futureSessionCount = Math.max(
+    listedFutureSessionCount,
+    result.futureSessionCount,
+  );
+
+  return {
+    futureSessionCount,
+    requiredSessionCount: result.requiredSessionCount,
+    canBlockBook: scheduleIsActive && futureSessionCount > 0,
+    warning: result.generationError,
+  };
 }
 
 function parseBlockBookingEndDate(endDate: string) {
@@ -297,11 +334,21 @@ async function ensureRecurringScheduleSessionsThroughDate(
     p_days_ahead: daysAhead,
   });
 
-  if (error) {
-    throw new Error(`Unable to generate recurring sessions: ${error.message}`);
+  const sessions = await loadFutureSessionsForRecurringSchedule(schedule, endIso);
+
+  if (sessions.length === 0) {
+    if (error) {
+      throw new Error(
+        `No future sessions are scheduled for this class. Session generation failed: ${error.message}`,
+      );
+    }
+
+    throw new Error(
+      "No future sessions are scheduled for this class through the selected date.",
+    );
   }
 
-  return loadFutureSessionsForRecurringSchedule(schedule, endIso);
+  return sessions;
 }
 
 async function loadRecurringScheduleRow(
@@ -877,8 +924,14 @@ export async function getRecurringScheduleBookingsPageData(
       ? scheduleLinkedSessions
       : await loadAllFutureSessionsForRecurringSchedule(schedule);
   const allFutureSessionIds = allFutureSessions.map((session) => session.id);
-  await ensureRecurringScheduleFutureSessions(scheduleId, clubId);
-  const canonicalSessions = await getCanonicalBlockBookingSessions(schedule);
+  const sessionEnsureResult = await tryEnsureRecurringScheduleFutureSessions(
+    scheduleId,
+    clubId,
+  );
+  const canonicalSessions =
+    sessionEnsureResult.sessions.length > 0
+      ? sessionEnsureResult.sessions
+      : await getCanonicalBlockBookingSessions(schedule);
   const canonicalSessionIdSet = new Set(
     canonicalSessions.map((session) => session.id),
   );
@@ -972,6 +1025,11 @@ export async function getRecurringScheduleBookingsPageData(
       isActive: scheduleRow.isActive,
     },
     studentBookings,
+    sessionHealth: buildRecurringScheduleSessionHealth(
+      scheduleRow.isActive,
+      sessionEnsureResult,
+      allFutureSessions.length,
+    ),
   };
 }
 

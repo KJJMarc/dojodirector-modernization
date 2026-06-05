@@ -89,6 +89,13 @@ export interface RecurringScheduleStudentBookingSummary {
   walkInCount: number;
 }
 
+export interface RecurringScheduleSessionHealth {
+  futureSessionCount: number;
+  requiredSessionCount: number;
+  canBlockBook: boolean;
+  warning: string | null;
+}
+
 export interface RecurringScheduleBookingsPageData {
   schedule: {
     id: string;
@@ -102,6 +109,7 @@ export interface RecurringScheduleBookingsPageData {
     isActive: boolean;
   };
   studentBookings: RecurringScheduleStudentBookingSummary[];
+  sessionHealth: RecurringScheduleSessionHealth;
 }
 
 export function formatAdminBookingStatusLabel(status: string) {
