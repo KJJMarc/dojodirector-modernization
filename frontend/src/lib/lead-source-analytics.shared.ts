@@ -35,6 +35,28 @@ export function clubLeadSourceAnalyticsAdminPath(clubSlug: string) {
   return clubAdminPath(clubSlug, "leads/source-analytics");
 }
 
+export function buildLeadSourceAnalyticsHref(options: {
+  clubSlug: string;
+  searchQuery?: string;
+  leadSourceFilter?: AnalyticsLeadSource;
+}) {
+  const params = new URLSearchParams();
+
+  if (options.searchQuery) {
+    params.set("q", options.searchQuery);
+  }
+
+  if (options.leadSourceFilter) {
+    params.set("source", options.leadSourceFilter);
+  }
+
+  const query = params.toString();
+
+  return `${clubLeadSourceAnalyticsAdminPath(options.clubSlug)}${
+    query ? `?${query}` : ""
+  }`;
+}
+
 export function normalizeLeadSourceForAnalytics(
   value: string | null | undefined,
 ): AnalyticsLeadSource | null {
@@ -124,4 +146,47 @@ export interface LeadSourceAnalyticsPageData {
     members: number;
     activeMembers: number;
   };
+}
+
+export type LeadSourceAttributionRecordType = "lead" | "student";
+
+export interface LeadSourceAttributionRecord {
+  id: string;
+  recordType: LeadSourceAttributionRecordType;
+  name: string;
+  email: string | null;
+  originalLeadSource: AnalyticsLeadSource | null;
+  originalLeadSourceLabel: string | null;
+  statusLabel: string | null;
+}
+
+export function filterLeadSourceAttributionRecords(
+  records: LeadSourceAttributionRecord[],
+  query?: string,
+  leadSourceFilter?: AnalyticsLeadSource,
+): LeadSourceAttributionRecord[] {
+  const normalizedQuery = query?.trim().toLowerCase();
+
+  return records.filter((record) => {
+    if (
+      leadSourceFilter &&
+      record.originalLeadSource !== leadSourceFilter
+    ) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    const name = record.name.toLowerCase();
+    const email = record.email?.toLowerCase() ?? "";
+    const leadSourceLabel = record.originalLeadSourceLabel?.toLowerCase() ?? "";
+
+    return (
+      name.includes(normalizedQuery) ||
+      email.includes(normalizedQuery) ||
+      leadSourceLabel.includes(normalizedQuery)
+    );
+  });
 }

@@ -10,14 +10,12 @@ import {
   formatStudentRole,
   getNextAdminStudentSortDir,
 } from "@/lib/admin-students";
-import type { AnalyticsLeadSource } from "@/lib/lead-source-analytics.shared";
 
 interface StudentsListProps {
   clubSlug: string;
   students: AdminStudent[];
   totalCount: number;
   searchQuery?: string;
-  leadSourceFilter?: AnalyticsLeadSource;
   currentSort: AdminStudentSort;
   memberLabel?: string;
   memberLabelPlural?: string;
@@ -146,7 +144,6 @@ function SortableHeader({
   label,
   currentSort,
   searchQuery,
-  leadSourceFilter,
   studentsPath,
 }: {
   clubSlug: string;
@@ -154,7 +151,6 @@ function SortableHeader({
   label: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
-  leadSourceFilter?: AnalyticsLeadSource;
   studentsPath?: string;
 }) {
   const nextDir = getNextAdminStudentSortDir(currentSort, columnKey);
@@ -163,7 +159,6 @@ function SortableHeader({
     sort: columnKey,
     dir: nextDir,
     searchQuery,
-    leadSourceFilter,
     studentsPath,
   });
   const isActive = currentSort.key === columnKey;
@@ -198,7 +193,6 @@ export function StudentsList({
   students,
   totalCount,
   searchQuery,
-  leadSourceFilter,
   currentSort,
   memberLabel = "student",
   memberLabelPlural = "students",
@@ -219,8 +213,7 @@ export function StudentsList({
     return true;
   });
 
-  const isFiltered =
-    Boolean(searchQuery?.trim()) || Boolean(leadSourceFilter);
+  const isFiltered = Boolean(searchQuery?.trim());
   const countLabel =
     isFiltered && students.length !== totalCount
       ? `${students.length} of ${totalCount} ${memberLabelPlural}`
@@ -236,7 +229,6 @@ export function StudentsList({
         clubSlug={clubSlug}
         currentSort={currentSort}
         searchQuery={searchQuery}
-        leadSourceFilter={leadSourceFilter}
         studentsPath={studentsPath}
         showBjjColumns={showBjjColumns}
       />
@@ -261,7 +253,6 @@ export function StudentsList({
                       label={label}
                       currentSort={currentSort}
                       searchQuery={searchQuery}
-                      leadSourceFilter={leadSourceFilter}
                       studentsPath={studentsPath}
                     />
                   ))}

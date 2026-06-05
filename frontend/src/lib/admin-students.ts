@@ -108,7 +108,6 @@ export function buildAdminStudentsListHref(options: {
   sort: AdminStudentSortKey;
   dir: AdminStudentSortDir;
   searchQuery?: string;
-  leadSourceFilter?: AnalyticsLeadSource;
   studentsPath?: string;
 }) {
   const params = new URLSearchParams();
@@ -117,10 +116,6 @@ export function buildAdminStudentsListHref(options: {
 
   if (options.searchQuery) {
     params.set("q", options.searchQuery);
-  }
-
-  if (options.leadSourceFilter) {
-    params.set("source", options.leadSourceFilter);
   }
 
   const section = options.studentsPath ?? "students";
@@ -184,15 +179,10 @@ export function sortAdminStudents(
 export function filterAdminStudents(
   students: AdminStudent[],
   query?: string,
-  leadSourceFilter?: AnalyticsLeadSource,
 ): AdminStudent[] {
   const normalizedQuery = query?.trim().toLowerCase();
 
   return students.filter((student) => {
-    if (leadSourceFilter && student.originalLeadSource !== leadSourceFilter) {
-      return false;
-    }
-
     if (!normalizedQuery) {
       return true;
     }
@@ -200,13 +190,11 @@ export function filterAdminStudents(
     const firstName = student.firstName?.toLowerCase() ?? "";
     const lastName = student.lastName?.toLowerCase() ?? "";
     const email = student.email?.toLowerCase() ?? "";
-    const leadSourceLabel = student.originalLeadSourceLabel?.toLowerCase() ?? "";
 
     return (
       firstName.includes(normalizedQuery) ||
       lastName.includes(normalizedQuery) ||
-      email.includes(normalizedQuery) ||
-      leadSourceLabel.includes(normalizedQuery)
+      email.includes(normalizedQuery)
     );
   });
 }

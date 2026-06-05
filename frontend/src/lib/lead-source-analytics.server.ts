@@ -7,9 +7,11 @@ import {
   normalizeLeadSourceForAnalytics,
   type AnalyticsLeadSource,
   type LeadSourceAnalyticsPageData,
+  type LeadSourceAttributionRecord,
   type LeadSourceFunnelRow,
   type LeadSourceStudentQualityRow,
 } from "@/lib/lead-source-analytics.shared";
+import { formatLeadStatusLabel } from "@/lib/leads.shared";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -219,6 +221,149 @@ export async function loadLeadSourceAnalytics(
       activeMembers: sumCounts(activeMemberCounts),
     },
   };
+}
+
+interface LeadSearchRow {
+  id: string;
+  full_name: string;
+  email: string;
+  lead_source: string;
+  status: string;
+}
+
+interface StudentSearchRow {
+  user_id: string;
+  users:
+    | {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        email: string | null;
+        original_lead_source: string | null;
+      }
+    | {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        email: string | null;
+        original_lead_source: string | null;
+      }[];
+}
+
+function formatStudentAttributionName(
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+) {
+  return [firstName, lastName].filter(Boolean).join(" ") || "Unknown student";
+}
+
+function buildLeadAttributionRecord(row: LeadSearchRow): LeadSourceAttributionRecord | null {
+  const originalLeadSource = normalizeLeadSourceForAnalytics(row.lead_source);
+
+  if (!originalLeadSource) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    recordType: "lead",
+    name: row.full_name.trim() || "Unknown lead",
+    email: row.email?.trim() || null,
+    originalLeadSource,
+    originalLeadSourceLabel: formatAnalyticsLeadSourceLabel(originalLeadSource),
+    statusLabel: formatLeadStatusLabel(row.status),
+  };
+}
+
+function buildStudentAttributionRecord(
+  row: StudentSearchRow,
+): LeadSourceAttributionRecord | null {
+  const userRecord = Array.isArray(row.users) ? row.users[0] : row.users;
+  const originalLeadSource = normalizeLeadSourceForAnalytics(
+    userRecord?.original_lead_source,
+  );
+
+  if (!originalLeadSource || !userRecord) {
+    return null;
+  }
+
+  return {
+    id: userRecord.id,
+    recordType: "student",
+    name: formatStudentAttributionName(userRecord.first_name, userRecord.last_name),
+    email: userRecord.email?.trim() || null,
+    originalLeadSource,
+    originalLeadSourceLabel: formatAnalyticsLeadSourceLabel(originalLeadSource),
+    statusLabel: "Member",
+  };
+}
+
+export async function loadLeadSourceAttributionRecords(
+  clubId: string,
+): Promise<LeadSourceAttributionRecord[]> {
+  const supabase = getSupabaseAdminClient();
+  const records: LeadSourceAttributionRecord[] = [];
+
+  const { data: leadRows, error: leadsError } = await supabase
+    .from("leads")
+    .select("id, full_name, email, lead_source, status")
+    .eq("academy_id", clubId);
+
+  if (leadsError) {
+    if (isMissingAnalyticsSchemaError(leadsError)) {
+      return [];
+    }
+
+    throw new Error(
+      `Failed to load lead source attribution records: ${leadsError.message}`,
+    );
+  }
+
+  for (const row of (leadRows ?? []) as LeadSearchRow[]) {
+    const record = buildLeadAttributionRecord(row);
+
+    if (record) {
+      records.push(record);
+    }
+  }
+
+  const { data: membershipRows, error: membershipsError } = await supabase
+    .from("memberships")
+    .select(
+      "user_id, users!inner(id, first_name, last_name, email, original_lead_source)",
+    )
+    .eq("club_id", clubId);
+
+  if (membershipsError) {
+    if (isMissingAnalyticsSchemaError(membershipsError)) {
+      return records;
+    }
+
+    throw new Error(
+      `Failed to load student lead source attribution records: ${membershipsError.message}`,
+    );
+  }
+
+  const countedStudentIds = new Set<string>();
+
+  for (const row of (membershipRows ?? []) as StudentSearchRow[]) {
+    const userRecord = Array.isArray(row.users) ? row.users[0] : row.users;
+
+    if (!userRecord || countedStudentIds.has(userRecord.id)) {
+      continue;
+    }
+
+    countedStudentIds.add(userRecord.id);
+    const record = buildStudentAttributionRecord(row);
+
+    if (record) {
+      records.push(record);
+    }
+  }
+
+  return records.sort((left, right) =>
+    left.name.localeCompare(right.name, "en", { sensitivity: "base" }),
+  );
 }
 
 /** Persist analytics lead source on the student when a lead converts. Never throws. */

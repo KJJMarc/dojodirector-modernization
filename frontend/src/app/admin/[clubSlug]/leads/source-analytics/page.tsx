@@ -4,13 +4,24 @@ import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { LeadSourceAnalyticsView } from "@/components/admin/lead-source-analytics-view";
 import { AppHeader } from "@/components/layout/app-header";
 import { LEADS_NOT_CONFIGURED_MESSAGE } from "@/lib/leads.shared";
-import { loadLeadSourceAnalytics } from "@/lib/lead-source-analytics.server";
+import {
+  filterLeadSourceAttributionRecords,
+  parseAnalyticsLeadSourceFilter,
+} from "@/lib/lead-source-analytics.shared";
+import {
+  loadLeadSourceAnalytics,
+  loadLeadSourceAttributionRecords,
+} from "@/lib/lead-source-analytics.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
 
 interface LeadSourceAnalyticsPageProps {
   params: { clubSlug: string };
+  searchParams: {
+    q?: string;
+    source?: string;
+  };
 }
 
 export async function generateMetadata({
@@ -26,9 +37,21 @@ export async function generateMetadata({
 
 export default async function LeadSourceAnalyticsPage({
   params,
+  searchParams,
 }: LeadSourceAnalyticsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const data = await loadLeadSourceAnalytics(club.id);
+  const searchQuery = searchParams.q?.trim();
+  const leadSourceFilter = parseAnalyticsLeadSourceFilter(searchParams.source);
+  const [data, allAttributionRecords] = await Promise.all([
+    loadLeadSourceAnalytics(club.id),
+    loadLeadSourceAttributionRecords(club.id),
+  ]);
+  const hasActiveSearch = Boolean(searchQuery) || Boolean(leadSourceFilter);
+  const attributionRecords = filterLeadSourceAttributionRecords(
+    allAttributionRecords,
+    searchQuery,
+    leadSourceFilter,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -56,7 +79,15 @@ export default async function LeadSourceAnalyticsPage({
           {LEADS_NOT_CONFIGURED_MESSAGE}
         </section>
       ) : (
-        <LeadSourceAnalyticsView data={data} />
+        <LeadSourceAnalyticsView
+          clubSlug={club.slug}
+          data={data}
+          initialQuery={searchQuery ?? ""}
+          initialLeadSource={leadSourceFilter}
+          hasActiveSearch={hasActiveSearch}
+          attributionRecords={attributionRecords}
+          totalAttributionCount={allAttributionRecords.length}
+        />
       )}
     </main>
   );

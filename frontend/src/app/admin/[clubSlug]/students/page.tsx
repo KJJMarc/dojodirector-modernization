@@ -15,7 +15,6 @@ import {
 import { getBjjProgrammeStudents } from "@/lib/admin-students.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { parseAnalyticsLeadSourceFilter } from "@/lib/lead-source-analytics.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,6 @@ interface ClubAdminStudentsPageProps {
   params: { clubSlug: string };
   searchParams: {
     q?: string;
-    source?: string;
     sort?: string;
     dir?: string;
     deleted?: string;
@@ -48,14 +46,13 @@ export default async function ClubAdminStudentsPage({
   const club = await requireClubBySlug(params.clubSlug);
   const bjjProgramme = await requireClubBjjProgramme(club.id);
   const searchQuery = searchParams.q?.trim();
-  const leadSourceFilter = parseAnalyticsLeadSourceFilter(searchParams.source);
   const currentSort = parseAdminStudentSort(
     searchParams.sort,
     searchParams.dir,
   );
   const allStudents = await getBjjProgrammeStudents(club.id);
   const students = sortAdminStudents(
-    filterAdminStudents(allStudents, searchQuery, leadSourceFilter),
+    filterAdminStudents(allStudents, searchQuery),
     currentSort,
   );
 
@@ -106,15 +103,13 @@ export default async function ClubAdminStudentsPage({
             FIND BJJ STUDENTS
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Search by first name, last name, email or lead source. Filter by
-            original lead source. Attendance and grading on this list are scoped
-            to Brazilian Jiu Jitsu classes.
+            Search by first name, last name or email. Attendance and grading on
+            this list are scoped to Brazilian Jiu Jitsu classes.
           </p>
         </div>
         <StudentSearchForm
           clubSlug={club.slug}
           initialQuery={searchQuery ?? ""}
-          initialLeadSource={leadSourceFilter}
           sortKey={currentSort.key}
           sortDir={currentSort.dir}
         />
@@ -125,7 +120,6 @@ export default async function ClubAdminStudentsPage({
         students={students}
         totalCount={allStudents.length}
         searchQuery={searchQuery}
-        leadSourceFilter={leadSourceFilter}
         currentSort={currentSort}
         memberLabel="BJJ student"
         memberLabelPlural="BJJ students"

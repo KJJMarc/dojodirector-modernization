@@ -1,7 +1,21 @@
-import type { LeadSourceAnalyticsPageData } from "@/lib/lead-source-analytics.shared";
+import Link from "next/link";
+import { LeadSourceAnalyticsSearchForm } from "@/components/admin/lead-source-analytics-search-form";
+import { clubAdminPath } from "@/lib/clubs.shared";
+import { clubLeadDetailAdminPath } from "@/lib/leads.shared";
+import type {
+  AnalyticsLeadSource,
+  LeadSourceAnalyticsPageData,
+  LeadSourceAttributionRecord,
+} from "@/lib/lead-source-analytics.shared";
 
 interface LeadSourceAnalyticsViewProps {
+  clubSlug: string;
   data: LeadSourceAnalyticsPageData;
+  initialQuery?: string;
+  initialLeadSource?: AnalyticsLeadSource;
+  hasActiveSearch: boolean;
+  attributionRecords: LeadSourceAttributionRecord[];
+  totalAttributionCount: number;
 }
 
 const TABLE_CLASS =
@@ -63,7 +77,41 @@ function AnalyticsTable({
   );
 }
 
-export function LeadSourceAnalyticsView({ data }: LeadSourceAnalyticsViewProps) {
+function formatRecordTypeLabel(recordType: LeadSourceAttributionRecord["recordType"]) {
+  return recordType === "lead" ? "Lead" : "Student";
+}
+
+function AttributionRecordLink({
+  clubSlug,
+  record,
+}: {
+  clubSlug: string;
+  record: LeadSourceAttributionRecord;
+}) {
+  const href =
+    record.recordType === "lead"
+      ? clubLeadDetailAdminPath(clubSlug, record.id)
+      : clubAdminPath(clubSlug, `students/${record.id}/profile`);
+
+  return (
+    <Link
+      href={href}
+      className="font-medium text-dojo-white transition hover:text-dojo-red"
+    >
+      {record.name}
+    </Link>
+  );
+}
+
+export function LeadSourceAnalyticsView({
+  clubSlug,
+  data,
+  initialQuery,
+  initialLeadSource,
+  hasActiveSearch,
+  attributionRecords,
+  totalAttributionCount,
+}: LeadSourceAnalyticsViewProps) {
   const funnelRows = data.funnelRows.map((row) => [
     row.sourceLabel,
     row.leads,
@@ -79,8 +127,86 @@ export function LeadSourceAnalyticsView({ data }: LeadSourceAnalyticsViewProps) 
     row.activeMembers,
   ]);
 
+  const attributionCountLabel =
+    hasActiveSearch && attributionRecords.length !== totalAttributionCount
+      ? `${attributionRecords.length} of ${totalAttributionCount} records`
+      : hasActiveSearch
+        ? `${attributionRecords.length} records`
+        : `${totalAttributionCount} records`;
+
   return (
     <div className="space-y-8">
+      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
+            Find lead source
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-dojo-muted">
+            Search leads and students by name, email, or original lead source to
+            see where they came from.
+          </p>
+        </div>
+
+        <LeadSourceAnalyticsSearchForm
+          clubSlug={clubSlug}
+          initialQuery={initialQuery ?? ""}
+          initialLeadSource={initialLeadSource}
+        />
+
+        {hasActiveSearch ? (
+          <div className="space-y-3">
+            <p className="text-sm text-dojo-muted">{attributionCountLabel}</p>
+            {attributionRecords.length === 0 ? (
+              <div className="rounded-xl border border-dojo-border bg-dojo-elevated/20 p-6 text-center text-sm text-dojo-muted">
+                No leads or students match your search.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-dojo-border bg-dojo-elevated/20">
+                <table
+                  className={TABLE_CLASS}
+                  aria-label="Lead source attribution search results"
+                >
+                  <thead>
+                    <tr>
+                      {["Name", "Email", "Type", "Original lead source", "Status"].map(
+                        (header) => (
+                          <th key={header} scope="col" className={TH_CLASS}>
+                            {header}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attributionRecords.map((record) => (
+                      <tr key={`${record.recordType}-${record.id}`}>
+                        <td className={`${TD_CLASS} font-medium`}>
+                          <AttributionRecordLink clubSlug={clubSlug} record={record} />
+                        </td>
+                        <td className={`${TD_CLASS} text-dojo-muted`}>
+                          {record.email ?? "—"}
+                        </td>
+                        <td className={TD_CLASS}>
+                          {formatRecordTypeLabel(record.recordType)}
+                        </td>
+                        <td className={TD_CLASS}>
+                          {record.originalLeadSourceLabel ?? "—"}
+                        </td>
+                        <td className={TD_CLASS}>{record.statusLabel ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-dojo-muted">
+            Use the search above to look up a specific lead or student.
+          </p>
+        )}
+      </section>
+
       <section className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
