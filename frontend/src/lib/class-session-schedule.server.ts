@@ -12,6 +12,7 @@ import type {
   LoadClassScheduleSessionsOptions,
 } from "@/lib/class-session-schedule";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
+import { ensureClubRecurringFutureSessions } from "@/lib/ensure-club-recurring-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -56,6 +57,10 @@ export async function loadClassScheduleSessions(
     activeClassesOnly = false,
     clubId,
   } = options;
+  if (clubId) {
+    await ensureClubRecurringFutureSessions(clubId);
+  }
+
   const useAdminClient = activeClassesOnly && Boolean(clubId);
   const supabase = useAdminClient
     ? getSupabaseAdminClient()
