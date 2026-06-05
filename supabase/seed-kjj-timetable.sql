@@ -161,8 +161,8 @@ INSERT INTO public.class_sessions (
 SELECT
   c.id,
   'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid,
-  (occurrence.slot_day + s.start_time) AT TIME ZONE 'Europe/London',
-  (occurrence.slot_day + s.end_time) AT TIME ZONE 'Europe/London',
+  public.london_wall_clock_to_timestamptz(occurrence.slot_day, s.start_time),
+  public.london_wall_clock_to_timestamptz(occurrence.slot_day, s.end_time),
   s.capacity,
   'scheduled',
   'kjj_timetable_seed',
@@ -195,7 +195,7 @@ WHERE NOT EXISTS (
   FROM public.class_sessions cs
   WHERE cs.club_id = 'a869a3a1-2174-43a5-87d1-3f365f11c68a'::uuid
     AND cs.class_id = c.id
-    AND cs.starts_at = (occurrence.slot_day + s.start_time) AT TIME ZONE 'Europe/London'
+    AND cs.starts_at = public.london_wall_clock_to_timestamptz(occurrence.slot_day, s.start_time)
 );
 
 UPDATE public.class_sessions cs

@@ -26,16 +26,18 @@ export async function sendPasswordResetEmail(input: {
   if (input.clubSlug) {
     const academy = await getAcademyEmailSettingsBySlug(input.clubSlug);
 
-    if (academy?.emailEnabled) {
-      await sendEmailForAcademy({
-        clubSlug: input.clubSlug,
-        to: input.to,
-        subject: PASSWORD_RESET_SUBJECT,
-        html,
-        text,
-      });
+    if (!academy?.emailEnabled) {
       return;
     }
+
+    await sendEmailForAcademy({
+      clubSlug: input.clubSlug,
+      to: input.to,
+      subject: PASSWORD_RESET_SUBJECT,
+      html,
+      text,
+    });
+    return;
   }
 
   await sendPlatformEmail({

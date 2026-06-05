@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { utcIsoToLondonDate } from "@/lib/london-datetime";
 
 export type SyncAttendanceStatus = "present" | "absent" | "not_marked";
 
@@ -32,7 +33,7 @@ function getClassSession(
 }
 
 export function getAttendedOnFromSessionStart(startsAt: string): string {
-  return new Date(startsAt).toISOString().slice(0, 10);
+  return utcIsoToLondonDate(startsAt);
 }
 
 export async function getAttendanceRecordContext(

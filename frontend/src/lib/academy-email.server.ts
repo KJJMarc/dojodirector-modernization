@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   formatAcademyFromAddress,
+  resolveSenderDisplayName,
   type AcademyEmailSettings,
   type AcademyEmailSettingsFormState,
   type GuestBookingEmailSettingsFormState,
@@ -27,9 +28,8 @@ const CLUB_EMAIL_COLUMNS =
 function mapClubEmailRow(row: ClubEmailRow): AcademyEmailSettings | null {
   const contactEmail = row.contact_email?.trim() ?? "";
   const replyToEmail = row.reply_to_email?.trim() ?? "";
-  const fromDisplayName = row.from_display_name?.trim() ?? "";
 
-  if (!contactEmail || !replyToEmail || !fromDisplayName) {
+  if (!contactEmail || !replyToEmail) {
     return null;
   }
 
@@ -39,7 +39,7 @@ function mapClubEmailRow(row: ClubEmailRow): AcademyEmailSettings | null {
     clubName: row.name,
     contactEmail,
     replyToEmail,
-    fromDisplayName,
+    senderDisplayName: resolveSenderDisplayName(row.from_display_name, row.name),
     emailEnabled: row.email_enabled ?? false,
     guestBookingEmailEnabled: row.guest_booking_email_enabled ?? true,
     guestBookingNotifyAcademy: row.guest_booking_notify_academy ?? true,
@@ -53,7 +53,7 @@ function mapClubEmailFormRow(row: ClubEmailRow): AcademyEmailSettingsFormState {
     clubName: row.name,
     contactEmail: row.contact_email?.trim() ?? "",
     replyToEmail: row.reply_to_email?.trim() ?? "",
-    fromDisplayName: row.from_display_name?.trim() ?? "",
+    senderDisplayName: row.from_display_name?.trim() ?? "",
     emailEnabled: row.email_enabled ?? false,
   };
 }
@@ -95,15 +95,14 @@ export async function updateAcademyEmailSettings(input: {
   clubId: string;
   contactEmail: string;
   replyToEmail: string;
-  fromDisplayName: string;
+  senderDisplayName: string;
   emailEnabled: boolean;
 }): Promise<void> {
   const contactEmail = input.contactEmail.trim();
   const replyToEmail = input.replyToEmail.trim();
-  const fromDisplayName = input.fromDisplayName.trim();
 
-  if (!contactEmail || !replyToEmail || !fromDisplayName) {
-    throw new Error("Contact email, reply-to email, and sender display name are required.");
+  if (!contactEmail || !replyToEmail) {
+    throw new Error("Contact email and reply-to email are required.");
   }
 
   if (!isValidEmailAddress(contactEmail) || !isValidEmailAddress(replyToEmail)) {
@@ -111,12 +110,31 @@ export async function updateAcademyEmailSettings(input: {
   }
 
   const supabase = getSupabaseAdminClient();
+  const { data: clubRow, error: clubError } = await supabase
+    .from("clubs")
+    .select("name")
+    .eq("id", input.clubId)
+    .maybeSingle();
+
+  if (clubError) {
+    throw new Error(`Failed to load academy: ${clubError.message}`);
+  }
+
+  if (!clubRow?.name) {
+    throw new Error("Academy not found.");
+  }
+
+  const senderDisplayName = resolveSenderDisplayName(
+    input.senderDisplayName,
+    clubRow.name,
+  );
+
   const { error } = await supabase
     .from("clubs")
     .update({
       contact_email: contactEmail,
       reply_to_email: replyToEmail,
-      from_display_name: fromDisplayName,
+      from_display_name: senderDisplayName,
       email_enabled: input.emailEnabled,
     })
     .eq("id", input.clubId);

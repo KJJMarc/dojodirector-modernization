@@ -9,20 +9,21 @@ import {
 } from "@/lib/booking-form";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
-import { utcIsoToLondonTime } from "@/lib/london-datetime";
+import {
+  getLondonDateRangeIso,
+  LONDON_TIMEZONE,
+  utcIsoToLondonTime,
+} from "@/lib/london-datetime";
 
 export type BookableSession = ClassScheduleSession;
 
 export type BookableSessionGroup = ClassScheduleDateGroup;
 
-export function getBookingDateRange() {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 14);
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
+/** Next 14 London calendar days of bookable sessions (from start of today in Europe/London). */
+export function getBookingDateRange(from = new Date()) {
+  const { startIso, endIso } = getLondonDateRangeIso({ daysAhead: 14, from });
+
+  return { startIso, endIso };
 }
 
 export function formatBookingDate(startsAt: string) {
@@ -30,7 +31,7 @@ export function formatBookingDate(startsAt: string) {
     weekday: "long",
     day: "numeric",
     month: "long",
-    timeZone: "Europe/London",
+    timeZone: LONDON_TIMEZONE,
   }).format(new Date(startsAt));
 }
 

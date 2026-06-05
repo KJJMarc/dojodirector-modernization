@@ -19,6 +19,7 @@ import {
   getGuestBookingAgreementPdfStoragePath,
 } from "@/lib/student-agreement-storage.shared";
 import { sendGuestBookingEmailsAfterBooking } from "@/lib/guest-booking-email.server";
+import { matchGuestBookingToLead } from "@/lib/lead-guest-booking-match.server";
 import { uploadGuestBookingAgreementPdf } from "@/lib/student-agreement-storage.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -445,6 +446,18 @@ export async function submitGuestBooking(
   } catch (pdfError) {
     console.error("Guest booking agreement PDF generation failed:", pdfError);
   }
+
+  await matchGuestBookingToLead({
+    academyId: clubId,
+    bookingId,
+    guestName,
+    email: submission.email,
+    phone: submission.phone,
+    className: session.className,
+    dateLabel: session.dateLabel,
+    timeLabel: session.timeLabel,
+    bookedAtIso: acceptedAt,
+  });
 
   await sendGuestBookingEmailsAfterBooking({
     clubId,

@@ -115,6 +115,18 @@ function buildDashboardSections(
       ],
       showProgrammesUnavailableNotice: false,
     },
+    {
+      title: "ENQUIRIES & LEADS",
+      ariaLabel: "Enquiries and leads",
+      actions: [
+        {
+          label: "Manage Leads",
+          href: clubAdminPath(clubSlug, "leads"),
+          description: "Trial enquiries and follow-up",
+        },
+      ],
+      showProgrammesUnavailableNotice: false,
+    },
   ] as const;
 }
 

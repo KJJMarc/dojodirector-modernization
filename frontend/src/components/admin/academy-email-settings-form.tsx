@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { saveAcademyEmailSettingsAction } from "@/app/admin/[clubSlug]/messaging/email-settings/actions";
-import type { AcademyEmailSettingsFormState } from "@/lib/academy-email.shared";
+import {
+  buildAcademyEmailHeadersPreview,
+  type AcademyEmailSettingsFormState,
+} from "@/lib/academy-email.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 
 interface AcademyEmailSettingsFormProps {
   settings: AcademyEmailSettingsFormState;
+  platformSenderEmail: string | null;
 }
 
 const inputClassName =
@@ -16,10 +20,28 @@ const inputClassName =
 const labelClassName =
   "text-[11px] font-medium uppercase tracking-wide text-dojo-muted";
 
-export function AcademyEmailSettingsForm({ settings }: AcademyEmailSettingsFormProps) {
+export function AcademyEmailSettingsForm({
+  settings,
+  platformSenderEmail,
+}: AcademyEmailSettingsFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [senderDisplayName, setSenderDisplayName] = useState(
+    settings.senderDisplayName,
+  );
+  const [replyToEmail, setReplyToEmail] = useState(settings.replyToEmail);
+
+  const headersPreview = useMemo(
+    () =>
+      buildAcademyEmailHeadersPreview({
+        senderDisplayName,
+        clubName: settings.clubName,
+        replyToEmail,
+        platformSenderEmail,
+      }),
+    [senderDisplayName, settings.clubName, replyToEmail, platformSenderEmail],
+  );
 
   return (
     <form
@@ -59,6 +81,9 @@ export function AcademyEmailSettingsForm({ settings }: AcademyEmailSettingsFormP
           autoComplete="email"
           className={inputClassName}
         />
+        <p className="text-xs text-dojo-muted">
+          Used for admin notifications and operational contact (not the From address).
+        </p>
       </div>
 
       <div className="space-y-1.5">
@@ -70,7 +95,8 @@ export function AcademyEmailSettingsForm({ settings }: AcademyEmailSettingsFormP
           name="replyToEmail"
           type="email"
           required
-          defaultValue={settings.replyToEmail}
+          value={replyToEmail}
+          onChange={(event) => setReplyToEmail(event.target.value)}
           autoComplete="email"
           className={inputClassName}
         />
@@ -80,19 +106,33 @@ export function AcademyEmailSettingsForm({ settings }: AcademyEmailSettingsFormP
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="fromDisplayName" className={labelClassName}>
+        <label htmlFor="senderDisplayName" className={labelClassName}>
           Sender display name
         </label>
         <input
-          id="fromDisplayName"
-          name="fromDisplayName"
+          id="senderDisplayName"
+          name="senderDisplayName"
           type="text"
-          required
-          defaultValue={settings.fromDisplayName}
+          value={senderDisplayName}
+          onChange={(event) => setSenderDisplayName(event.target.value)}
+          placeholder={settings.clubName}
           className={inputClassName}
         />
         <p className="text-xs text-dojo-muted">
-          Shown on outbound email (for example Kingston Jiu Jitsu).
+          Shown on outbound email. Defaults to the academy name when left blank.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-3 text-sm text-dojo-muted">
+        <p className="text-xs font-semibold uppercase tracking-wide text-dojo-white">
+          Outbound email preview
+        </p>
+        <p className="mt-2">
+          <span className="font-medium text-dojo-white">From:</span> {headersPreview.from}
+        </p>
+        <p className="mt-1">
+          <span className="font-medium text-dojo-white">Reply-To:</span>{" "}
+          {headersPreview.replyTo}
         </p>
       </div>
 

@@ -1,4 +1,8 @@
-import { utcIsoToLondonTime } from "@/lib/london-datetime";
+import {
+  getLondonDateRangeIso,
+  getLondonTodayRange,
+  utcIsoToLondonTime,
+} from "@/lib/london-datetime";
 import { ClassSession } from "@/types/database";
 
 export function getStudentFullName(
@@ -13,25 +17,21 @@ export function formatClassTime(startsAt: string) {
   return utcIsoToLondonTime(startsAt);
 }
 
-export function getTodayUtcRange() {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
+/** London calendar today [00:00, tomorrow 00:00) as UTC instants. */
+export function getLondonTodayRangeForAttendance(from = new Date()) {
+  return getLondonTodayRange(from);
 }
 
-/** Start of today (UTC) through the next 7 calendar days (exclusive end). MVP window. */
-export function getAttendanceRegisterDateRange() {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 8);
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
+/** @deprecated Use getLondonTodayRangeForAttendance — kept for admin dashboard import. */
+export function getTodayUtcRange(from = new Date()) {
+  return getLondonTodayRange(from);
+}
+
+/** Start of today (Europe/London) through the next 7 calendar days (exclusive end). */
+export function getAttendanceRegisterDateRange(from = new Date()) {
+  const { startIso, endIso } = getLondonDateRangeIso({ daysAhead: 8, from });
+
+  return { startIso, endIso };
 }
 
 export function sortSessionsByTime(sessions: ClassSession[]) {

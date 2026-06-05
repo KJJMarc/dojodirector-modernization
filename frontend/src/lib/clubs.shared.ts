@@ -34,6 +34,12 @@ export function clubBookingPath(slug: string) {
   return normalized ? `/${normalized}/book` : `/${KINGSTON_CLUB_SLUG}/book`;
 }
 
+/** Public trial enquiry page for a club. */
+export function clubTrialEnquiryPath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized ? `/${normalized}/trial-enquiry` : `/${KINGSTON_CLUB_SLUG}/trial-enquiry`;
+}
+
 /** Adult KJJ guest booking shows the student portal notice; Kids does not. */
 export function shouldShowGuestBookingStudentPortalNotice(clubSlug: string) {
   return clubSlug.trim() === KINGSTON_CLUB_SLUG;

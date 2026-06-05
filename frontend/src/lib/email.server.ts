@@ -3,9 +3,9 @@ import "server-only";
 import { Resend } from "resend";
 import {
   assertAcademyEmailEnabled,
-  formatAcademyFromAddress,
   requireAcademyEmailSettingsBySlug,
 } from "@/lib/academy-email.server";
+import { formatAcademyFromAddress } from "@/lib/academy-email.shared";
 import { requireResendEnvConfig } from "@/lib/resend-env.server";
 
 export interface SendEmailForAcademyInput {

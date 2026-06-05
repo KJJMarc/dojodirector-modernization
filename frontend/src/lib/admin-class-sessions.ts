@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin-programme-types";
 import {
   buildAdminSessionExternalId,
+  formatLondonShortDate,
   londonLocalDateTimeToUtcIso,
   utcIsoToLondonDate,
   utcIsoToLondonTime,
@@ -119,11 +120,7 @@ function mapAdminSessionRow(
     isCompleted,
     sessionKind: getSessionKind(row),
     description: classRow?.description ?? null,
-    dateLabel: new Intl.DateTimeFormat("en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }).format(new Date(row.starts_at)),
+    dateLabel: formatLondonShortDate(row.starts_at),
     dayLabel: formatScheduleDayLabel(row.starts_at),
     timeLabel: formatScheduleTimeRange(row.starts_at, row.ends_at, row.external_id),
     locationLabel: formatSessionLocation(location),

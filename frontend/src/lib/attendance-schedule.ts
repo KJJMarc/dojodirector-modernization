@@ -1,4 +1,5 @@
 import { formatBookingDate } from "@/lib/booking";
+import { getLondonDateRangeIso, LONDON_TIMEZONE } from "@/lib/london-datetime";
 import {
   ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
   formatAttendanceSessionTimeRange,
@@ -31,15 +32,11 @@ export interface AttendanceScheduleMonthGroup {
   dateGroups: AttendanceScheduleDateGroup[];
 }
 
-/** Start of today (UTC) through the next 8 weeks (exclusive end). */
-export function getAttendanceScheduleDateRange() {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 56);
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
+/** Start of today (Europe/London) through the next 8 weeks (exclusive end). */
+export function getAttendanceScheduleDateRange(from = new Date()) {
+  const { startIso, endIso } = getLondonDateRangeIso({ daysAhead: 56, from });
+
+  return { startIso, endIso };
 }
 
 export function formatAttendanceMonthLabel(startsAt: string, externalId?: string | null) {
@@ -47,7 +44,7 @@ export function formatAttendanceMonthLabel(startsAt: string, externalId?: string
   return new Intl.DateTimeFormat("en-GB", {
     month: "long",
     year: "numeric",
-    timeZone: "Europe/London",
+    timeZone: LONDON_TIMEZONE,
   }).format(new Date(`${dateKey}T12:00:00Z`));
 }
 

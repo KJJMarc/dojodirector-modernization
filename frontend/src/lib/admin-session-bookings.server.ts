@@ -17,7 +17,11 @@ import {
 } from "@/lib/attendance-records-sync";
 import { formatSessionLocation, getSpacesAvailable } from "@/lib/booking";
 import { createNextWaitlistOfferAfterCancellation } from "@/lib/session-waitlist.server";
-import { londonLocalDateTimeToUtcIso } from "@/lib/london-datetime";
+import {
+  daysBetweenLondonDateKeys,
+  getLondonTodayDateKey,
+  londonLocalDateTimeToUtcIso,
+} from "@/lib/london-datetime";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   getRecurringBlockBookingMaxEndDate,
@@ -305,7 +309,7 @@ function parseBlockBookingEndDate(endDate: string) {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLondonTodayDateKey();
 
   if (endDate < today) {
     throw new Error("End date must be today or later.");
@@ -322,10 +326,9 @@ async function ensureRecurringScheduleSessionsThroughDate(
   const supabase = getSupabaseAdminClient();
   const schedule = await loadRecurringScheduleRow(scheduleId, clubId);
   const endIso = londonLocalDateTimeToUtcIso(endDate, "23:59");
-  const today = new Date();
-  const target = new Date(`${endDate}T12:00:00`);
+  const todayKey = getLondonTodayDateKey();
   const daysAhead = Math.min(
-    Math.max(1, Math.ceil((target.getTime() - today.getTime()) / 86_400_000)),
+    Math.max(1, daysBetweenLondonDateKeys(todayKey, endDate)),
     RECURRING_CLASS_SESSION_DAYS_AHEAD,
   );
 

@@ -15,6 +15,8 @@ import {
   setProgrammeBookingAccessForUser,
   requireClubProgrammeBySlug,
 } from "@/lib/admin-programmes.server";
+import { getStudentFullName } from "@/lib/attendance";
+import { matchLeadOnStudentJoined } from "@/lib/lead-status-tracking.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function parseRequiredText(value: string, fieldLabel: string) {
@@ -217,6 +219,13 @@ export async function createAdminStudent(
       programmeTypes: options.bookingAccessTypes,
     });
 
+    void matchLeadOnStudentJoined({
+      academyId: clubId,
+      email: input.email,
+      phone: input.phone || null,
+      studentName: getStudentFullName(input.firstName, input.lastName),
+    });
+
     return { userId: existingUserId, createdUser: false };
   }
 
@@ -238,6 +247,13 @@ export async function createAdminStudent(
     clubId,
     userId,
     programmeTypes: options.bookingAccessTypes,
+  });
+
+  void matchLeadOnStudentJoined({
+    academyId: clubId,
+    email: input.email,
+    phone: input.phone || null,
+    studentName: getStudentFullName(input.firstName, input.lastName),
   });
 
   return { userId, createdUser: true };

@@ -15,6 +15,11 @@ import {
 } from "@/lib/admin-recurring-classes.shared";
 import { formatBookingTime, formatSessionLocation } from "@/lib/booking";
 import {
+  addLondonCalendarDays,
+  getLondonTodayDateKey,
+  londonLocalDateTimeToUtcIso,
+} from "@/lib/london-datetime";
+import {
   formatScheduleDayLabel,
   resolveSessionLocationFromRow,
   resolveSessionSlotTimeFromRow,
@@ -154,15 +159,13 @@ interface ClassSlotAggregate {
 
 function getMetricsDateRange() {
   const now = new Date();
-  const end = new Date(now);
-  end.setUTCDate(end.getUTCDate() + 14);
-
-  const start = new Date(now);
-  start.setUTCDate(start.getUTCDate() - METRICS_LOOKBACK_DAYS);
+  const todayKey = getLondonTodayDateKey(now);
+  const startKey = addLondonCalendarDays(todayKey, -METRICS_LOOKBACK_DAYS);
+  const endKey = addLondonCalendarDays(todayKey, 14);
 
   return {
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
+    startIso: londonLocalDateTimeToUtcIso(startKey, "00:00"),
+    endIso: londonLocalDateTimeToUtcIso(endKey, "00:00"),
     nowIso: now.toISOString(),
     recentNoShowCutoffIso: new Date(
       now.getTime() - RECENT_NO_SHOW_DAYS * 24 * 60 * 60 * 1000,

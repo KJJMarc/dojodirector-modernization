@@ -1,4 +1,4 @@
-const LONDON_TIMEZONE = "Europe/London";
+export const LONDON_TIMEZONE = "Europe/London";
 
 function getLondonParts(date: Date) {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -53,6 +53,85 @@ export function londonLocalDateTimeToUtcIso(date: string, time: string) {
 export function utcIsoToLondonDate(iso: string) {
   const parts = getLondonParts(new Date(iso));
   return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+/** Today's calendar date in Europe/London (YYYY-MM-DD). */
+export function getLondonTodayDateKey(from = new Date()) {
+  return utcIsoToLondonDate(from.toISOString());
+}
+
+/** Add calendar days to a London date key (YYYY-MM-DD). */
+export function addLondonCalendarDays(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const anchor = new Date(Date.UTC(year, month - 1, day));
+  anchor.setUTCDate(anchor.getUTCDate() + days);
+  const y = anchor.getUTCFullYear();
+  const m = String(anchor.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(anchor.getUTCDate()).padStart(2, "0");
+
+  return `${y}-${m}-${d}`;
+}
+
+export function daysBetweenLondonDateKeys(startKey: string, endKey: string) {
+  const [startYear, startMonth, startDay] = startKey.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endKey.split("-").map(Number);
+  const startMs = Date.UTC(startYear, startMonth - 1, startDay);
+  const endMs = Date.UTC(endYear, endMonth - 1, endDay);
+
+  return Math.round((endMs - startMs) / 86_400_000);
+}
+
+/** Inclusive London calendar range as UTC instants [start, end) for timestamptz queries. */
+export function getLondonDateRangeIso(options: {
+  daysAhead: number;
+  from?: Date;
+}) {
+  const todayKey = getLondonTodayDateKey(options.from);
+  const endKey = addLondonCalendarDays(todayKey, options.daysAhead);
+
+  return {
+    startIso: londonLocalDateTimeToUtcIso(todayKey, "00:00"),
+    endIso: londonLocalDateTimeToUtcIso(endKey, "00:00"),
+    startDateKey: todayKey,
+    endDateKey: endKey,
+  };
+}
+
+/** London calendar today [00:00, tomorrow 00:00) as UTC instants. */
+export function getLondonTodayRange(from = new Date()) {
+  const todayKey = getLondonTodayDateKey(from);
+  const tomorrowKey = addLondonCalendarDays(todayKey, 1);
+
+  return {
+    startIso: londonLocalDateTimeToUtcIso(todayKey, "00:00"),
+    endIso: londonLocalDateTimeToUtcIso(tomorrowKey, "00:00"),
+  };
+}
+
+export function formatLondonShortDate(
+  iso: string,
+  options: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  },
+) {
+  return new Intl.DateTimeFormat("en-GB", {
+    ...options,
+    timeZone: LONDON_TIMEZONE,
+  }).format(new Date(iso));
+}
+
+export function formatLondonShortDateTime(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: LONDON_TIMEZONE,
+  }).format(new Date(iso));
 }
 
 export function utcIsoToLondonTime(iso: string) {

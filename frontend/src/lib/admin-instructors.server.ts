@@ -24,7 +24,12 @@ import {
   resolveSessionSlotTimeFromRow,
 } from "@/lib/class-session-schedule";
 import { formatBookingDate, formatSessionLocation } from "@/lib/booking";
-import { utcIsoToLondonTime } from "@/lib/london-datetime";
+import {
+  formatLondonShortDate,
+  formatLondonShortDateTime,
+  LONDON_TIMEZONE,
+  utcIsoToLondonTime,
+} from "@/lib/london-datetime";
 import type {
   AdminInstructorRow,
   InstructorAssignmentRow,
@@ -177,14 +182,7 @@ function formatSessionLabel(
   session: ClassSessionRow,
   className: string | undefined,
 ) {
-  const dateLabel = new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(session.starts_at));
+  const dateLabel = formatLondonShortDateTime(session.starts_at);
 
   return `${className ?? "Class"} · ${dateLabel}`;
 }
@@ -677,11 +675,7 @@ function mapSessionAllocationRow(
   return {
     sessionId: session.id,
     startsAt: session.starts_at,
-    dateLabel: new Intl.DateTimeFormat("en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }).format(new Date(session.starts_at)),
+    dateLabel: formatLondonShortDate(session.starts_at),
     dayLabel: formatScheduleDayLabel(session.starts_at),
     timeLabel: formatScheduleTimeRange(
       session.starts_at,
@@ -777,6 +771,7 @@ export function groupInstructorSessionAllocationsByMonth(
         monthLabel: new Intl.DateTimeFormat("en-GB", {
           month: "long",
           year: "numeric",
+          timeZone: LONDON_TIMEZONE,
         }).format(new Date(session.startsAt)),
         dateGroups: [],
       });

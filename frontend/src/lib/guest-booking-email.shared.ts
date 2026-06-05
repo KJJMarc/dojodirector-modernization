@@ -44,7 +44,6 @@ export function buildGuestBookingConfirmationHtml(content: GuestBookingEmailCont
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Location</td><td>${escapeHtml(location)}</td></tr>
     </table>
     <p>If you need to change or cancel this booking, please reply to this email.</p>
-    <p style="color:#666;font-size:12px;">Sent by Dojo Director on behalf of ${escapeHtml(content.academyName)}.</p>
   `.trim();
 }
 

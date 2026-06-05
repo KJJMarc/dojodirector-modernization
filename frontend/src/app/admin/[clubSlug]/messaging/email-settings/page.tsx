@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { loadAcademyEmailSettingsForEdit } from "@/lib/academy-email.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
+import { readResendEnvSnapshot } from "@/lib/resend-env.server";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,10 @@ export default async function AcademyEmailSettingsPage({
   params,
 }: AcademyEmailSettingsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const settings = await loadAcademyEmailSettingsForEdit(club.slug);
+  const [settings, resendEnv] = await Promise.all([
+    loadAcademyEmailSettingsForEdit(club.slug),
+    Promise.resolve(readResendEnvSnapshot()),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -51,7 +55,10 @@ export default async function AcademyEmailSettingsPage({
           </p>
         </div>
 
-        <AcademyEmailSettingsForm settings={settings} />
+        <AcademyEmailSettingsForm
+          settings={settings}
+          platformSenderEmail={resendEnv.fromEmail}
+        />
       </section>
     </main>
   );

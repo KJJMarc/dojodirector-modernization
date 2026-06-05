@@ -14,7 +14,7 @@ export async function saveAcademyEmailSettingsAction(formData: FormData) {
     clubId: club.id,
     contactEmail: String(formData.get("contactEmail") ?? ""),
     replyToEmail: String(formData.get("replyToEmail") ?? ""),
-    fromDisplayName: String(formData.get("fromDisplayName") ?? ""),
+    senderDisplayName: String(formData.get("senderDisplayName") ?? ""),
     emailEnabled: formData.get("emailEnabled") === "on",
   });
 

@@ -2,6 +2,7 @@ import {
   clubAdminPath,
   clubBookingPath,
   clubJuniorBeltRankingsPath,
+  clubTrialEnquiryPath,
   KINGSTON_CLUB_SLUG,
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
 } from "@/lib/clubs.shared";
@@ -28,6 +29,14 @@ const GUEST_BOOKINGS_PAGE: AcademyPublicPageDefinition = {
   description: "Public booking page for prospective and existing students.",
   pathLabel: "/book",
   resolveHref: (clubSlug) => clubBookingPath(clubSlug),
+};
+
+const TRIAL_ENQUIRY_PAGE: AcademyPublicPageDefinition = {
+  id: "trial-enquiry",
+  name: "Trial Enquiry Form",
+  description: "Public trial enquiry and lead capture page",
+  pathLabel: "/trial-enquiry",
+  resolveHref: (clubSlug) => clubTrialEnquiryPath(clubSlug),
 };
 
 const ADULT_BELT_RANKINGS_PAGE: AcademyPublicPageDefinition = {
@@ -61,6 +70,7 @@ const STUDENT_OF_THE_YEAR_PAGE: AcademyPublicPageDefinition = {
 /** Single source of truth for public academy pages shown in admin. */
 export const ACADEMY_PUBLIC_PAGES: AcademyPublicPageDefinition[] = [
   GUEST_BOOKINGS_PAGE,
+  TRIAL_ENQUIRY_PAGE,
   ADULT_BELT_RANKINGS_PAGE,
   STUDENT_OF_THE_YEAR_PAGE,
   JUNIOR_BELT_RANKINGS_PAGE,
@@ -88,8 +98,10 @@ export function getAcademyPublicPagesForClub(clubSlug: string) {
     pathLabel:
       page.id === "guest-bookings"
         ? clubBookingPath(clubSlug)
-        : page.id === "junior-belt-rankings"
-          ? clubJuniorBeltRankingsPath(clubSlug)
-          : page.pathLabel,
+        : page.id === "trial-enquiry"
+          ? clubTrialEnquiryPath(clubSlug)
+          : page.id === "junior-belt-rankings"
+            ? clubJuniorBeltRankingsPath(clubSlug)
+            : page.pathLabel,
   }));
 }

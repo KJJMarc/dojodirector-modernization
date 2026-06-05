@@ -26,16 +26,20 @@ export async function sendPortalSetupEmail(input: {
   if (input.clubSlug) {
     const academy = await getAcademyEmailSettingsBySlug(input.clubSlug);
 
-    if (academy?.emailEnabled) {
-      await sendEmailForAcademy({
-        clubSlug: input.clubSlug,
-        to: input.to,
-        subject: PORTAL_SETUP_SUBJECT,
-        html,
-        text,
-      });
-      return;
+    if (!academy?.emailEnabled) {
+      throw new Error(
+        "Academy email is disabled. Enable email in Academy Email settings first.",
+      );
     }
+
+    await sendEmailForAcademy({
+      clubSlug: input.clubSlug,
+      to: input.to,
+      subject: PORTAL_SETUP_SUBJECT,
+      html,
+      text,
+    });
+    return;
   }
 
   await sendPlatformEmail({

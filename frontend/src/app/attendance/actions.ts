@@ -7,6 +7,8 @@ import {
   syncAttendanceRecordForStatus,
   type SyncAttendanceStatus,
 } from "@/lib/attendance-records-sync";
+import { utcIsoToLondonDate } from "@/lib/london-datetime";
+import { matchLeadOnTrialAttendance } from "@/lib/lead-status-tracking.server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const VALID_STATUS = new Set<SyncAttendanceStatus>([
@@ -58,7 +60,7 @@ export async function markAttendance(formData: FormData) {
 
   const { data: classSession, error: classSessionError } = await supabase
     .from("class_sessions")
-    .select("club_id, starts_at, status")
+    .select("club_id, starts_at, status, classes(name)")
     .eq("id", attendee.class_session_id)
     .maybeSingle();
 
@@ -94,7 +96,7 @@ export async function markAttendance(formData: FormData) {
       throw new Error("Unable to resolve class session details for attendance sync.");
     }
 
-    const attendedOn = new Date(classSession.starts_at).toISOString().slice(0, 10);
+    const attendedOn = utcIsoToLondonDate(classSession.starts_at);
 
     await syncAttendanceRecordForStatus(
       supabase,
@@ -106,6 +108,32 @@ export async function markAttendance(formData: FormData) {
       },
       nextStatus,
     );
+
+    if (nextStatus === "present") {
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("email, phone")
+        .eq("id", attendee.user_id)
+        .maybeSingle();
+
+      const classesRelation = (classSession as { classes?: unknown }).classes;
+      const className =
+        (Array.isArray(classesRelation)
+          ? classesRelation[0]?.name
+          : (classesRelation as { name?: string | null } | null)?.name)?.trim() ||
+        "Class";
+      const sessionDateLabel = new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+      }).format(new Date(classSession.starts_at));
+
+      void matchLeadOnTrialAttendance({
+        academyId: classSession.club_id,
+        email: userRow?.email?.trim() ?? "",
+        phone: userRow?.phone?.trim() ?? null,
+        className,
+        sessionDateLabel,
+      });
+    }
 
     const clubSlug = await getClubSlugById(classSession.club_id);
     revalidateAttendanceImpactPaths(clubSlug, attendee.user_id);
