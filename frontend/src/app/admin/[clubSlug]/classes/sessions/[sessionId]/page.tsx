@@ -40,10 +40,10 @@ export default async function ClubSessionBookingsPage({
   let showAttendanceCard = false;
 
   try {
-    [pageData, students] = await Promise.all([
-      getAdminSessionBookingsPageData(params.sessionId, club.id),
-      getBookingStudentOptions(club.id),
-    ]);
+    pageData = await getAdminSessionBookingsPageData(params.sessionId, club.id);
+    students = await getBookingStudentOptions(club.id, {
+      programmeType: pageData.session.programmeType,
+    });
     showAttendanceCard = await getProgrammeAttendanceCardsEnabled(
       club.id,
       pageData.session.programmeType,

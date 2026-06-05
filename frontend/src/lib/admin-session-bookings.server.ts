@@ -3,6 +3,7 @@ import "server-only";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import { getRecurringClassScheduleById } from "@/lib/admin-recurring-classes.server";
+import { assertStudentCanBookClassProgramme, loadEligibleBookingStudentUserIds } from "@/lib/admin-programmes.server";
 import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
 import {
   formatScheduleDayLabel,
@@ -10,7 +11,7 @@ import {
   resolveSessionLocationFromRow,
   resolveSessionSlotTimeFromRow,
 } from "@/lib/class-session-schedule";
-import { getStudentFullName } from "@/lib/attendance";
+import { compareAttendanceRegisterNames, getStudentFullName, sortByAttendanceRegisterName } from "@/lib/attendance";
 import {
   getAttendanceRecordContext,
   syncAttendanceRecordForStatus,
@@ -538,8 +539,7 @@ export async function getAdminSessionBookingsPageData(
       .from("session_attendees")
       .select("id, user_id, booking_status, attendance_status, booked_at")
       .eq("class_session_id", sessionId)
-      .in("booking_status", ["booked", "waitlisted", "walk_in"])
-      .order("booked_at", { ascending: true }),
+      .in("booking_status", ["booked", "waitlisted", "walk_in"]),
     getBookingCounts(sessionId),
   ]);
 
@@ -550,7 +550,13 @@ export async function getAdminSessionBookingsPageData(
   const attendeeList = (attendeeRows ?? []) as SessionAttendeeQueryRow[];
   const userIds = Array.from(new Set(attendeeList.map((row) => row.user_id)));
   const userById = await loadUsersByIds(userIds);
-  const attendees = attendeeList.map((row) => mapAttendeeRow(row, userById));
+  const attendees = sortByAttendanceRegisterName(
+    attendeeList.map((row) => mapAttendeeRow(row, userById)),
+    (attendee) => ({
+      firstName: attendee.firstName,
+      lastName: attendee.lastName,
+    }),
+  );
   const status = sessionRow.status;
   const isCancelled = status === "cancelled";
 
@@ -583,23 +589,9 @@ export async function getAdminSessionBookingsPageData(
 
 export async function getBookingStudentOptions(
   clubId: string = ACTIVE_CLUB_ID,
+  options?: { programmeType?: ProgrammeType },
 ): Promise<BookingStudentOption[]> {
-  const supabase = getSupabaseAdminClient();
-
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("memberships")
-    .select("user_id")
-    .eq("club_id", clubId)
-    .eq("role", "student")
-    .eq("status", "active");
-
-  if (membershipsError) {
-    throw new Error(`Unable to load club members: ${membershipsError.message}`);
-  }
-
-  const userIds = Array.from(
-    new Set((memberships ?? []).map((membership) => membership.user_id as string)),
-  );
+  const userIds = await loadEligibleBookingStudentUserIds(clubId, options);
 
   if (userIds.length === 0) {
     return [];
@@ -610,19 +602,14 @@ export async function getBookingStudentOptions(
     .map((userId) => userById.get(userId))
     .filter((user): user is BookingUserRow => Boolean(user));
 
-  students.sort((a, b) => {
-    const lastNameCompare = (a.last_name ?? "").localeCompare(b.last_name ?? "", undefined, {
-      sensitivity: "base",
-    });
-
-    if (lastNameCompare !== 0) {
-      return lastNameCompare;
-    }
-
-    return (a.first_name ?? "").localeCompare(b.first_name ?? "", undefined, {
-      sensitivity: "base",
-    });
-  });
+  students.sort((left, right) =>
+    compareAttendanceRegisterNames(
+      left.first_name,
+      left.last_name,
+      right.first_name,
+      right.last_name,
+    ),
+  );
 
   return students.map((user) => ({
     id: user.id,
@@ -704,6 +691,11 @@ export async function adminAddSessionBooking(
   }
 
   await assertClubMember(userId, sessionRow.club_id);
+  await assertStudentCanBookClassProgramme({
+    userId,
+    clubId: sessionRow.club_id,
+    classId: sessionRow.class_id,
+  });
 
   const existing = await getExistingAttendee(sessionId, userId);
 
@@ -850,14 +842,21 @@ export async function getRecurringScheduleBookedStudentOptions(
   const { data: users, error: usersError } = await supabase
     .from("users")
     .select("id, first_name, last_name, email")
-    .in("id", userIds)
-    .order("last_name", { ascending: true });
+    .in("id", userIds);
 
   if (usersError) {
     throw new Error(`Unable to load booked students: ${usersError.message}`);
   }
 
-  return ((users ?? []) as BookingUserRow[]).map((user) => ({
+  const sortedUsers = sortByAttendanceRegisterName(
+    (users ?? []) as BookingUserRow[],
+    (user) => ({
+      firstName: user.first_name,
+      lastName: user.last_name,
+    }),
+  );
+
+  return sortedUsers.map((user) => ({
     id: user.id,
     label: getStudentFullName(user.first_name, user.last_name),
     email: user.email,
@@ -1005,12 +1004,12 @@ export async function getRecurringScheduleBookingsPageData(
     }
 
     studentBookings.push(
-      ...Array.from(summaryByUserId.values()).sort((left, right) =>
-        getStudentFullName(left.firstName, left.lastName).localeCompare(
-          getStudentFullName(right.firstName, right.lastName),
-          "en",
-          { sensitivity: "base" },
-        ),
+      ...sortByAttendanceRegisterName(
+        Array.from(summaryByUserId.values()),
+        (booking) => ({
+          firstName: booking.firstName,
+          lastName: booking.lastName,
+        }),
       ),
     );
   }
@@ -1078,6 +1077,11 @@ export async function adminBlockBookRecurringSchedule(input: {
   const schedule = await loadRecurringScheduleRow(input.scheduleId, clubId);
 
   await assertClubMember(input.userId, schedule.club_id);
+  await assertStudentCanBookClassProgramme({
+    userId: input.userId,
+    clubId: schedule.club_id,
+    classId: schedule.class_id,
+  });
 
   const sessions = await ensureRecurringScheduleSessionsThroughDate(
     input.scheduleId,

@@ -1,4 +1,4 @@
-import { sortSessionsByTime } from "@/lib/attendance";
+import { sortByAttendanceRegisterName, sortSessionsByTime } from "@/lib/attendance";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import { getSessionLocationMap } from "@/lib/booking";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -76,8 +76,7 @@ async function loadSessionAttendeeRegisterRows(
       "id, class_session_id, user_id, booking_status, attendance_status, notes",
     )
     .eq("class_session_id", sessionId)
-    .in("booking_status", ["booked", "walk_in"])
-    .order("booked_at", { ascending: true });
+    .in("booking_status", ["booked", "walk_in"]);
 
   if (attendeesError) {
     throw new Error(`Failed to load session attendees: ${attendeesError.message}`);
@@ -128,11 +127,10 @@ async function loadSessionAttendeeRegisterRows(
     };
   });
 
-  return rows.sort((left, right) =>
-    (left.last_name ?? "").localeCompare(right.last_name ?? "", "en", {
-      sensitivity: "base",
-    }),
-  );
+  return sortByAttendanceRegisterName(rows, (row) => ({
+    firstName: row.first_name,
+    lastName: row.last_name,
+  }));
 }
 
 function buildSessionFromRows(

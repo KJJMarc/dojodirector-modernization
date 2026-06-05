@@ -37,10 +37,10 @@ export default async function MakeBookingsSchedulePage({
   let students;
 
   try {
-    [pageData, students] = await Promise.all([
-      getRecurringScheduleBookingsPageData(params.scheduleId, club.id),
-      getBookingStudentOptions(club.id),
-    ]);
+    pageData = await getRecurringScheduleBookingsPageData(params.scheduleId, club.id);
+    students = await getBookingStudentOptions(club.id, {
+      programmeType: pageData.schedule.programmeType,
+    });
   } catch (error) {
     if (
       error instanceof Error &&

@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { ProgrammeType } from "@/lib/admin-programme-types";
 import {
   BJJ_PROGRAMME_SLUG,
   LEGACY_BJJ_PROGRAMME_ID,
@@ -2141,6 +2142,97 @@ export async function updateStudentProgrammeMemberships(input: {
       throw new Error(`Failed to remove programme memberships: ${deleteError.message}`);
     }
   }
+}
+
+/** User ids eligible for admin booking pickers (matches student portal booking access rules). */
+export async function loadEligibleBookingStudentUserIds(
+  clubId: string,
+  options?: { programmeType?: ProgrammeType },
+): Promise<string[]> {
+  const membershipRows = await loadClubMembershipRows(clubId);
+  const activeMemberIds = new Set(
+    membershipRows
+      .filter((membership) => isActiveMembershipStatus(membership.status))
+      .map((membership) => membership.user_id),
+  );
+
+  if (activeMemberIds.size === 0) {
+    return [];
+  }
+
+  if (!(await isProgrammesSchemaAvailable())) {
+    return membershipRows
+      .filter(isActiveStudentClubMembership)
+      .map((membership) => membership.user_id);
+  }
+
+  const supabase = getSupabaseAdminClient();
+  let programmesQuery = supabase.from("programmes").select("id").eq("club_id", clubId);
+
+  if (options?.programmeType) {
+    programmesQuery = programmesQuery.eq("programme_type", options.programmeType);
+  } else {
+    programmesQuery = programmesQuery.in(
+      "programme_type",
+      STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST,
+    );
+  }
+
+  const { data: programmes, error: programmesError } = await programmesQuery;
+
+  if (programmesError) {
+    throw new Error(`Failed to load club programmes: ${programmesError.message}`);
+  }
+
+  const programmeIds = ((programmes ?? []) as { id: string }[]).map((row) => row.id);
+  const eligibleUserIds = new Set<string>();
+
+  if (programmeIds.length === 0) {
+    return membershipRows
+      .filter(isActiveStudentClubMembership)
+      .map((membership) => membership.user_id);
+  }
+
+  if (await isProgrammeBookingAccessSchemaAvailable()) {
+    const { data, error } = await supabase
+      .from("programme_booking_access")
+      .select("user_id")
+      .in("programme_id", programmeIds);
+
+    if (error) {
+      throw new Error(`Failed to load student booking access: ${error.message}`);
+    }
+
+    for (const row of (data ?? []) as { user_id: string }[]) {
+      if (activeMemberIds.has(row.user_id)) {
+        eligibleUserIds.add(row.user_id);
+      }
+    }
+  } else {
+    const { data, error } = await supabase
+      .from("programme_memberships")
+      .select("user_id")
+      .in("programme_id", programmeIds)
+      .eq("status", "active");
+
+    if (error) {
+      throw new Error(`Failed to load student programme access: ${error.message}`);
+    }
+
+    for (const row of (data ?? []) as { user_id: string }[]) {
+      if (activeMemberIds.has(row.user_id)) {
+        eligibleUserIds.add(row.user_id);
+      }
+    }
+  }
+
+  for (const membership of membershipRows) {
+    if (isActiveStudentClubMembership(membership)) {
+      eligibleUserIds.add(membership.user_id);
+    }
+  }
+
+  return Array.from(eligibleUserIds);
 }
 
 /** Active programme IDs for student portal booking; null when programmes schema is unavailable. */
