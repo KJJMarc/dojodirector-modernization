@@ -40,6 +40,14 @@ export function clubTrialEnquiryPath(slug: string) {
   return normalized ? `/${normalized}/trial-enquiry` : `/${KINGSTON_CLUB_SLUG}/trial-enquiry`;
 }
 
+/** POST endpoint for public trial enquiry submissions. */
+export function clubTrialEnquiryApiPath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized
+    ? `/api/${normalized}/trial-enquiry`
+    : `/api/${KINGSTON_CLUB_SLUG}/trial-enquiry`;
+}
+
 /** Adult KJJ guest booking shows the student portal notice; Kids does not. */
 export function shouldShowGuestBookingStudentPortalNotice(clubSlug: string) {
   return clubSlug.trim() === KINGSTON_CLUB_SLUG;

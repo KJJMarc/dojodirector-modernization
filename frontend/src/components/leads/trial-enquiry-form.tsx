@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { submitTrialEnquiryAction } from "@/app/[clubSlug]/trial-enquiry/actions";
+import { clubTrialEnquiryApiPath } from "@/lib/clubs.shared";
 import {
   LEAD_EXPERIENCE_LEVELS,
   LEAD_PROGRAMME_INTERESTS,
@@ -9,7 +9,63 @@ import {
   formatLeadExperienceLevelLabel,
   formatLeadProgrammeInterestLabel,
   formatTrialAudienceLabel,
+  type LeadSubmissionResult,
 } from "@/lib/leads.shared";
+
+function formatTrialEnquirySubmitError(error: unknown) {
+  if (error instanceof Error) {
+    const message = error.message.trim();
+
+    if (
+      message === "Load failed" ||
+      message === "Failed to fetch" ||
+      message === "NetworkError when attempting to fetch resource."
+    ) {
+      return "We could not reach the server. Please check your connection and try again.";
+    }
+
+    if (message.includes("Server Components render")) {
+      return "Something went wrong submitting your enquiry. Please try again in a moment.";
+    }
+
+    return message || "Unable to submit your enquiry.";
+  }
+
+  return "Unable to submit your enquiry.";
+}
+
+async function submitTrialEnquiry(
+  clubSlug: string,
+  formData: FormData,
+): Promise<LeadSubmissionResult> {
+  const response = await fetch(clubTrialEnquiryApiPath(clubSlug), {
+    method: "POST",
+    body: formData,
+    cache: "no-store",
+  });
+
+  let payload: LeadSubmissionResult | { error?: string } | null = null;
+
+  try {
+    payload = (await response.json()) as LeadSubmissionResult | { error?: string };
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      payload && "error" in payload && payload.error
+        ? payload.error
+        : `Request failed (${response.status}).`;
+    throw new Error(message);
+  }
+
+  if (!payload || !("ok" in payload) || !payload.ok) {
+    throw new Error("Unable to submit your enquiry.");
+  }
+
+  return payload;
+}
 
 interface TrialEnquiryFormProps {
   clubSlug: string;
@@ -54,12 +110,10 @@ export function TrialEnquiryForm({ clubSlug }: TrialEnquiryFormProps) {
 
         startTransition(async () => {
           try {
-            await submitTrialEnquiryAction(clubSlug, formData);
+            await submitTrialEnquiry(clubSlug, formData);
             setIsSubmitted(true);
           } catch (error) {
-            setErrorMessage(
-              error instanceof Error ? error.message : "Unable to submit your enquiry.",
-            );
+            setErrorMessage(formatTrialEnquirySubmitError(error));
           }
         });
       }}
