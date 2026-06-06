@@ -41,11 +41,29 @@ export interface LoadClassScheduleSessionsOptions {
   clubId?: string;
 }
 
+export function isValidScheduleStartsAt(
+  startsAt: string | null | undefined,
+): startsAt is string {
+  if (!startsAt) {
+    return false;
+  }
+
+  return Number.isFinite(new Date(startsAt).getTime());
+}
+
 export function formatScheduleDayLabel(startsAt: string) {
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "long",
     timeZone: "Europe/London",
   }).format(new Date(startsAt));
+}
+
+export function formatScheduleDayLabelSafe(startsAt: string | null | undefined) {
+  if (!isValidScheduleStartsAt(startsAt)) {
+    return null;
+  }
+
+  return formatScheduleDayLabel(startsAt);
 }
 
 function normalizeTimeLabel(time: string) {

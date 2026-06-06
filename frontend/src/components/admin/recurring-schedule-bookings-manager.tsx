@@ -12,7 +12,7 @@ import {
   formatProgrammeTypeLabel,
   formatScheduleTimeLabel,
 } from "@/lib/admin-recurring-classes.shared";
-import { formatScheduleDayLabel } from "@/lib/class-session-schedule";
+import { formatScheduleDayLabelSafe } from "@/lib/class-session-schedule";
 import {
   getRecurringBlockBookingDefaultEndDate,
   getRecurringBlockBookingMaxEndDate,
@@ -45,7 +45,7 @@ export function RecurringScheduleBookingsManager({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { schedule, studentBookings, sessionHealth } = pageData;
+  const { schedule, studentBookings, cancellableStudentBookings, sessionHealth } = pageData;
   const canAddBookings = schedule.isActive && sessionHealth.canBlockBook;
 
   const filteredBookStudents = useMemo(() => {
@@ -236,9 +236,7 @@ export function RecurringScheduleBookingsManager({
                         {booking.futureBookingCount}
                       </td>
                       <td className="px-4 py-3 text-dojo-muted">
-                        {booking.nextSessionAt
-                          ? formatScheduleDayLabel(booking.nextSessionAt)
-                          : "—"}
+                        {formatScheduleDayLabelSafe(booking.nextSessionAt) ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-dojo-muted">
                         {bookingStatusLabel}
@@ -344,40 +342,46 @@ export function RecurringScheduleBookingsManager({
           </p>
         </div>
 
-        <div className="space-y-3">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
-            Student
-            <select
-              value={cancelUserId}
-              onChange={(event) => setCancelUserId(event.target.value)}
-              className="mt-1 min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2"
+        {cancellableStudentBookings.length === 0 ? (
+          <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-6 text-sm text-dojo-muted">
+            No future bookings found for this recurring class.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+              Student
+              <select
+                value={cancelUserId}
+                onChange={(event) => setCancelUserId(event.target.value)}
+                className="mt-1 min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2"
+              >
+                <option value="">Select a booked student…</option>
+                {cancellableStudentBookings.map((booking) => {
+                  const studentName = getStudentFullName(
+                    booking.firstName,
+                    booking.lastName,
+                  );
+
+                  return (
+                    <option key={booking.userId} value={booking.userId}>
+                      {studentName}
+                      {booking.email ? ` (${booking.email})` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              disabled={isPending || !cancelUserId}
+              onClick={submitCancel}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-red/40 bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-red transition hover:bg-dojo-red/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">Select a booked student…</option>
-              {studentBookings.map((booking) => {
-                const studentName = getStudentFullName(
-                  booking.firstName,
-                  booking.lastName,
-                );
-
-                return (
-                  <option key={booking.userId} value={booking.userId}>
-                    {studentName}
-                    {booking.email ? ` (${booking.email})` : ""}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-
-          <button
-            type="button"
-            disabled={isPending || !cancelUserId}
-            onClick={submitCancel}
-            className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-red/40 bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-red transition hover:bg-dojo-red/10 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isPending ? "Cancelling…" : "Cancel Future Bookings"}
-          </button>
-        </div>
+              {isPending ? "Cancelling…" : "Cancel Future Bookings"}
+            </button>
+          </div>
+        )}
       </section>
 
       {message ? (

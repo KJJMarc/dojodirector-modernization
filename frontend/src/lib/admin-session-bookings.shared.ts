@@ -114,7 +114,40 @@ export interface RecurringScheduleBookingsPageData {
     isActive: boolean;
   };
   studentBookings: RecurringScheduleStudentBookingSummary[];
+  /** Students with at least one future booked session on this schedule. */
+  cancellableStudentBookings: RecurringScheduleStudentBookingSummary[];
   sessionHealth: RecurringScheduleSessionHealth;
+}
+
+export function isValidRecurringBookingUserId(
+  userId: string | null | undefined,
+): userId is string {
+  return typeof userId === "string" && userId.length > 0;
+}
+
+export function normalizeRecurringBookingSessionStartsAt(
+  startsAt: string | null | undefined,
+): string | null {
+  if (!startsAt) {
+    return null;
+  }
+
+  const timestamp = new Date(startsAt).getTime();
+  return Number.isFinite(timestamp) ? startsAt : null;
+}
+
+export function isCancellableRecurringStudentBooking(
+  booking: RecurringScheduleStudentBookingSummary,
+) {
+  return (
+    isValidRecurringBookingUserId(booking.userId) && booking.futureBookingCount > 0
+  );
+}
+
+export function getCancellableRecurringStudentBookings(
+  studentBookings: RecurringScheduleStudentBookingSummary[],
+) {
+  return studentBookings.filter(isCancellableRecurringStudentBooking);
 }
 
 export function formatAdminBookingStatusLabel(status: string) {

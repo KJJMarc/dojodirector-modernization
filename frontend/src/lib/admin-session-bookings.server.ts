@@ -26,6 +26,9 @@ import {
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   getRecurringBlockBookingMaxEndDate,
+  getCancellableRecurringStudentBookings,
+  isValidRecurringBookingUserId,
+  normalizeRecurringBookingSessionStartsAt,
   RECURRING_BLOCK_BOOKING_MAX_WEEKS,
   RECURRING_BLOCK_BOOKING_SESSION_COUNT,
   type AdminSessionBookingsView,
@@ -825,13 +828,19 @@ export async function getRecurringScheduleBookedStudentOptions(
     return [];
   }
 
-  const attendeeRows = await fetchAllFutureSessionAttendees(sessionIds, [
+  const attendeeRows = (await fetchAllFutureSessionAttendees(sessionIds, [
     "booked",
     "waitlisted",
     "walk_in",
-  ]);
+  ])).filter((row) => isValidRecurringBookingUserId(row.user_id));
 
-  const userIds = Array.from(new Set(attendeeRows.map((row) => row.user_id)));
+  const userIds = Array.from(
+    new Set(
+      attendeeRows
+        .map((row) => row.user_id)
+        .filter(isValidRecurringBookingUserId),
+    ),
+  );
 
   if (userIds.length === 0) {
     return [];
@@ -865,9 +874,80 @@ export async function getRecurringScheduleBookedStudentOptions(
 
 interface FutureSessionAttendeeRow {
   id: string;
-  user_id: string;
+  user_id: string | null;
   booking_status: string | null;
   class_session_id: string;
+}
+
+function buildRecurringScheduleStudentBookingSummaries(input: {
+  attendees: FutureSessionAttendeeRow[];
+  userById: Map<string, BookingUserRow>;
+  canonicalSessionIdSet: Set<string>;
+  sessionStartsAtById: Map<string, string>;
+}): RecurringScheduleStudentBookingSummary[] {
+  const summaryByUserId = new Map<string, RecurringScheduleStudentBookingSummary>();
+
+  for (const attendee of input.attendees) {
+    if (!isValidRecurringBookingUserId(attendee.user_id)) {
+      continue;
+    }
+
+    const userId = attendee.user_id;
+    const user = input.userById.get(userId);
+    const inCanonicalWindow = input.canonicalSessionIdSet.has(attendee.class_session_id);
+    const rawStartsAt = inCanonicalWindow
+      ? (input.sessionStartsAtById.get(attendee.class_session_id) ?? null)
+      : null;
+    const startsAt = normalizeRecurringBookingSessionStartsAt(rawStartsAt);
+    const existing = summaryByUserId.get(userId);
+
+    if (!existing) {
+      summaryByUserId.set(userId, {
+        userId,
+        firstName: user?.first_name ?? null,
+        lastName: user?.last_name ?? null,
+        email: user?.email ?? null,
+        futureBookingCount:
+          inCanonicalWindow && attendee.booking_status === "booked" ? 1 : 0,
+        nextSessionAt: startsAt,
+        bookedCount:
+          inCanonicalWindow && attendee.booking_status === "booked" ? 1 : 0,
+        waitlistedCount:
+          inCanonicalWindow && attendee.booking_status === "waitlisted" ? 1 : 0,
+        walkInCount:
+          inCanonicalWindow && attendee.booking_status === "walk_in" ? 1 : 0,
+      });
+      continue;
+    }
+
+    if (!inCanonicalWindow) {
+      continue;
+    }
+
+    if (attendee.booking_status === "booked") {
+      existing.futureBookingCount += 1;
+      existing.bookedCount += 1;
+    } else if (attendee.booking_status === "waitlisted") {
+      existing.waitlistedCount += 1;
+    } else if (attendee.booking_status === "walk_in") {
+      existing.walkInCount += 1;
+    }
+
+    if (
+      startsAt &&
+      (!existing.nextSessionAt || startsAt < existing.nextSessionAt)
+    ) {
+      existing.nextSessionAt = startsAt;
+    }
+  }
+
+  return sortByAttendanceRegisterName(
+    Array.from(summaryByUserId.values()),
+    (booking) => ({
+      firstName: booking.firstName,
+      lastName: booking.lastName,
+    }),
+  );
 }
 
 const SUPABASE_PAGE_SIZE = 1000;
@@ -944,75 +1024,33 @@ export async function getRecurringScheduleBookingsPageData(
   const studentBookings: RecurringScheduleStudentBookingSummary[] = [];
 
   if (allFutureSessionIds.length > 0) {
-    const attendees = await fetchAllFutureSessionAttendees(allFutureSessionIds, [
+    const attendees = (await fetchAllFutureSessionAttendees(allFutureSessionIds, [
       "booked",
       "waitlisted",
       "walk_in",
-    ]);
-    const userIds = Array.from(new Set(attendees.map((row) => row.user_id)));
+    ])).filter((row) => isValidRecurringBookingUserId(row.user_id));
+    const userIds = Array.from(
+      new Set(
+        attendees
+          .map((row) => row.user_id)
+          .filter(isValidRecurringBookingUserId),
+      ),
+    );
 
     const userById = await loadUsersByIds(userIds);
 
-    const summaryByUserId = new Map<string, RecurringScheduleStudentBookingSummary>();
-
-    for (const attendee of attendees) {
-      const user = userById.get(attendee.user_id);
-      const inCanonicalWindow = canonicalSessionIdSet.has(attendee.class_session_id);
-      const startsAt = inCanonicalWindow
-        ? (sessionStartsAtById.get(attendee.class_session_id) ?? null)
-        : null;
-      const existing = summaryByUserId.get(attendee.user_id);
-
-      if (!existing) {
-        summaryByUserId.set(attendee.user_id, {
-          userId: attendee.user_id,
-          firstName: user?.first_name ?? null,
-          lastName: user?.last_name ?? null,
-          email: user?.email ?? null,
-          futureBookingCount:
-            inCanonicalWindow && attendee.booking_status === "booked" ? 1 : 0,
-          nextSessionAt: startsAt,
-          bookedCount:
-            inCanonicalWindow && attendee.booking_status === "booked" ? 1 : 0,
-          waitlistedCount:
-            inCanonicalWindow && attendee.booking_status === "waitlisted" ? 1 : 0,
-          walkInCount:
-            inCanonicalWindow && attendee.booking_status === "walk_in" ? 1 : 0,
-        });
-        continue;
-      }
-
-      if (!inCanonicalWindow) {
-        continue;
-      }
-
-      if (attendee.booking_status === "booked") {
-        existing.futureBookingCount += 1;
-        existing.bookedCount += 1;
-      } else if (attendee.booking_status === "waitlisted") {
-        existing.waitlistedCount += 1;
-      } else if (attendee.booking_status === "walk_in") {
-        existing.walkInCount += 1;
-      }
-
-      if (
-        startsAt &&
-        (!existing.nextSessionAt || startsAt < existing.nextSessionAt)
-      ) {
-        existing.nextSessionAt = startsAt;
-      }
-    }
-
     studentBookings.push(
-      ...sortByAttendanceRegisterName(
-        Array.from(summaryByUserId.values()),
-        (booking) => ({
-          firstName: booking.firstName,
-          lastName: booking.lastName,
-        }),
-      ),
+      ...buildRecurringScheduleStudentBookingSummaries({
+        attendees,
+        userById,
+        canonicalSessionIdSet,
+        sessionStartsAtById,
+      }),
     );
   }
+
+  const cancellableStudentBookings =
+    getCancellableRecurringStudentBookings(studentBookings);
 
   return {
     schedule: {
@@ -1027,6 +1065,7 @@ export async function getRecurringScheduleBookingsPageData(
       isActive: scheduleRow.isActive,
     },
     studentBookings,
+    cancellableStudentBookings,
     sessionHealth: buildRecurringScheduleSessionHealth(
       scheduleRow.isActive,
       sessionEnsureResult,

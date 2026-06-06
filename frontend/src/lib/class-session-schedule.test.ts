@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatScheduleTimeRange,
+  formatScheduleDayLabelSafe,
   resolveScheduleDateKey,
 } from "./class-session-schedule.ts";
 import { utcIsoToLondonTime } from "./london-datetime.ts";
@@ -57,6 +58,20 @@ describe("resolveScheduleDateKey", () => {
           "kjj_timetable:class:2026-06-04:18:00:Tiffin_Sport",
       }),
       "2026-06-04",
+    );
+  });
+});
+
+describe("formatScheduleDayLabelSafe", () => {
+  it("returns null for invalid timestamps instead of throwing", () => {
+    assert.equal(formatScheduleDayLabelSafe("not-a-date"), null);
+    assert.equal(formatScheduleDayLabelSafe(""), null);
+  });
+
+  it("formats valid timestamps", () => {
+    assert.equal(
+      formatScheduleDayLabelSafe("2026-06-04T19:00:00+00:00"),
+      "Thursday",
     );
   });
 });
