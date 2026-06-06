@@ -1,46 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateAttendanceImpactPaths } from "@/lib/admin-revalidate.server";
-import { getClubSlugById } from "@/lib/attendance-card-manual.server";
 import {
-  syncAttendanceRecordForStatus,
-  type SyncAttendanceStatus,
-} from "@/lib/attendance-records-sync";
-import { utcIsoToLondonDate } from "@/lib/london-datetime";
-import { matchLeadOnTrialAttendance } from "@/lib/lead-status-tracking.server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+  applySessionAttendeeAttendanceStatus,
+} from "@/lib/attendance-marking.server";
+import type { SyncAttendanceStatus } from "@/lib/attendance-records-sync";
 
 const VALID_STATUS = new Set<SyncAttendanceStatus>([
   "present",
   "absent",
   "not_marked",
 ]);
-
-interface SessionAttendeeMarkingRow {
-  id: string;
-  user_id: string | null;
-  class_session_id: string;
-}
-
-async function getSessionAttendeeForMarking(attendeeId: string) {
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("session_attendees")
-    .select("id, user_id, class_session_id")
-    .eq("id", attendeeId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Unable to load session attendee: ${error.message}`);
-  }
-
-  if (!data) {
-    throw new Error("Session attendee not found.");
-  }
-
-  return data as SessionAttendeeMarkingRow;
-}
 
 export async function markAttendance(formData: FormData) {
   const attendeeId = String(formData.get("attendeeId") ?? "");
@@ -53,92 +23,11 @@ export async function markAttendance(formData: FormData) {
     throw new Error("Invalid attendance update payload.");
   }
 
-  const nextStatus = attendanceStatus as SyncAttendanceStatus;
-
-  const supabase = getSupabaseServerClient();
-  const attendee = await getSessionAttendeeForMarking(attendeeId);
-
-  const { data: classSession, error: classSessionError } = await supabase
-    .from("class_sessions")
-    .select("club_id, starts_at, status, classes(name)")
-    .eq("id", attendee.class_session_id)
-    .maybeSingle();
-
-  if (classSessionError) {
-    throw new Error(
-      `Unable to load class session for attendance: ${classSessionError.message}`,
-    );
-  }
-
-  if (!classSession) {
-    throw new Error("Class session not found.");
-  }
-
-  if (classSession.status === "cancelled") {
-    throw new Error("Attendance cannot be marked for a cancelled session.");
-  }
-
-  if (classSession.status === "completed") {
-    throw new Error("Attendance cannot be marked for a completed session.");
-  }
-
-  const { error } = await supabase
-    .from("session_attendees")
-    .update({ attendance_status: nextStatus })
-    .eq("id", attendeeId);
-
-  if (error) {
-    throw new Error(`Unable to update attendance: ${error.message}`);
-  }
-
-  if (attendee.user_id) {
-    if (!classSession.club_id || !classSession.starts_at) {
-      throw new Error("Unable to resolve class session details for attendance sync.");
-    }
-
-    const attendedOn = utcIsoToLondonDate(classSession.starts_at);
-
-    await syncAttendanceRecordForStatus(
-      supabase,
-      {
-        userId: attendee.user_id,
-        clubId: classSession.club_id,
-        classSessionId: attendee.class_session_id,
-        attendedOn,
-      },
-      nextStatus,
-    );
-
-    if (nextStatus === "present") {
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("email, phone")
-        .eq("id", attendee.user_id)
-        .maybeSingle();
-
-      const classesRelation = (classSession as { classes?: unknown }).classes;
-      const className =
-        (Array.isArray(classesRelation)
-          ? classesRelation[0]?.name
-          : (classesRelation as { name?: string | null } | null)?.name)?.trim() ||
-        "Class";
-      const sessionDateLabel = new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "medium",
-      }).format(new Date(classSession.starts_at));
-
-      void matchLeadOnTrialAttendance({
-        academyId: classSession.club_id,
-        email: userRow?.email?.trim() ?? "",
-        phone: userRow?.phone?.trim() ?? null,
-        className,
-        sessionDateLabel,
-      });
-    }
-
-    const clubSlug = await getClubSlugById(classSession.club_id);
-    revalidateAttendanceImpactPaths(clubSlug, attendee.user_id);
-  }
+  const sessionId = await applySessionAttendeeAttendanceStatus(
+    attendeeId,
+    attendanceStatus as SyncAttendanceStatus,
+  );
 
   revalidatePath("/attendance");
-  revalidatePath(`/attendance/${attendee.class_session_id}`);
+  revalidatePath(`/attendance/${sessionId}`);
 }

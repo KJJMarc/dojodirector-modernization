@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
 import { instructorPortalAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
+import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
 
 export interface InstructorQuickActionItem {
   label: string;
@@ -27,6 +27,11 @@ export function InstructorQuickActions({
       label: "Attendance Register",
       href: instructorPortalAttendanceRegisterPath(clubSlug),
       description: "Mark attendance for today's classes.",
+    },
+    {
+      label: "Attendance Kiosk",
+      href: instructorPortalAttendanceRegisterPath(clubSlug),
+      description: "Open the self check-in kiosk for today's classes.",
     },
     {
       label: "Session Cover",

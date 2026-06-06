@@ -1,5 +1,5 @@
 import { formatBookingDate } from "@/lib/booking";
-import { getLondonDateRangeIso, LONDON_TIMEZONE } from "@/lib/london-datetime";
+import { getLondonDateRangeIso, getLondonTodayDateKey, LONDON_TIMEZONE } from "@/lib/london-datetime";
 import {
   ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
   formatAttendanceSessionTimeRange,
@@ -88,4 +88,39 @@ export function groupAttendanceSessionsByMonth(
   }
 
   return Array.from(months.values());
+}
+
+export function prioritizeTodayAttendanceMonthGroups(
+  monthGroups: AttendanceScheduleMonthGroup[],
+  from = new Date(),
+): AttendanceScheduleMonthGroup[] {
+  const todayKey = getLondonTodayDateKey(from);
+  const todayGroups: AttendanceScheduleMonthGroup[] = [];
+  const otherGroups: AttendanceScheduleMonthGroup[] = [];
+
+  for (const monthGroup of monthGroups) {
+    const todayDateGroups = monthGroup.dateGroups.filter(
+      (group) => group.dateKey === todayKey,
+    );
+    const otherDateGroups = monthGroup.dateGroups.filter(
+      (group) => group.dateKey !== todayKey,
+    );
+
+    if (todayDateGroups.length > 0) {
+      todayGroups.push({
+        ...monthGroup,
+        monthLabel: "Today",
+        dateGroups: todayDateGroups,
+      });
+    }
+
+    if (otherDateGroups.length > 0) {
+      otherGroups.push({
+        ...monthGroup,
+        dateGroups: otherDateGroups,
+      });
+    }
+  }
+
+  return [...todayGroups, ...otherGroups];
 }

@@ -17,3 +17,10 @@ export function instructorPortalClubPath(
 
   return section ? `${base}/${section}` : base;
 }
+
+export function instructorPortalAttendanceKioskPath(
+  clubSlug: string,
+  sessionId: string,
+) {
+  return `${instructorPortalClubPath(clubSlug)}/attendance-kiosk/${sessionId}`;
+}

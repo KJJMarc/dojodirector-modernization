@@ -1,6 +1,7 @@
 import {
   ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
   groupAttendanceSessionsByMonth,
+  prioritizeTodayAttendanceMonthGroups,
 } from "@/lib/attendance-schedule";
 import { getAttendanceScheduleSessions } from "@/lib/attendance-schedule.server";
 import { AttendanceRegisterBackLink } from "@/components/attendance/attendance-register-back-link";
@@ -52,7 +53,10 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const navContext = parseAttendanceRegisterNavContext(searchParams);
   const clubId = await resolveAttendanceClubId(searchParams);
   const sessions = await getAttendanceScheduleSessions(clubId);
-  const monthGroups = groupAttendanceSessionsByMonth(sessions);
+  const monthGroups =
+    navContext?.from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal
+      ? prioritizeTodayAttendanceMonthGroups(groupAttendanceSessionsByMonth(sessions))
+      : groupAttendanceSessionsByMonth(sessions);
 
   return (
     <main
@@ -65,8 +69,9 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       {navContext ? <AttendanceRegisterBackLink context={navContext} /> : null}
 
       <p className="text-sm text-dojo-muted">
-        Upcoming class sessions for the next 8 weeks. Tap a session to mark
-        attendance.
+        {navContext?.from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal
+          ? "Today's classes are shown first. Open the register to mark attendance or launch the kiosk for student self check-in."
+          : "Upcoming class sessions for the next 8 weeks. Tap a session to mark attendance."}
       </p>
 
       {monthGroups.length === 0 ? (
