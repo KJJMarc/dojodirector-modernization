@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  countsTowardAttendanceRegister,
+  countsAsAttendanceRegisterStudent,
 } from "@/lib/attendance-register-booking.shared";
 import {
   getSpacesAvailable,
@@ -16,6 +16,7 @@ import type {
 } from "@/lib/class-session-schedule";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { ensureClubRecurringFutureSessions } from "@/lib/ensure-club-recurring-sessions.server";
+import { fetchSessionAttendeesForScheduleCounts } from "@/lib/session-attendees.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -37,12 +38,6 @@ interface ClassRow {
   is_active: boolean | null;
   club_id: string | null;
   programme_id: string | null;
-}
-
-interface SessionAttendeeRow {
-  id: string;
-  class_session_id: string;
-  booking_status: string | null;
 }
 
 /** Loads sessions from class_sessions (source of truth) with class names and booking counts. */
@@ -98,15 +93,12 @@ export async function loadClassScheduleSessions(
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
   const shouldFilterInactiveRecurringSchedules = activeClassesOnly && Boolean(clubId);
 
-  const [classesResult, attendeesResult, recurringSchedulesResult] = await Promise.all([
+  const [classesResult, attendeeRows, recurringSchedulesResult] = await Promise.all([
     supabase
       .from("classes")
       .select("id, name, is_active, club_id, programme_id")
       .in("id", classIds),
-    supabase
-      .from("session_attendees")
-      .select("id, class_session_id, booking_status")
-      .in("class_session_id", sessionIds),
+    fetchSessionAttendeesForScheduleCounts(supabase, sessionIds),
     shouldFilterInactiveRecurringSchedules
       ? supabase
           .from("recurring_class_schedules")
@@ -117,12 +109,6 @@ export async function loadClassScheduleSessions(
 
   if (classesResult.error) {
     throw new Error(`Failed to load classes: ${classesResult.error.message}`);
-  }
-
-  if (attendeesResult.error) {
-    throw new Error(
-      `Failed to load session bookings: ${attendeesResult.error.message}`,
-    );
   }
 
   if (recurringSchedulesResult.error) {
@@ -183,8 +169,8 @@ export async function loadClassScheduleSessions(
 
   const bookedCountBySession = new Map<string, number>();
 
-  for (const attendee of (attendeesResult.data ?? []) as SessionAttendeeRow[]) {
-    if (!countsTowardAttendanceRegister(attendee.booking_status)) {
+  for (const attendee of attendeeRows) {
+    if (!countsAsAttendanceRegisterStudent(attendee)) {
       continue;
     }
 

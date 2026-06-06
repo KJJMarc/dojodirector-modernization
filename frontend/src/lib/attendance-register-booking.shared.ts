@@ -9,3 +9,11 @@ export function countsTowardAttendanceRegister(bookingStatus: string | null) {
     bookingStatus === "booked" || bookingStatus === "walk_in"
   );
 }
+
+/** Matches rows shown on the attendance register (status + linked student). */
+export function countsAsAttendanceRegisterStudent(attendee: {
+  booking_status: string | null;
+  user_id?: string | null;
+}) {
+  return countsTowardAttendanceRegister(attendee.booking_status) && Boolean(attendee.user_id);
+}
