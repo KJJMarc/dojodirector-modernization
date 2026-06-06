@@ -279,13 +279,10 @@ export async function getStudentPortalBookPageData(
   userId: string,
   clubId: string,
 ): Promise<StudentPortalBookPageData> {
-  const [profile, bookableSessionGroups] = await Promise.all([
-    getAdminStudentProfilePageData(userId, clubId),
-    loadStudentPortalBookableSessionGroups(userId, clubId),
-  ]);
+  const bookableSessionGroups = await loadStudentPortalBookableSessionGroups(
+    userId,
+    clubId,
+  );
 
-  return {
-    studentName: profile.student.fullName,
-    bookableSessionGroups,
-  };
+  return { bookableSessionGroups };
 }

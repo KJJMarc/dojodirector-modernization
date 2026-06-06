@@ -83,7 +83,6 @@ export interface StudentPortalBookingsPageData {
 }
 
 export interface StudentPortalBookPageData {
-  studentName: string;
   bookableSessionGroups: StudentPortalBookableSessionGroup[];
 }
 
