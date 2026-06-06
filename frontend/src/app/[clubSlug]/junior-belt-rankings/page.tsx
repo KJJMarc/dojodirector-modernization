@@ -5,6 +5,7 @@ import { PublicAcademyPageHeader } from "@/components/public/public-academy-page
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG } from "@/lib/clubs.shared";
 import { getJuniorBeltRankingsPageData } from "@/lib/junior-belt-rankings.server";
+import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,12 @@ export async function generateMetadata({
 
   if (!club || club.slug !== KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG) {
     return {
-      title: "DojoDirector | Junior Belt Rankings",
+      title: "Junior Belt Rankings",
     };
   }
 
   return {
-    title: `DojoDirector | ${club.name} Junior Belt Rankings`,
+    title: publicAcademyDocumentTitle(club.name, "Junior Belt Rankings"),
     description: `Current junior belt rankings at ${club.name}, updated automatically from academy grading records.`,
   };
 }

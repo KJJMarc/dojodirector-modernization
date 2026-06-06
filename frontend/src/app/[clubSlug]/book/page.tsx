@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { AppHeader } from "@/components/layout/app-header";
 import { PublicSiteFooter } from "@/components/layout/public-site-footer";
+import { PublicAcademyPageHeader } from "@/components/public/public-academy-page-header";
 import { GuestBookingFlow } from "@/components/booking/guest-booking-flow";
 import {
   groupSessionsByDate,
@@ -10,6 +10,7 @@ import { toClientClubAgreementContent } from "@/lib/club-agreement-templates.sha
 import { resolveGuestTrainingAgreementContent } from "@/lib/club-agreement-templates.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { shouldShowGuestBookingStudentPortalNotice } from "@/lib/clubs.shared";
+import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Guest Booking`,
+    title: publicAcademyDocumentTitle(club.name, "Guest Booking"),
     description: `Book a trial or guest class at ${club.name}.`,
   };
 }
@@ -39,7 +40,11 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 px-3 py-4 pb-8 sm:px-5">
-        <AppHeader pageTitle="Guest Booking" clubName={club.name} />
+        <PublicAcademyPageHeader
+          pageTitle="Guest Booking"
+          clubName={club.name}
+          sticky
+        />
 
         <p className="text-sm text-dojo-muted">
           Book a trial or guest class at {club.name}.
@@ -53,7 +58,7 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
         />
       </main>
 
-      <PublicSiteFooter />
+      <PublicSiteFooter variant="academy" />
     </div>
   );
 }

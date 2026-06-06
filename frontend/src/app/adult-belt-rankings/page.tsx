@@ -3,11 +3,12 @@ import { AdultBeltRankingsView } from "@/components/public/adult-belt-rankings-v
 import { PublicAcademyPageHeader } from "@/components/public/public-academy-page-header";
 import { getAdultBeltRankingsPageData } from "@/lib/adult-belt-rankings.server";
 import { ACTIVE_CLUB_NAME } from "@/lib/branding";
+import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: `DojoDirector | ${ACTIVE_CLUB_NAME} Adult Belt Rankings`,
+  title: publicAcademyDocumentTitle(ACTIVE_CLUB_NAME, "Adult Belt Rankings"),
   description: `Current adult belt rankings at ${ACTIVE_CLUB_NAME}, updated automatically from academy grading records.`,
 };
 

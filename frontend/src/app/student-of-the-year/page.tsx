@@ -3,11 +3,12 @@ import { PublicAcademyPageHeader } from "@/components/public/public-academy-page
 import { StudentOfTheYearView } from "@/components/public/student-of-the-year-view";
 import { ACTIVE_CLUB_NAME } from "@/lib/branding";
 import { getStudentOfTheYearPageData } from "@/lib/student-of-the-year.server";
+import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: `DojoDirector | ${ACTIVE_CLUB_NAME} Student of the Year`,
+  title: publicAcademyDocumentTitle(ACTIVE_CLUB_NAME, "Student of the Year"),
   description: `Annual Student of the Year winners at ${ACTIVE_CLUB_NAME}.`,
 };
 
