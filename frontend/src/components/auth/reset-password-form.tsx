@@ -6,6 +6,7 @@ import {
   updatePasswordAfterResetAction,
   updatePasswordAfterSetupAction,
 } from "@/app/reset-password/actions";
+import { resolveAuthActionErrorMessage } from "@/components/auth/handle-auth-action-error";
 import { PORTAL_SETUP_INVALID_LINK_MESSAGE } from "@/lib/portal-setup.shared";
 import {
   forgotPasswordPath,
@@ -85,11 +86,7 @@ export function ResetPasswordForm({
               : updatePasswordAfterResetAction;
             await action(formData);
           } catch (error) {
-            setErrorMessage(
-              error instanceof Error
-                ? error.message
-                : PASSWORD_RESET_INVALID_LINK_MESSAGE,
-            );
+            setErrorMessage(resolveAuthActionErrorMessage(error));
           }
         });
       }}

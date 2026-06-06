@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { signInInstructorPortalAction } from "@/app/instructor-portal/actions";
 import { LoginForgotPasswordLink } from "@/components/auth/login-forgot-password-link";
+import { resolveAuthActionErrorMessage } from "@/components/auth/handle-auth-action-error";
 
 export function InstructorPortalLoginForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -21,9 +22,7 @@ export function InstructorPortalLoginForm() {
           try {
             await signInInstructorPortalAction(formData);
           } catch (error) {
-            setErrorMessage(
-              error instanceof Error ? error.message : "Unable to sign in.",
-            );
+            setErrorMessage(resolveAuthActionErrorMessage(error));
           }
         });
       }}

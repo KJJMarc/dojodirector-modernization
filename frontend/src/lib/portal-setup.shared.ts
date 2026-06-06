@@ -3,7 +3,7 @@ import {
   loginPathForPasswordResetContext,
   type PasswordResetLoginContext,
 } from "@/lib/password-reset.shared";
-import { PORTAL_AUTH_LINK_VALIDITY_LABEL } from "@/lib/portal-auth-link.shared";
+import { PORTAL_AUTH_EXPIRED_LINK_MESSAGE } from "@/lib/portal-auth-errors.shared";
 import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
 import { isAdminLoginRole, isSuperAdminMembershipRole } from "@/lib/admin-auth.shared";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
@@ -13,8 +13,7 @@ export const PORTAL_SETUP_SUBJECT = "Set up your Dojo Director account";
 export const PORTAL_SETUP_SUCCESS_MESSAGE =
   "Your account is ready. You can sign in with your new password.";
 
-export const PORTAL_SETUP_INVALID_LINK_MESSAGE =
-  `This account setup link is invalid or has expired. Links are valid for ${PORTAL_AUTH_LINK_VALIDITY_LABEL}. Ask your academy to send a new portal setup email, or request a password reset if you have already started setting up your account.`;
+export const PORTAL_SETUP_INVALID_LINK_MESSAGE = PORTAL_AUTH_EXPIRED_LINK_MESSAGE;
 
 export type PortalSetupLoginContext = PasswordResetLoginContext;
 

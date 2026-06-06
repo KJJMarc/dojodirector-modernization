@@ -1,3 +1,5 @@
+import { PORTAL_AUTH_NO_ACCESS_MESSAGE } from "@/lib/portal-auth-errors.shared";
+
 export const PLATFORM_SUPER_ADMIN_ROLE = "super_admin" as const;
 
 export const CLUB_ADMIN_MEMBERSHIP_ROLES = ["admin", "owner"] as const;
@@ -88,8 +90,7 @@ export function superAdminLoginPath() {
 
 export const SUPER_ADMIN_LOGIN_PATH = superAdminLoginPath();
 
-export const ADMIN_ACCESS_DENIED_MESSAGE =
-  "You do not have permission to access the admin area.";
+export const ADMIN_ACCESS_DENIED_MESSAGE = PORTAL_AUTH_NO_ACCESS_MESSAGE;
 
 export const SUPER_ADMIN_PATH = "/super-admin";
 

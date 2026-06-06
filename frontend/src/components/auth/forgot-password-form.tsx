@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { requestPasswordResetAction } from "@/app/forgot-password/actions";
+import { resolveAuthActionErrorMessage } from "@/components/auth/handle-auth-action-error";
+import { PORTAL_AUTH_UNEXPECTED_ERROR_MESSAGE } from "@/lib/portal-auth-errors.shared";
 import { PASSWORD_RESET_REQUEST_SUCCESS_MESSAGE } from "@/lib/password-reset.shared";
 
 interface ForgotPasswordFormProps {
@@ -14,6 +16,7 @@ const inputClassName =
 
 export function ForgotPasswordForm({ loginPath }: ForgotPasswordFormProps) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -23,11 +26,19 @@ export function ForgotPasswordForm({ loginPath }: ForgotPasswordFormProps) {
         onSubmit={(event) => {
           event.preventDefault();
           setSuccessMessage(null);
+          setErrorMessage(null);
           const formData = new FormData(event.currentTarget);
 
           startTransition(async () => {
-            const result = await requestPasswordResetAction(formData);
-            setSuccessMessage(result.message);
+            try {
+              const result = await requestPasswordResetAction(formData);
+              setSuccessMessage(result.message);
+            } catch (error) {
+              setErrorMessage(
+                resolveAuthActionErrorMessage(error) ||
+                  PORTAL_AUTH_UNEXPECTED_ERROR_MESSAGE,
+              );
+            }
           });
         }}
       >
@@ -56,6 +67,12 @@ export function ForgotPasswordForm({ loginPath }: ForgotPasswordFormProps) {
           {isPending ? "Sending…" : "Send reset link"}
         </button>
       </form>
+
+      {errorMessage ? (
+        <p className="rounded-lg border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-white">
+          {errorMessage}
+        </p>
+      ) : null}
 
       {successMessage ? (
         <p

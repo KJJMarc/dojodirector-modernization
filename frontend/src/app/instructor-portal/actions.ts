@@ -3,6 +3,11 @@
 import { redirect } from "next/navigation";
 import { promoteInvitedPortalAccessAfterPasswordSignIn } from "@/lib/portal-auth-activation.server";
 import {
+  PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE,
+  PORTAL_AUTH_MISSING_CREDENTIALS_MESSAGE,
+} from "@/lib/portal-auth-errors.shared";
+import { throwPortalAuthError } from "@/lib/portal-auth-errors.server";
+import {
   getAuthenticatedInstructorPortalProfile,
   signOutInstructorPortal,
 } from "@/lib/instructor-portal-auth.server";
@@ -19,28 +24,32 @@ import {
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
 
 export async function signInInstructorPortalAction(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+  try {
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
-  if (!email || !password) {
-    throw new Error("Enter your email and password.");
+    if (!email || !password) {
+      throw new Error(PORTAL_AUTH_MISSING_CREDENTIALS_MESSAGE);
+    }
+
+    const supabase = await createSupabaseServerAuthClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      throw new Error(PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE);
+    }
+
+    if (data.user?.id) {
+      await promoteInvitedPortalAccessAfterPasswordSignIn({
+        authUserId: data.user.id,
+        email,
+      });
+    }
+
+    redirect(instructorPortalEntryPath());
+  } catch (error) {
+    throwPortalAuthError("instructor-portal.sign-in", error);
   }
-
-  const supabase = await createSupabaseServerAuthClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    throw new Error("Sign in failed. Check your email and password.");
-  }
-
-  if (data.user?.id) {
-    await promoteInvitedPortalAccessAfterPasswordSignIn({
-      authUserId: data.user.id,
-      email,
-    });
-  }
-
-  redirect(instructorPortalEntryPath());
 }
 
 export async function signOutInstructorPortalAction() {

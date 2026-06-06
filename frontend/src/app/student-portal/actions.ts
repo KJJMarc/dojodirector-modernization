@@ -14,6 +14,11 @@ import {
 import { resolveStudentPortalHomePath } from "@/lib/student-portal-club.server";
 import { promoteInvitedPortalAccessAfterPasswordSignIn } from "@/lib/portal-auth-activation.server";
 import {
+  PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE,
+  PORTAL_AUTH_MISSING_CREDENTIALS_MESSAGE,
+} from "@/lib/portal-auth-errors.shared";
+import { throwPortalAuthError } from "@/lib/portal-auth-errors.server";
+import {
   getAuthenticatedStudentPortalProfile,
   signOutStudentPortal,
 } from "@/lib/student-portal-auth.server";
@@ -30,28 +35,32 @@ import {
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
 
 export async function signInStudentPortalAction(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+  try {
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
-  if (!email || !password) {
-    throw new Error("Enter your email and password.");
+    if (!email || !password) {
+      throw new Error(PORTAL_AUTH_MISSING_CREDENTIALS_MESSAGE);
+    }
+
+    const supabase = await createSupabaseServerAuthClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      throw new Error(PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE);
+    }
+
+    if (data.user?.id) {
+      await promoteInvitedPortalAccessAfterPasswordSignIn({
+        authUserId: data.user.id,
+        email,
+      });
+    }
+
+    redirect(studentPortalEntryPath());
+  } catch (error) {
+    throwPortalAuthError("student-portal.sign-in", error);
   }
-
-  const supabase = await createSupabaseServerAuthClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    throw new Error("Sign in failed. Check your email and password.");
-  }
-
-  if (data.user?.id) {
-    await promoteInvitedPortalAccessAfterPasswordSignIn({
-      authUserId: data.user.id,
-      email,
-    });
-  }
-
-  redirect(studentPortalEntryPath());
 }
 
 export async function signOutStudentPortalAction() {

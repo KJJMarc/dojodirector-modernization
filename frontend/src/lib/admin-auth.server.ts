@@ -32,6 +32,11 @@ import {
 } from "@/lib/portal-auth-user.server";
 import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import {
+  PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE,
+  PORTAL_AUTH_MISSING_CREDENTIALS_MESSAGE,
+} from "@/lib/portal-auth-errors.shared";
+import { throwPortalAuthError } from "@/lib/portal-auth-errors.server";
+import {
   getSupabaseAuthSessionUser,
   validatePortalPasswordInput,
 } from "@/lib/student-portal-auth.server";
@@ -651,57 +656,61 @@ export async function signInAdminAccessAndRedirect(
   formData: FormData,
   intent: AdminLoginIntent = "legacy_club",
 ) {
-  const clubSlug = String(formData.get("clubSlug") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+  try {
+    const clubSlug = String(formData.get("clubSlug") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
-  if (intent === "legacy_club" && !clubSlug) {
-    throw new Error("Club is required.");
-  }
+    if (intent === "legacy_club" && !clubSlug) {
+      throw new Error("Club is required.");
+    }
 
-  if (!email || !password) {
-    throw new Error("Enter your email and password.");
-  }
+    if (!email || !password) {
+      throw new Error(PORTAL_AUTH_MISSING_CREDENTIALS_MESSAGE);
+    }
 
-  if (intent === "legacy_club") {
-    await requireClubBySlug(clubSlug);
-  }
+    if (intent === "legacy_club") {
+      await requireClubBySlug(clubSlug);
+    }
 
-  const supabase = await createSupabaseServerAuthClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const supabase = await createSupabaseServerAuthClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    throw new Error("Sign in failed. Check your email and password.");
-  }
+    if (error) {
+      throw new Error(PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE);
+    }
 
-  if (!data.user?.id) {
-    throw new Error("Sign in failed. Check your email and password.");
-  }
+    if (!data.user?.id) {
+      throw new Error(PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE);
+    }
 
-  await linkAdminAuthUserAfterSignIn(data.user.id, email);
+    await linkAdminAuthUserAfterSignIn(data.user.id, email);
 
-  if (intent === "super_admin") {
-    const access = await resolveAdminAccessForAuthUser(data.user.id);
+    if (intent === "super_admin") {
+      const access = await resolveAdminAccessForAuthUser(data.user.id);
 
-    if (!access?.isPlatformSuperAdmin) {
+      if (!access?.isPlatformSuperAdmin) {
+        await signOutAdminAccess();
+        throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
+      }
+
+      redirect(SUPER_ADMIN_PATH);
+    }
+
+    const destination = await resolvePostAdminLoginRedirect(data.user.id, {
+      intent,
+      clubSlug: clubSlug || undefined,
+    });
+
+    if (!destination) {
       await signOutAdminAccess();
       throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
     }
 
-    redirect(SUPER_ADMIN_PATH);
+    redirect(destination);
+  } catch (error) {
+    throwPortalAuthError(`admin.sign-in.${intent}`, error);
   }
-
-  const destination = await resolvePostAdminLoginRedirect(data.user.id, {
-    intent,
-    clubSlug: clubSlug || undefined,
-  });
-
-  if (!destination) {
-    await signOutAdminAccess();
-    throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
-  }
-
-  redirect(destination);
 }
 
 export async function getAdminAccessSummaryForUser(userId: string) {

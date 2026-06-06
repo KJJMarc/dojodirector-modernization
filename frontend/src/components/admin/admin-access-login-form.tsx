@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { LoginForgotPasswordLink } from "@/components/auth/login-forgot-password-link";
+import { resolveAuthActionErrorMessage } from "@/components/auth/handle-auth-action-error";
 import type { AdminLoginIntent } from "@/lib/admin-auth.shared";
 import type { PasswordResetLoginContext } from "@/lib/password-reset.shared";
 
@@ -46,9 +47,7 @@ export function AdminAccessLoginForm({
           try {
             await onSubmit(formData);
           } catch (error) {
-            setErrorMessage(
-              error instanceof Error ? error.message : "Unable to sign in.",
-            );
+            setErrorMessage(resolveAuthActionErrorMessage(error));
           }
         });
       }}
