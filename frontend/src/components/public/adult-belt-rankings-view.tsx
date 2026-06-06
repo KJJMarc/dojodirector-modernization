@@ -147,11 +147,8 @@ export function AdultBeltRankingsView({ pageData }: AdultBeltRankingsViewProps) 
   return (
     <div className="overflow-hidden rounded-2xl bg-white text-neutral-900 shadow-2xl shadow-black/30 ring-1 ring-white/10">
       <div className="border-b border-neutral-200 px-5 py-6 sm:px-8 sm:py-7">
-        <h2 className="text-2xl font-bold tracking-tight text-neutral-950">
-          Adult Belt Rankings
-        </h2>
-        <p className="mt-2 text-sm text-neutral-500">
-          Last Updated: {pageData.lastUpdatedLabel}
+        <p className="text-sm text-neutral-500">
+          Last updated: {pageData.lastUpdatedLabel}
         </p>
       </div>
 

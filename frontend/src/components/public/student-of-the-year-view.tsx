@@ -11,10 +11,7 @@ export function StudentOfTheYearView({ pageData }: StudentOfTheYearViewProps) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white text-neutral-900 shadow-2xl shadow-black/30 ring-1 ring-white/10">
       <div className="border-b border-neutral-200 px-5 py-6 sm:px-8 sm:py-7">
-        <h2 className="text-2xl font-bold tracking-tight text-neutral-950">
-          Student of the Year
-        </h2>
-        <p className="mt-4 text-sm leading-relaxed text-neutral-600">
+        <p className="text-sm leading-relaxed text-neutral-600">
           {STUDENT_OF_THE_YEAR_INTRO}
         </p>
       </div>

@@ -1,4 +1,3 @@
-import { PoweredByDojoDirector } from "@/components/public/powered-by-dojo-director";
 import { ACTIVE_CLUB_NAME } from "@/lib/branding";
 
 interface PublicAcademyPageHeaderProps {
@@ -31,7 +30,6 @@ export function PublicAcademyPageHeader({
       <p className="mt-2 text-xl font-semibold leading-tight text-dojo-white sm:text-2xl">
         {pageTitle}
       </p>
-      <PoweredByDojoDirector className="mt-2 text-xs text-dojo-muted" />
     </header>
   );
 }

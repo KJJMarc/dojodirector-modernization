@@ -47,7 +47,7 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
         />
 
         <p className="text-sm text-dojo-muted">
-          Book a trial or guest class at {club.name}.
+          Choose a class below and complete your details to book.
         </p>
 
         <GuestBookingFlow
