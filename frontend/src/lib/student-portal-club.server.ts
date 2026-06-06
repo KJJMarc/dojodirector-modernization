@@ -1,7 +1,9 @@
 import "server-only";
 
+import { cache } from "react";
 import {
   getProgrammesSchemaAvailable,
+  loadClubIdsWithActiveStudentPortalProgrammeMembershipForUser,
   loadUserIdsWithActiveStudentPortalProgrammeMembershipAtClub,
   userHasActiveStudentPortalProgrammeMembershipAtClub,
 } from "@/lib/admin-programmes.server";
@@ -73,12 +75,27 @@ async function loadUserClubMembership(
   return (data as UserClubMembershipRow | null) ?? null;
 }
 
-/**
- * Student portal access for a club: active academy membership plus an active
- * member/student relationship for that academy. Staff roles (admin, instructor,
- * super_admin) do not block access when a valid member record exists.
- */
-export async function userHasActiveStudentPortalAccessAtClub(
+function studentPortalAccessFromMembershipRow(
+  membership: Pick<UserClubMembershipRow, "role" | "status">,
+  programmesAvailable: boolean,
+  hasPortalProgrammeMembershipAtClub: boolean,
+): boolean {
+  if (!isActiveMembershipStatus(membership.status)) {
+    return false;
+  }
+
+  if (!programmesAvailable) {
+    return isStudentMembershipRole(membership.role);
+  }
+
+  if (hasPortalProgrammeMembershipAtClub) {
+    return true;
+  }
+
+  return isStudentMembershipRole(membership.role);
+}
+
+async function userHasActiveStudentPortalAccessAtClubUncached(
   userId: string,
   clubId: string,
 ): Promise<boolean> {
@@ -94,12 +111,24 @@ export async function userHasActiveStudentPortalAccessAtClub(
     return isStudentMembershipRole(membership.role);
   }
 
-  if (await userHasActiveStudentPortalProgrammeMembershipAtClub(clubId, userId)) {
-    return true;
-  }
+  const hasPortalProgrammeMembership =
+    await userHasActiveStudentPortalProgrammeMembershipAtClub(clubId, userId);
 
-  return isStudentMembershipRole(membership.role);
+  return studentPortalAccessFromMembershipRow(
+    membership,
+    programmesAvailable,
+    hasPortalProgrammeMembership,
+  );
 }
+
+/**
+ * Student portal access for a club: active academy membership plus an active
+ * member/student relationship for that academy. Staff roles (admin, instructor,
+ * super_admin) do not block access when a valid member record exists.
+ */
+export const userHasActiveStudentPortalAccessAtClub = cache(
+  userHasActiveStudentPortalAccessAtClubUncached,
+);
 
 interface ClubMembershipAccessRow {
   user_id: string;
@@ -249,7 +278,7 @@ export async function resolveStudentPortalStudentMembershipAccess(
   return { status: "none" };
 }
 
-export async function loadStudentPortalAccessibleClubs(
+async function loadStudentPortalAccessibleClubsUncached(
   userId: string,
 ): Promise<ClubRow[]> {
   const supabase = getSupabaseAdminClient();
@@ -263,7 +292,10 @@ export async function loadStudentPortalAccessibleClubs(
     throw new Error(`Failed to load student portal clubs: ${error.message}`);
   }
 
-  const clubs = new Map<string, ClubRow>();
+  const candidates: Array<{
+    club: ClubRow;
+    membership: Pick<UserClubMembershipRow, "role" | "status">;
+  }> = [];
 
   for (const row of (data ?? []) as unknown as MembershipClubRow[]) {
     const club = mapMembershipClubRow(row);
@@ -272,19 +304,76 @@ export async function loadStudentPortalAccessibleClubs(
       continue;
     }
 
-    const canAccess = await userHasActiveStudentPortalAccessAtClub(userId, club.id);
+    candidates.push({
+      club,
+      membership: { role: row.role, status: row.status },
+    });
+  }
 
-    if (!canAccess) {
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  const programmesAvailable = await getProgrammesSchemaAvailable();
+  const clubs = new Map<string, ClubRow>();
+
+  if (!programmesAvailable) {
+    for (const { club, membership } of candidates) {
+      if (studentPortalAccessFromMembershipRow(membership, false, false)) {
+        clubs.set(club.id, club);
+      }
+    }
+
+    return Array.from(clubs.values()).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
+  }
+
+  const clubsNeedingProgrammeCheck: string[] = [];
+
+  for (const { club, membership } of candidates) {
+    if (isStudentMembershipRole(membership.role)) {
+      if (studentPortalAccessFromMembershipRow(membership, true, false)) {
+        clubs.set(club.id, club);
+      }
       continue;
     }
 
-    clubs.set(club.id, club);
+    clubsNeedingProgrammeCheck.push(club.id);
+  }
+
+  if (clubsNeedingProgrammeCheck.length > 0) {
+    const programmeClubIds =
+      await loadClubIdsWithActiveStudentPortalProgrammeMembershipForUser(
+        userId,
+        clubsNeedingProgrammeCheck,
+      );
+
+    for (const { club, membership } of candidates) {
+      if (clubs.has(club.id)) {
+        continue;
+      }
+
+      if (
+        studentPortalAccessFromMembershipRow(
+          membership,
+          true,
+          programmeClubIds.has(club.id),
+        )
+      ) {
+        clubs.set(club.id, club);
+      }
+    }
   }
 
   return Array.from(clubs.values()).sort((left, right) =>
     left.name.localeCompare(right.name),
   );
 }
+
+export const loadStudentPortalAccessibleClubs = cache(
+  loadStudentPortalAccessibleClubsUncached,
+);
 
 export async function userCanAccessStudentPortalClub(
   userId: string,

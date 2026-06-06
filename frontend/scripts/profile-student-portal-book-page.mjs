@@ -463,6 +463,169 @@ async function loadStudentPortalBookableSessionGroups(userId, clubId) {
   return innerTimings;
 }
 
+const STUDENT_MEMBERSHIP_ROLES = new Set(["student", "member"]);
+
+function isStudentMembershipRole(role) {
+  return role != null && STUDENT_MEMBERSHIP_ROLES.has(String(role).trim().toLowerCase());
+}
+
+function isActiveMembershipStatus(status) {
+  return String(status ?? "").trim().toLowerCase() === "active";
+}
+
+async function loadUserClubMembership(userId, clubId) {
+  trackQuery("memberships.byUserClub");
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("club_id, role, status")
+    .eq("user_id", userId)
+    .eq("club_id", clubId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function userHasActiveStudentPortalAccessAtClubLegacy(userId, clubId) {
+  const membership = await loadUserClubMembership(userId, clubId);
+  if (!membership || !isActiveMembershipStatus(membership.status)) {
+    return false;
+  }
+  if (!isStudentMembershipRole(membership.role)) {
+    trackQuery("programme_memberships.byUser");
+    const { data, error } = await supabase
+      .from("programme_memberships")
+      .select("programme_id")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .limit(1);
+    if (error) throw new Error(error.message);
+    if ((data ?? []).length === 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function loadStudentPortalAccessibleClubsLegacyN1(userId) {
+  trackQuery("memberships.withClubs.byUser");
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("club_id, role, status, clubs(id, name, slug, is_active)")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+
+  const clubs = [];
+  for (const row of data ?? []) {
+    if (!row.clubs || !isActiveMembershipStatus(row.status) || row.clubs.is_active === false) {
+      continue;
+    }
+    const canAccess = await userHasActiveStudentPortalAccessAtClubLegacy(userId, row.clubs.id);
+    if (canAccess) {
+      clubs.push(row.clubs);
+    }
+  }
+  return clubs;
+}
+
+async function loadPortalAccessProgrammeIds(clubId) {
+  trackQuery("programmes.portalAccess.byClub");
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("id")
+    .eq("club_id", clubId)
+    .in("programme_type", ["bjj", "kids_bjj"]);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => row.id);
+}
+
+async function loadStudentPortalAccessibleClubsOptimized(userId) {
+  trackQuery("memberships.withClubs.byUser");
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("club_id, role, status, clubs(id, name, slug, is_active)")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+
+  const candidates = [];
+  for (const row of data ?? []) {
+    if (!row.clubs || !isActiveMembershipStatus(row.status) || row.clubs.is_active === false) {
+      continue;
+    }
+    candidates.push({ club: row.clubs, role: row.role, status: row.status });
+  }
+
+  const clubs = new Map();
+  const clubsNeedingProgrammeCheck = [];
+
+  for (const { club, role } of candidates) {
+    if (isStudentMembershipRole(role)) {
+      clubs.set(club.id, club);
+      continue;
+    }
+    clubsNeedingProgrammeCheck.push(club.id);
+  }
+
+  if (clubsNeedingProgrammeCheck.length > 0) {
+    const programmeIdsByClub = new Map();
+    const allProgrammeIds = new Set();
+    await Promise.all(
+      clubsNeedingProgrammeCheck.map(async (clubId) => {
+        const programmeIds = await loadPortalAccessProgrammeIds(clubId);
+        if (programmeIds.length > 0) {
+          programmeIdsByClub.set(clubId, programmeIds);
+          for (const id of programmeIds) allProgrammeIds.add(id);
+        }
+      }),
+    );
+
+    if (allProgrammeIds.size > 0) {
+      trackQuery("programme_memberships.batchByUser");
+      const { data: programmeRows, error: programmeError } = await supabase
+        .from("programme_memberships")
+        .select("programme_id")
+        .eq("user_id", userId)
+        .in("programme_id", [...allProgrammeIds])
+        .eq("status", "active");
+      if (programmeError) throw new Error(programmeError.message);
+
+      const activeProgrammeIds = new Set((programmeRows ?? []).map((row) => row.programme_id));
+      for (const [clubId, programmeIds] of programmeIdsByClub.entries()) {
+        if (programmeIds.some((id) => activeProgrammeIds.has(id))) {
+          const club = candidates.find((entry) => entry.club.id === clubId)?.club;
+          if (club) clubs.set(club.id, club);
+        }
+      }
+    }
+  }
+
+  return [...clubs.values()];
+}
+
+async function profileAccessibleClubs(userId) {
+  queryCount = 0;
+  queryLog.length = 0;
+  const legacyTimed = await time("loadStudentPortalAccessibleClubsLegacyN1", () =>
+    loadStudentPortalAccessibleClubsLegacyN1(userId),
+  );
+  const legacyQueries = queryCount;
+
+  queryCount = 0;
+  queryLog.length = 0;
+  const optimizedTimed = await time("loadStudentPortalAccessibleClubsOptimized", () =>
+    loadStudentPortalAccessibleClubsOptimized(userId),
+  );
+  const optimizedQueries = queryCount;
+
+  return {
+    legacyMs: legacyTimed.ms,
+    optimizedMs: optimizedTimed.ms,
+    legacyQueries,
+    optimizedQueries,
+    legacyClubCount: legacyTimed.result.length,
+    optimizedClubCount: optimizedTimed.result.length,
+  };
+}
+
 async function resolveClubAndStudent() {
   const { data: club, error: clubError } = await supabase
     .from("clubs")
@@ -491,6 +654,26 @@ async function main() {
   console.log(`Club: ${club.slug} (${club.id})`);
   console.log(`Sample userId: ${userId}`);
   console.log("---");
+
+  const accessibleClubsProfile = await profileAccessibleClubs(userId);
+  console.log("\n=== Accessible clubs (N+1 fix) ===");
+  console.log(
+    `Legacy N+1 loadStudentPortalAccessibleClubs: ${accessibleClubsProfile.legacyQueries} queries, ${accessibleClubsProfile.legacyMs.toFixed(1)} ms`,
+  );
+  console.log(
+    `Optimized batched loadStudentPortalAccessibleClubs: ${accessibleClubsProfile.optimizedQueries} queries, ${accessibleClubsProfile.optimizedMs.toFixed(1)} ms`,
+  );
+  console.log(
+    `Clubs returned (legacy vs optimized): ${accessibleClubsProfile.legacyClubCount} vs ${accessibleClubsProfile.optimizedClubCount}`,
+  );
+  const savedAccessibleQueries =
+    accessibleClubsProfile.legacyQueries - accessibleClubsProfile.optimizedQueries;
+  console.log(
+    `Per-call query savings: ${savedAccessibleQueries} (${savedAccessibleQueries > 0 ? "fewer" : "same"} on single load)`,
+  );
+  console.log(
+    `React.cache (not measured here): ~5 duplicate accessible-clubs calls per Book page → 1 (~${savedAccessibleQueries * 4} fewer queries estimated)`,
+  );
 
   queryCount = 0;
   queryLog.length = 0;
@@ -603,12 +786,15 @@ async function main() {
   ].sort((a, b) => b.ms - a.ms);
   console.log(`Winner: ${parts[0].name} — ${parts[0].ms.toFixed(1)} ms`);
 
-  console.log("\n=== Page-level context (not timed here) ===");
+  console.log("\n=== Page-level context (React.cache in app; estimates) ===");
   console.log(
-    "requireStudentPortalPageContext runs twice per navigation (metadata + page): auth, club access, agreements, accessible clubs.",
+    "requireStudentPortalPageContext runs twice per navigation (metadata + page); layout adds a third session pass.",
   );
   console.log(
-    "Typical extra queries: ~8–15 depending on session state (not included in totals above).",
+    `Accessible clubs: legacy ~${accessibleClubsProfile.legacyQueries} queries × 5 logical calls → optimized ~${accessibleClubsProfile.optimizedQueries} × 1 with cache.`,
+  );
+  console.log(
+    "Also deduped per request: getClubBySlug, userHasActiveStudentPortalAccessAtClub, hasAcceptedCurrentStudentAgreements, session auth.",
   );
 }
 

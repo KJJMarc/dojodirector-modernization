@@ -1659,6 +1659,68 @@ export async function userHasActiveStudentPortalProgrammeMembershipAtClub(
   return (data ?? []).length > 0;
 }
 
+/** Clubs where one user has active portal-access programme membership (multi-club batch). */
+export async function loadClubIdsWithActiveStudentPortalProgrammeMembershipForUser(
+  userId: string,
+  clubIds: string[],
+): Promise<Set<string>> {
+  const accessibleClubIds = new Set<string>();
+
+  if (clubIds.length === 0 || !(await isProgrammesSchemaAvailable())) {
+    return accessibleClubIds;
+  }
+
+  const programmeIdsByClubId = new Map<string, string[]>();
+  const allProgrammeIds = new Set<string>();
+
+  await Promise.all(
+    clubIds.map(async (clubId) => {
+      const accessProgrammes = await loadPortalAccessProgrammeItems(clubId);
+      const programmeIds = accessProgrammes.map((programme) => programme.programmeId);
+
+      if (programmeIds.length === 0) {
+        return;
+      }
+
+      programmeIdsByClubId.set(clubId, programmeIds);
+
+      for (const programmeId of programmeIds) {
+        allProgrammeIds.add(programmeId);
+      }
+    }),
+  );
+
+  if (allProgrammeIds.size === 0) {
+    return accessibleClubIds;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programme_memberships")
+    .select("programme_id")
+    .eq("user_id", userId)
+    .in("programme_id", Array.from(allProgrammeIds))
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error(
+      `Failed to load student portal programme memberships: ${error.message}`,
+    );
+  }
+
+  const activeProgrammeIds = new Set(
+    ((data ?? []) as { programme_id: string }[]).map((row) => row.programme_id),
+  );
+
+  for (const [clubId, programmeIds] of Array.from(programmeIdsByClubId.entries())) {
+    if (programmeIds.some((programmeId) => activeProgrammeIds.has(programmeId))) {
+      accessibleClubIds.add(clubId);
+    }
+  }
+
+  return accessibleClubIds;
+}
+
 /** Batch variant for admin portal messaging recipient lists. */
 export async function loadUserIdsWithActiveStudentPortalProgrammeMembershipAtClub(
   clubId: string,

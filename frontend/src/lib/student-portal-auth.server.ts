@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { getStudentFullName } from "@/lib/attendance";
 import { resolveStudentPortalStudentMembershipAccess } from "@/lib/student-portal-club.server";
 import {
@@ -215,7 +216,7 @@ async function resolveProfileForAuthUser(
   return mapPortalAuthProfile(row);
 }
 
-export async function resolveStudentPortalSessionState(): Promise<StudentPortalSessionState> {
+async function resolveStudentPortalSessionStateUncached(): Promise<StudentPortalSessionState> {
   const authUser = await getSupabaseAuthSessionUser();
 
   if (!authUser) {
@@ -245,6 +246,10 @@ export async function resolveStudentPortalSessionState(): Promise<StudentPortalS
 
   return { status: "authenticated", profile };
 }
+
+export const resolveStudentPortalSessionState = cache(
+  resolveStudentPortalSessionStateUncached,
+);
 
 async function loadUserByAuthUserId(authUserId: string) {
   const supabase = getSupabaseAdminClient();
@@ -294,15 +299,17 @@ async function loadUserByLoginEmail(email: string) {
   return byPortalEmail as UserPortalAuthRow | null;
 }
 
-export async function getAuthenticatedStudentPortalProfile(): Promise<StudentPortalAuthProfile | null> {
-  const session = await resolveStudentPortalSessionState();
+export const getAuthenticatedStudentPortalProfile = cache(
+  async (): Promise<StudentPortalAuthProfile | null> => {
+    const session = await resolveStudentPortalSessionState();
 
-  if (session.status !== "authenticated") {
-    return null;
-  }
+    if (session.status !== "authenticated") {
+      return null;
+    }
 
-  return session.profile;
-}
+    return session.profile;
+  },
+);
 
 export async function requireAuthenticatedStudentPortalProfile() {
   const profile = await getAuthenticatedStudentPortalProfile();

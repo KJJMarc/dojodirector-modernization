@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ClubRow } from "@/lib/clubs.shared";
@@ -35,7 +36,7 @@ export async function listClubs(): Promise<ClubRow[]> {
   return ((data ?? []) as ClubQueryRow[]).map(mapClubRow);
 }
 
-export async function getClubBySlug(slug: string): Promise<ClubRow | null> {
+export const getClubBySlug = cache(async (slug: string): Promise<ClubRow | null> => {
   const normalizedSlug = slug.trim().toLowerCase();
 
   if (!normalizedSlug) {
@@ -59,7 +60,7 @@ export async function getClubBySlug(slug: string): Promise<ClubRow | null> {
   }
 
   return mapClubRow(data as ClubQueryRow);
-}
+});
 
 export async function requireClubBySlug(slug: string): Promise<ClubRow> {
   const club = await getClubBySlug(slug);

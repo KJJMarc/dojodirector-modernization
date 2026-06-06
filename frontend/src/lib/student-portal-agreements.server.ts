@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { CLUB_AGREEMENT_TYPE_MEMBER_PORTAL } from "@/lib/club-agreement-templates.shared";
 import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
@@ -320,36 +321,55 @@ export async function getCurrentMemberPortalAgreementRequirement(
   };
 }
 
+interface StudentAgreementGateSnapshot {
+  accepted: boolean;
+  authUserId: string | null;
+  requirement: Awaited<ReturnType<typeof getCurrentMemberPortalAgreementRequirement>>;
+  row: Awaited<ReturnType<typeof loadStudentAgreementRowForVersion>>;
+}
+
+const loadStudentAgreementGateSnapshot = cache(
+  async (userId: string): Promise<StudentAgreementGateSnapshot> => {
+    const authUser = await getSupabaseAuthSessionUser();
+    const requirement = await getCurrentMemberPortalAgreementRequirement();
+    const row = await loadStudentAgreementRowForVersion({
+      userId,
+      version: requirement.version,
+      agreementType: requirement.agreementType,
+    });
+
+    return {
+      accepted: Boolean(row),
+      authUserId: authUser?.id ?? null,
+      requirement,
+      row,
+    };
+  },
+);
+
 export async function hasAcceptedCurrentStudentAgreements(
   userId: string,
   options?: { logContext?: string },
 ) {
-  const authUser = await getSupabaseAuthSessionUser();
-  const requirement = await getCurrentMemberPortalAgreementRequirement();
-  const row = await loadStudentAgreementRowForVersion({
-    userId,
-    version: requirement.version,
-    agreementType: requirement.agreementType,
-  });
-  const accepted = Boolean(row);
+  const snapshot = await loadStudentAgreementGateSnapshot(userId);
 
   logStudentAgreementGate(options?.logContext ?? "hasAcceptedCurrentStudentAgreements", {
-    authUserId: authUser?.id ?? null,
+    authUserId: snapshot.authUserId,
     studentUserId: userId,
-    agreementType: requirement.agreementType,
-    templateAgreementType: requirement.templateAgreementType,
-    requiredVersion: requirement.version,
-    templateTitle: requirement.title,
-    isCustomTemplate: requirement.isCustomTemplate,
-    acceptedAgreementRowExists: accepted,
-    acceptedAgreementRowId: row?.id ?? null,
-    acceptedAgreementRowVersion: row?.version ?? null,
-    redirectDecision: accepted
+    agreementType: snapshot.requirement.agreementType,
+    templateAgreementType: snapshot.requirement.templateAgreementType,
+    requiredVersion: snapshot.requirement.version,
+    templateTitle: snapshot.requirement.title,
+    isCustomTemplate: snapshot.requirement.isCustomTemplate,
+    acceptedAgreementRowExists: snapshot.accepted,
+    acceptedAgreementRowId: snapshot.row?.id ?? null,
+    acceptedAgreementRowVersion: snapshot.row?.version ?? null,
+    redirectDecision: snapshot.accepted
       ? "allow_portal"
       : "redirect_to_agreements",
   });
 
-  return accepted;
+  return snapshot.accepted;
 }
 
 async function loadLatestMembershipAgreementRow(

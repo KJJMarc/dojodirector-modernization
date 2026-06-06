@@ -72,4 +72,37 @@ assert(
   "Read-only waitlist display ignores expired offers without mutating rows",
 );
 
+const clubServer = read("src/lib/student-portal-club.server.ts");
+const authServer = read("src/lib/student-portal-auth.server.ts");
+const agreementsServer = read("src/lib/student-portal-agreements.server.ts");
+const clubsServer = read("src/lib/clubs.server.ts");
+
+assert(
+  clubServer.includes('import { cache } from "react"') &&
+    clubServer.includes("export const loadStudentPortalAccessibleClubs = cache") &&
+    clubServer.includes("export const userHasActiveStudentPortalAccessAtClub = cache"),
+  "Student portal club loaders use React.cache request deduplication",
+);
+
+assert(
+  clubServer.includes("loadClubIdsWithActiveStudentPortalProgrammeMembershipForUser"),
+  "Accessible clubs batch programme membership checks across clubs",
+);
+
+assert(
+  authServer.includes("export const resolveStudentPortalSessionState = cache") &&
+    authServer.includes("export const getAuthenticatedStudentPortalProfile = cache"),
+  "Student portal session/auth resolution is cached per request",
+);
+
+assert(
+  agreementsServer.includes("loadStudentAgreementGateSnapshot = cache"),
+  "Student agreement gate checks are cached per request",
+);
+
+assert(
+  clubsServer.includes("export const getClubBySlug = cache"),
+  "Club slug lookups are cached per request",
+);
+
 console.log("\nAll student portal book page waitlist expiry checks passed.");
