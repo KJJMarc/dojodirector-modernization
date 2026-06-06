@@ -1,9 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { promoteInvitedPortalAccessAfterPasswordSignIn } from "@/lib/portal-auth-activation.server";
 import {
   getAuthenticatedInstructorPortalProfile,
-  linkAuthUserToInstructor,
   signOutInstructorPortal,
 } from "@/lib/instructor-portal-auth.server";
 import {
@@ -17,10 +17,6 @@ import {
   instructorPortalLoginPath,
 } from "@/lib/instructor-portal-routing.shared";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-
-const USER_INSTRUCTOR_PORTAL_AUTH_COLUMNS =
-  "id, first_name, last_name, email, auth_user_id, instructor_portal_auth_status, instructor_portal_invited_at, instructor_portal_login_email";
 
 export async function signInInstructorPortalAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
@@ -38,51 +34,13 @@ export async function signInInstructorPortalAction(formData: FormData) {
   }
 
   if (data.user?.id) {
-    await linkInstructorPortalUserAfterSignIn(data.user.id, email);
+    await promoteInvitedPortalAccessAfterPasswordSignIn({
+      authUserId: data.user.id,
+      email,
+    });
   }
 
   redirect(instructorPortalEntryPath());
-}
-
-async function linkInstructorPortalUserAfterSignIn(
-  authUserId: string,
-  email: string,
-): Promise<string | null> {
-  const admin = getSupabaseAdminClient();
-  const normalizedEmail = email.trim();
-
-  let { data: row } = await admin
-    .from("users")
-    .select(USER_INSTRUCTOR_PORTAL_AUTH_COLUMNS)
-    .eq("auth_user_id", authUserId)
-    .maybeSingle();
-
-  if (!row) {
-    const byPortalEmail = await admin
-      .from("users")
-      .select(USER_INSTRUCTOR_PORTAL_AUTH_COLUMNS)
-      .ilike("instructor_portal_login_email", normalizedEmail)
-      .maybeSingle();
-
-    row = byPortalEmail.data;
-
-    if (!row) {
-      const byProfileEmail = await admin
-        .from("users")
-        .select(USER_INSTRUCTOR_PORTAL_AUTH_COLUMNS)
-        .ilike("email", normalizedEmail)
-        .maybeSingle();
-
-      row = byProfileEmail.data;
-    }
-  }
-
-  if (row && typeof row.id === "string") {
-    await linkAuthUserToInstructor(row.id, authUserId);
-    return row.id;
-  }
-
-  return null;
 }
 
 export async function signOutInstructorPortalAction() {

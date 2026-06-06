@@ -12,6 +12,7 @@ import {
   recordStudentAgreementAcceptance,
 } from "@/lib/student-portal-agreements.server";
 import { resolveStudentPortalHomePath } from "@/lib/student-portal-club.server";
+import { promoteInvitedPortalAccessAfterPasswordSignIn } from "@/lib/portal-auth-activation.server";
 import {
   getAuthenticatedStudentPortalProfile,
   signOutStudentPortal,
@@ -41,6 +42,13 @@ export async function signInStudentPortalAction(formData: FormData) {
 
   if (error) {
     throw new Error("Sign in failed. Check your email and password.");
+  }
+
+  if (data.user?.id) {
+    await promoteInvitedPortalAccessAfterPasswordSignIn({
+      authUserId: data.user.id,
+      email,
+    });
   }
 
   redirect(studentPortalEntryPath());
