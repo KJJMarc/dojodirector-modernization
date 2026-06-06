@@ -12,12 +12,14 @@ import {
   leaveSessionWaitlistForUser,
 } from "@/lib/session-waitlist.server";
 import { requireStudentPortalClubAccess } from "@/lib/student-portal-club.server";
+import { toStudentPortalActionResult } from "@/lib/student-portal-action-result.shared";
+import type { StudentPortalActionResult } from "@/lib/student-portal-action-result.shared";
 
 export async function bookClassFromStudentPortal(
   clubSlug: string,
   userId: string,
   classSessionId: string,
-) {
+): Promise<StudentPortalActionResult> {
   const normalizedUserId = userId.trim();
   const normalizedSessionId = classSessionId.trim();
   const normalizedClubSlug = clubSlug.trim();
@@ -36,18 +38,20 @@ export async function bookClassFromStudentPortal(
 
   const club = await requireStudentPortalClubAccess(normalizedUserId, normalizedClubSlug);
 
-  return bookClassSessionForUser({
+  const result = await bookClassSessionForUser({
     userId: normalizedUserId,
     classSessionId: normalizedSessionId,
     clubId: club.id,
   });
+
+  return toStudentPortalActionResult(result);
 }
 
 export async function joinWaitlistFromStudentPortal(
   clubSlug: string,
   userId: string,
   classSessionId: string,
-) {
+): Promise<StudentPortalActionResult> {
   const normalizedUserId = userId.trim();
   const normalizedSessionId = classSessionId.trim();
   const normalizedClubSlug = clubSlug.trim();
@@ -77,14 +81,14 @@ export async function joinWaitlistFromStudentPortal(
     clubId: club.id,
   });
 
-  return result;
+  return toStudentPortalActionResult(result);
 }
 
 export async function leaveWaitlistFromStudentPortal(
   clubSlug: string,
   userId: string,
   classSessionId: string,
-) {
+): Promise<StudentPortalActionResult> {
   const normalizedUserId = userId.trim();
   const normalizedSessionId = classSessionId.trim();
   const normalizedClubSlug = clubSlug.trim();
@@ -115,14 +119,14 @@ export async function leaveWaitlistFromStudentPortal(
     additionalPortalUserIds: result.offeredUserId ? [result.offeredUserId] : [],
   });
 
-  return { className: result.className };
+  return toStudentPortalActionResult(result);
 }
 
 export async function acceptWaitlistOfferFromStudentPortal(
   clubSlug: string,
   userId: string,
   classSessionId: string,
-) {
+): Promise<StudentPortalActionResult> {
   const normalizedUserId = userId.trim();
   const normalizedSessionId = classSessionId.trim();
   const normalizedClubSlug = clubSlug.trim();
@@ -152,14 +156,14 @@ export async function acceptWaitlistOfferFromStudentPortal(
     clubId: club.id,
   });
 
-  return result;
+  return toStudentPortalActionResult(result);
 }
 
 export async function declineWaitlistOfferFromStudentPortal(
   clubSlug: string,
   userId: string,
   classSessionId: string,
-) {
+): Promise<StudentPortalActionResult> {
   const normalizedUserId = userId.trim();
   const normalizedSessionId = classSessionId.trim();
   const normalizedClubSlug = clubSlug.trim();
@@ -190,14 +194,14 @@ export async function declineWaitlistOfferFromStudentPortal(
     additionalPortalUserIds: result.offeredUserId ? [result.offeredUserId] : [],
   });
 
-  return { className: result.className };
+  return toStudentPortalActionResult(result);
 }
 
 export async function cancelClassBookingFromStudentPortal(
   clubSlug: string,
   userId: string,
   classSessionId: string,
-) {
+): Promise<StudentPortalActionResult> {
   const normalizedUserId = userId.trim();
   const normalizedSessionId = classSessionId.trim();
   const normalizedClubSlug = clubSlug.trim();
@@ -216,9 +220,11 @@ export async function cancelClassBookingFromStudentPortal(
 
   const club = await requireStudentPortalClubAccess(normalizedUserId, normalizedClubSlug);
 
-  return cancelClassSessionBookingForUser({
+  const result = await cancelClassSessionBookingForUser({
     userId: normalizedUserId,
     classSessionId: normalizedSessionId,
     clubId: club.id,
   });
+
+  return toStudentPortalActionResult(result);
 }

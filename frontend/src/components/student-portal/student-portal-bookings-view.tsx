@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cancelClassBookingFromStudentPortal } from "@/app/student-portal/[clubSlug]/[userId]/actions";
+import { resolveStudentPortalActionClassName } from "@/lib/student-portal-action-result.shared";
 
 const CANCEL_BOOKING_BUTTON_CLASS =
   "inline-flex min-h-[32px] items-center justify-center rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-green-500 transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60";
@@ -55,7 +56,9 @@ export function StudentPortalBookingsView({
           userId,
           classSessionId,
         );
-        setSuccessMessage(`Your booking for ${result.className} has been cancelled.`);
+        setSuccessMessage(
+          `Your booking for ${resolveStudentPortalActionClassName(result)} has been cancelled.`,
+        );
         router.refresh();
       } catch (error) {
         setSuccessMessage(null);

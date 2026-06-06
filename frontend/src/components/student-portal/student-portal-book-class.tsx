@@ -11,9 +11,14 @@ import {
 } from "@/app/student-portal/[clubSlug]/[userId]/actions";
 import { WaitlistOfferActions } from "@/components/student-portal/waitlist-offer-actions";
 import {
+  formatStudentPortalActionSuccessMessage,
+  isStudentPortalBookableSession,
+} from "@/lib/student-portal-action-result.shared";
+import {
   formatPortalWaitlistCount,
   formatPortalWaitlistPosition,
 } from "@/lib/student-portal-format.shared";
+import type { StudentPortalActionResult } from "@/lib/student-portal-action-result.shared";
 import { WAITLIST_ACCEPT_SUCCESS_MESSAGE } from "@/lib/session-waitlist.shared";
 import type {
   StudentPortalBookableSession,
@@ -52,7 +57,9 @@ function BookableSessionCard({
       <div className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <h4 className="font-semibold text-dojo-white">{session.className}</h4>
+            <h4 className="font-semibold text-dojo-white">
+              {session.className ?? "Unnamed class"}
+            </h4>
             <p className="text-sm text-dojo-muted">{session.dateLabel}</p>
             <p className="text-sm text-dojo-muted">{session.timeLabel}</p>
             <p className="text-sm text-dojo-muted">{session.locationLabel}</p>
@@ -146,14 +153,19 @@ export function StudentPortalBookClass({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const runAction = (action: () => Promise<{ className: string }>, successText: string) => {
+  const runAction = (
+    action: () => Promise<StudentPortalActionResult | void>,
+    successText: string,
+  ) => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
     startTransition(async () => {
       try {
         const result = await action();
-        setSuccessMessage(successText.replace("[class]", result.className));
+        setSuccessMessage(
+          formatStudentPortalActionSuccessMessage(successText, result),
+        );
         router.refresh();
       } catch (error) {
         setSuccessMessage(null);
@@ -234,7 +246,7 @@ export function StudentPortalBookClass({
             <p className="text-xs text-dojo-muted">{group.dayLabel}</p>
           </div>
           <ul className="space-y-3">
-            {group.sessions.map((session) => (
+            {group.sessions.filter(isStudentPortalBookableSession).map((session) => (
               <li key={session.id}>
                 <BookableSessionCard
                   session={session}

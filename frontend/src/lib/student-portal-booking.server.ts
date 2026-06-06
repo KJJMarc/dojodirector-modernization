@@ -297,7 +297,7 @@ export async function loadStudentPortalBookableSessionGroups(
 
       return {
         id: session.id,
-        className: session.className,
+        className: session.className ?? "Unnamed class",
         startsAt: session.startsAt,
         endsAt: session.endsAt,
         locationLabel,

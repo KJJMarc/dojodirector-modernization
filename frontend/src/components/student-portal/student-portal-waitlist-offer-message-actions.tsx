@@ -8,6 +8,8 @@ import {
 } from "@/app/student-portal/[clubSlug]/[userId]/actions";
 import { WaitlistOfferMessagePanel } from "@/components/student-portal/waitlist-offer-message-panel";
 import type { PortalMessageListItem } from "@/lib/portal-messages.shared";
+import { formatStudentPortalActionSuccessMessage } from "@/lib/student-portal-action-result.shared";
+import type { StudentPortalActionResult } from "@/lib/student-portal-action-result.shared";
 import { WAITLIST_ACCEPT_SUCCESS_MESSAGE } from "@/lib/session-waitlist.shared";
 
 interface StudentPortalWaitlistOfferMessageActionsProps {
@@ -34,7 +36,7 @@ export function StudentPortalWaitlistOfferMessageActions({
   }
 
   const runOfferAction = (
-    action: () => Promise<{ className: string }>,
+    action: () => Promise<StudentPortalActionResult>,
     successText: string,
   ) => {
     onActionError(null);
@@ -44,7 +46,7 @@ export function StudentPortalWaitlistOfferMessageActions({
       try {
         const result = await action();
         onActionError(null);
-        onActionSuccess(successText.replace("[class]", result.className));
+        onActionSuccess(formatStudentPortalActionSuccessMessage(successText, result));
         router.refresh();
       } catch (error) {
         onActionSuccess(null);
