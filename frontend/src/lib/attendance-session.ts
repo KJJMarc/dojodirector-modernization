@@ -1,5 +1,8 @@
 import { sortByAttendanceRegisterName, sortSessionsByTime } from "@/lib/attendance";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
+import {
+  ATTENDANCE_REGISTER_BOOKING_STATUSES,
+} from "@/lib/attendance-register-booking.shared";
 import { getSessionLocationMap } from "@/lib/booking";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ClassSession, UserProfile } from "@/types/database";
@@ -94,7 +97,7 @@ async function loadSessionAttendeeRegisterRows(
       "id, class_session_id, user_id, booking_status, attendance_status, notes",
     )
     .eq("class_session_id", sessionId)
-    .in("booking_status", ["booked", "walk_in"]);
+    .in("booking_status", [...ATTENDANCE_REGISTER_BOOKING_STATUSES]);
 
   if (attendeesError) {
     throw new Error(`Failed to load session attendees: ${attendeesError.message}`);

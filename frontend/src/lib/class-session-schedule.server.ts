@@ -1,6 +1,9 @@
 import "server-only";
 
 import {
+  countsTowardAttendanceRegister,
+} from "@/lib/attendance-register-booking.shared";
+import {
   getSpacesAvailable,
 } from "@/lib/booking";
 import {
@@ -40,10 +43,6 @@ interface SessionAttendeeRow {
   id: string;
   class_session_id: string;
   booking_status: string | null;
-}
-
-function isBookedStatus(bookingStatus: string | null) {
-  return bookingStatus === "booked";
 }
 
 /** Loads sessions from class_sessions (source of truth) with class names and booking counts. */
@@ -185,7 +184,7 @@ export async function loadClassScheduleSessions(
   const bookedCountBySession = new Map<string, number>();
 
   for (const attendee of (attendeesResult.data ?? []) as SessionAttendeeRow[]) {
-    if (!isBookedStatus(attendee.booking_status)) {
+    if (!countsTowardAttendanceRegister(attendee.booking_status)) {
       continue;
     }
 
