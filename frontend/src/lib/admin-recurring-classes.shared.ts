@@ -48,6 +48,14 @@ export function formatScheduleTimeLabel(timeValue: string) {
   return `${hours}:${minutes}`;
 }
 
+export function formatScheduleTimeLabelSafe(timeValue: string | null | undefined) {
+  if (!timeValue || !timeValue.includes(":")) {
+    return "—";
+  }
+
+  return formatScheduleTimeLabel(timeValue);
+}
+
 /** Monday-first day order: Mon=1 … Sat=6, Sun=7 (not PostgreSQL Sun=0 first). */
 export function getMondayFirstDayOrder(dayOfWeek: number) {
   return dayOfWeek === 0 ? 7 : dayOfWeek;

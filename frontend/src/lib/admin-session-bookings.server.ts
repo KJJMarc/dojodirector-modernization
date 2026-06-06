@@ -3,7 +3,7 @@ import "server-only";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import { getRecurringClassScheduleById } from "@/lib/admin-recurring-classes.server";
-import { assertStudentCanBookClassProgramme, loadEligibleBookingStudentUserIds } from "@/lib/admin-programmes.server";
+import { assertStudentEligibleForAdminProgrammeBooking, loadEligibleBookingStudentUserIds } from "@/lib/admin-programmes.server";
 import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
 import {
   formatScheduleDayLabel,
@@ -29,6 +29,7 @@ import {
   getCancellableRecurringStudentBookings,
   isValidRecurringBookingUserId,
   normalizeRecurringBookingSessionStartsAt,
+  sanitizeRecurringScheduleBookingsPageData,
   RECURRING_BLOCK_BOOKING_MAX_WEEKS,
   RECURRING_BLOCK_BOOKING_SESSION_COUNT,
   type AdminSessionBookingsView,
@@ -694,11 +695,12 @@ export async function adminAddSessionBooking(
   }
 
   await assertClubMember(userId, sessionRow.club_id);
-  await assertStudentCanBookClassProgramme({
+  const classRow = getJoinedClass(sessionRow.classes);
+  await assertStudentEligibleForAdminProgrammeBooking(
     userId,
-    clubId: sessionRow.club_id,
-    classId: sessionRow.class_id,
-  });
+    sessionRow.club_id,
+    classRow?.programme_type ?? "bjj",
+  );
 
   const existing = await getExistingAttendee(sessionId, userId);
 
@@ -1052,7 +1054,7 @@ export async function getRecurringScheduleBookingsPageData(
   const cancellableStudentBookings =
     getCancellableRecurringStudentBookings(studentBookings);
 
-  return {
+  return sanitizeRecurringScheduleBookingsPageData({
     schedule: {
       id: scheduleRow.id,
       className: scheduleRow.className,
@@ -1071,7 +1073,7 @@ export async function getRecurringScheduleBookingsPageData(
       sessionEnsureResult,
       allFutureSessions.length,
     ),
-  };
+  });
 }
 
 export async function adminCancelRecurringScheduleBookings(input: {
@@ -1114,13 +1116,18 @@ export async function adminBlockBookRecurringSchedule(input: {
   const supabase = getSupabaseAdminClient();
   const clubId = input.clubId ?? ACTIVE_CLUB_ID;
   const schedule = await loadRecurringScheduleRow(input.scheduleId, clubId);
+  const scheduleMeta = await getRecurringClassScheduleById(input.scheduleId, clubId);
+
+  if (!scheduleMeta) {
+    throw new Error("Recurring class schedule not found.");
+  }
 
   await assertClubMember(input.userId, schedule.club_id);
-  await assertStudentCanBookClassProgramme({
-    userId: input.userId,
-    clubId: schedule.club_id,
-    classId: schedule.class_id,
-  });
+  await assertStudentEligibleForAdminProgrammeBooking(
+    input.userId,
+    clubId,
+    scheduleMeta.programmeType,
+  );
 
   const sessions = await ensureRecurringScheduleSessionsThroughDate(
     input.scheduleId,

@@ -150,6 +150,81 @@ export function getCancellableRecurringStudentBookings(
   return studentBookings.filter(isCancellableRecurringStudentBooking);
 }
 
+function normalizeBookingCount(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+export function sanitizeRecurringScheduleStudentBookingSummary(
+  booking: RecurringScheduleStudentBookingSummary,
+): RecurringScheduleStudentBookingSummary | null {
+  if (!isValidRecurringBookingUserId(booking.userId)) {
+    return null;
+  }
+
+  return {
+    userId: booking.userId,
+    firstName: booking.firstName ?? null,
+    lastName: booking.lastName ?? null,
+    email: booking.email ?? null,
+    futureBookingCount: normalizeBookingCount(booking.futureBookingCount),
+    nextSessionAt: normalizeRecurringBookingSessionStartsAt(booking.nextSessionAt),
+    bookedCount: normalizeBookingCount(booking.bookedCount),
+    waitlistedCount: normalizeBookingCount(booking.waitlistedCount),
+    walkInCount: normalizeBookingCount(booking.walkInCount),
+  };
+}
+
+export function sanitizeRecurringScheduleBookingsPageData(
+  pageData: RecurringScheduleBookingsPageData,
+): RecurringScheduleBookingsPageData {
+  const studentBookings = (pageData.studentBookings ?? [])
+    .map(sanitizeRecurringScheduleStudentBookingSummary)
+    .filter((booking): booking is RecurringScheduleStudentBookingSummary =>
+      Boolean(booking),
+    );
+
+  return {
+    schedule: {
+      id: pageData.schedule?.id ?? "",
+      className: pageData.schedule?.className ?? "Unnamed class",
+      programmeType: pageData.schedule?.programmeType ?? "bjj",
+      dayOfWeek: normalizeBookingCount(pageData.schedule?.dayOfWeek),
+      startTime: pageData.schedule?.startTime ?? "00:00",
+      endTime: pageData.schedule?.endTime ?? "00:00",
+      capacity: normalizeBookingCount(pageData.schedule?.capacity),
+      location: pageData.schedule?.location ?? "",
+      isActive: Boolean(pageData.schedule?.isActive),
+    },
+    studentBookings,
+    cancellableStudentBookings: getCancellableRecurringStudentBookings(studentBookings),
+    sessionHealth: {
+      futureSessionCount: normalizeBookingCount(
+        pageData.sessionHealth?.futureSessionCount,
+      ),
+      requiredSessionCount: normalizeBookingCount(
+        pageData.sessionHealth?.requiredSessionCount,
+      ),
+      canBlockBook: Boolean(pageData.sessionHealth?.canBlockBook),
+      warning:
+        typeof pageData.sessionHealth?.warning === "string"
+          ? pageData.sessionHealth.warning
+          : null,
+    },
+  };
+}
+
+export function sanitizeBookingStudentOptions(
+  students: BookingStudentOption[],
+): BookingStudentOption[] {
+  return (students ?? [])
+    .filter((student) => isValidRecurringBookingUserId(student.id))
+    .map((student) => ({
+      id: student.id,
+      label: student.label?.trim() || "Unknown student",
+      email: student.email ?? null,
+    }));
+}
+
 export function formatAdminBookingStatusLabel(status: string) {
   switch (status) {
     case "booked":

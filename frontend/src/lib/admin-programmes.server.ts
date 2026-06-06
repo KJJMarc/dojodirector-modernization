@@ -2235,6 +2235,23 @@ export async function loadEligibleBookingStudentUserIds(
   return Array.from(eligibleUserIds);
 }
 
+/** Admin booking submit check — must match loadEligibleBookingStudentUserIds picker rules. */
+export async function assertStudentEligibleForAdminProgrammeBooking(
+  userId: string,
+  clubId: string,
+  programmeType: ProgrammeType,
+) {
+  const eligibleUserIds = await loadEligibleBookingStudentUserIds(clubId, {
+    programmeType,
+  });
+
+  if (!eligibleUserIds.includes(userId)) {
+    throw new Error(
+      "Selected student is not eligible to book classes for this programme.",
+    );
+  }
+}
+
 /** Active programme IDs for student portal booking; null when programmes schema is unavailable. */
 export async function loadStudentActiveProgrammeIdsForBooking(
   userId: string,

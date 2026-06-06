@@ -49,10 +49,10 @@ function mapRecurringScheduleRow(
     className: classRow?.name ?? "Unnamed class",
     programmeType: classRow?.programme_type ?? "bjj",
     dayOfWeek: row.day_of_week,
-    startTime: row.start_time.slice(0, 5),
-    endTime: row.end_time.slice(0, 5),
-    capacity: row.capacity,
-    location: row.location,
+    startTime: row.start_time?.slice(0, 5) ?? "00:00",
+    endTime: row.end_time?.slice(0, 5) ?? "00:00",
+    capacity: row.capacity ?? 0,
+    location: row.location ?? "",
     isActive: row.is_active,
   };
 }
