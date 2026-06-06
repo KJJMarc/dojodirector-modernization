@@ -37,6 +37,14 @@ export const LEAD_PROGRAMME_INTERESTS = [
 
 export type LeadProgrammeInterest = (typeof LEAD_PROGRAMME_INTERESTS)[number];
 
+/** Programme options shown on public trial enquiry forms (audience is captured separately). */
+export const TRIAL_ENQUIRY_PROGRAMME_INTERESTS = [
+  "bjj",
+  "muay_thai",
+  "strength_conditioning",
+  "not_sure",
+] as const satisfies readonly LeadProgrammeInterest[];
+
 export const LEAD_EXPERIENCE_LEVELS = [
   "complete_beginner",
   "some_experience",

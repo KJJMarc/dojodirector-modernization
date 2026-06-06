@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { clubTrialEnquiryApiPath } from "@/lib/clubs.shared";
 import {
   LEAD_EXPERIENCE_LEVELS,
-  LEAD_PROGRAMME_INTERESTS,
   TRIAL_AUDIENCES,
+  TRIAL_ENQUIRY_PROGRAMME_INTERESTS,
   formatLeadExperienceLevelLabel,
   formatLeadProgrammeInterestLabel,
   formatTrialAudienceLabel,
@@ -178,7 +178,7 @@ export function TrialEnquiryForm({ clubSlug }: TrialEnquiryFormProps) {
             <option value="" disabled>
               Select a programme
             </option>
-            {LEAD_PROGRAMME_INTERESTS.map((value) => (
+            {TRIAL_ENQUIRY_PROGRAMME_INTERESTS.map((value) => (
               <option key={value} value={value}>
                 {formatLeadProgrammeInterestLabel(value)}
               </option>
