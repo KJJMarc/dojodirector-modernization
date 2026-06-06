@@ -102,3 +102,22 @@ export function buildAcademyEmailHeadersPreview(input: {
     replyTo: input.replyToEmail.trim() || "—",
   };
 }
+
+/** Distinct academy inboxes that should receive admin notification emails. */
+export function resolveAcademyNotificationRecipients(
+  academy: Pick<AcademyEmailSettings, "contactEmail" | "replyToEmail">,
+): string[] {
+  const recipients = new Set<string>();
+  const contactEmail = academy.contactEmail.trim();
+  const replyToEmail = academy.replyToEmail.trim();
+
+  if (contactEmail) {
+    recipients.add(contactEmail);
+  }
+
+  if (replyToEmail) {
+    recipients.add(replyToEmail);
+  }
+
+  return Array.from(recipients);
+}

@@ -2,6 +2,7 @@ import "server-only";
 
 import { getAcademyEmailSettingsByClubId } from "@/lib/academy-email.server";
 import type { AcademyEmailSettings } from "@/lib/academy-email.shared";
+import { resolveAcademyNotificationRecipients } from "@/lib/academy-email.shared";
 import { sendEmailForAcademy } from "@/lib/email.server";
 import {
   buildLeadAcademyNotificationHtml,
@@ -44,22 +45,38 @@ function formatCreatedAtLabel(iso: string) {
   }).format(date);
 }
 
+function logLeadEmailInfo(input: {
+  leadId: string;
+  clubSlug?: string;
+  academyId?: string;
+  kind: string;
+  message: string;
+  recipients?: string[];
+}) {
+  console.info("[leads-email]", {
+    leadId: input.leadId,
+    clubSlug: input.clubSlug,
+    academyId: input.academyId,
+    kind: input.kind,
+    message: input.message,
+    recipients: input.recipients,
+  });
+}
+
 function logLeadEmailFailure(input: {
   leadId: string;
-  clubSlug: string;
-  kind: "lead" | "academy";
+  clubSlug?: string;
+  academyId?: string;
+  kind: string;
   message: string;
 }) {
   console.error("[leads-email]", {
     leadId: input.leadId,
     clubSlug: input.clubSlug,
+    academyId: input.academyId,
     kind: input.kind,
     message: input.message,
   });
-}
-
-function resolveAcademyNotificationRecipient(academy: AcademyEmailSettings) {
-  return academy.contactEmail.trim() || academy.replyToEmail.trim();
 }
 
 function buildEmailContent(
@@ -92,6 +109,14 @@ async function sendLeadAcknowledgementEmail(
       html: buildLeadAcknowledgementHtml(content),
       text: buildLeadAcknowledgementText(content),
     });
+
+    logLeadEmailInfo({
+      leadId,
+      clubSlug,
+      kind: "lead",
+      message: "Lead acknowledgement email sent.",
+      recipients: [content.leadEmail],
+    });
   } catch (error) {
     logLeadEmailFailure({
       leadId,
@@ -109,9 +134,9 @@ async function sendAcademyNotificationEmail(
   content: LeadEmailContent,
   trialAudience?: TrialAudience,
 ) {
-  const recipient = resolveAcademyNotificationRecipient(academy);
+  const recipients = resolveAcademyNotificationRecipients(academy);
 
-  if (!recipient) {
+  if (recipients.length === 0) {
     logLeadEmailFailure({
       leadId,
       clubSlug,
@@ -124,10 +149,18 @@ async function sendAcademyNotificationEmail(
   try {
     await sendEmailForAcademy({
       clubSlug,
-      to: recipient,
+      to: recipients,
       subject: leadAcademyNotificationSubject(content.leadName, trialAudience ?? null),
       html: buildLeadAcademyNotificationHtml(content),
       text: buildLeadAcademyNotificationText(content),
+    });
+
+    logLeadEmailInfo({
+      leadId,
+      clubSlug,
+      kind: "academy",
+      message: "Academy notification email sent.",
+      recipients,
     });
   } catch (error) {
     logLeadEmailFailure({
@@ -150,7 +183,24 @@ export async function sendLeadEmailsAfterSubmission(
   try {
     const academy = await getAcademyEmailSettingsByClubId(input.academyId);
 
-    if (!academy?.emailEnabled) {
+    if (!academy) {
+      logLeadEmailFailure({
+        leadId: input.leadId,
+        academyId: input.academyId,
+        kind: "dispatch",
+        message: "Academy email settings are not configured.",
+      });
+      return;
+    }
+
+    if (!academy.emailEnabled) {
+      logLeadEmailInfo({
+        leadId: input.leadId,
+        academyId: input.academyId,
+        clubSlug: academy.clubSlug,
+        kind: "dispatch",
+        message: "Academy email is disabled; skipping lead emails.",
+      });
       return;
     }
 
@@ -166,8 +216,16 @@ export async function sendLeadEmailsAfterSubmission(
         input.trialAudience,
       ),
     ]);
+
+    logLeadEmailInfo({
+      leadId: input.leadId,
+      academyId: input.academyId,
+      clubSlug: academy.clubSlug,
+      kind: "dispatch",
+      message: "Lead email dispatch finished.",
+    });
   } catch (error) {
-    console.error("[leads-email]", {
+    logLeadEmailFailure({
       leadId: input.leadId,
       academyId: input.academyId,
       kind: "dispatch",

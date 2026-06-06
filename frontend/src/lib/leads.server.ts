@@ -550,7 +550,7 @@ export async function submitLead(input: {
   const leadId = data.id as string;
   const createdAt = data.created_at as string;
 
-  void sendLeadEmailsAfterSubmission({
+  await sendLeadEmailsAfterSubmission({
     academyId: input.academyId,
     leadId,
     fullName: submission.fullName,
@@ -561,11 +561,11 @@ export async function submitLead(input: {
     notes: submission.notes || null,
     createdAtIso: createdAt,
     trialAudience: input.trialAudience,
-  }).then(() => {
-    console.info("[leads] submitLead email dispatch finished", {
-      leadId,
-      academyId: input.academyId,
-    });
+  });
+
+  console.info("[leads] submitLead email dispatch finished", {
+    leadId,
+    academyId: input.academyId,
   });
 
   return {
