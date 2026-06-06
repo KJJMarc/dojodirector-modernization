@@ -7,6 +7,7 @@ import { assertActiveMembershipForBooking } from "@/lib/membership-access.server
 import type { PortalMessageListItem } from "@/lib/portal-messages.shared";
 import {
   buildWaitlistOfferMessageBody,
+  isActiveWaitlistOfferAt,
   isSessionPubliclyBookable,
   parseWaitlistOfferSessionIdFromBody,
   stripWaitlistOfferMarkerFromBody,
@@ -504,7 +505,7 @@ export async function createNextWaitlistOfferAfterCancellation(input: {
 }
 
 export interface SessionWaitlistLoaderOptions {
-  /** When true, expiry was already processed for these session IDs in this request. */
+  /** When true, skip side-effect expiry processing (read-only list views). */
   skipExpiryProcessing?: boolean;
 }
 
@@ -533,6 +534,7 @@ export async function loadSessionWaitlistDisplayBySessionId(
   }
 
   const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("session_waitlist")
     .select("id, session_id, user_id, status, joined_at, expires_at")
@@ -583,12 +585,25 @@ export async function loadSessionWaitlistDisplayBySessionId(
       continue;
     }
 
-    if (userEntry.status === "offered") {
+    if (
+      userEntry.status === "offered" &&
+      isActiveWaitlistOfferAt(userEntry.status, userEntry.expiresAt, now)
+    ) {
       displayBySessionId.set(sessionId, {
         waitlistStatus: "offered",
         waitlistPosition: null,
         waitlistCount: waitingOnly.length,
         offerExpiresAt: userEntry.expiresAt,
+      });
+      continue;
+    }
+
+    if (userEntry.status === "offered") {
+      displayBySessionId.set(sessionId, {
+        waitlistStatus: null,
+        waitlistPosition: null,
+        waitlistCount: waitingOnly.length,
+        offerExpiresAt: null,
       });
       continue;
     }
@@ -655,7 +670,7 @@ export async function loadSessionWaitlistBookingAvailabilityBySessionId(
       continue;
     }
 
-    if (row.status === "offered" && row.expires_at && row.expires_at > now) {
+    if (row.status === "offered" && isActiveWaitlistOfferAt(row.status, row.expires_at, now)) {
       existing.hasActiveWaitlistOffer = true;
     }
   }

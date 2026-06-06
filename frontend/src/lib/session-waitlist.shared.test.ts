@@ -3,12 +3,38 @@ import { describe, it } from "node:test";
 import {
   buildWaitlistOfferMessageBody,
   getEffectiveSpacesAvailable,
+  isActiveWaitlistOfferAt,
   isSessionPubliclyBookable,
   parseWaitlistOfferSessionIdFromBody,
   stripWaitlistOfferMarkerFromBody,
   WAITLIST_ACCEPT_SUCCESS_MESSAGE,
   WAITLIST_OFFER_UNAVAILABLE_MESSAGE,
 } from "@/lib/session-waitlist.shared";
+
+describe("isActiveWaitlistOfferAt", () => {
+  const now = "2026-06-05T12:00:00.000Z";
+
+  it("treats a future offer expiry as active", () => {
+    assert.equal(
+      isActiveWaitlistOfferAt("offered", "2026-06-05T12:30:00.000Z", now),
+      true,
+    );
+  });
+
+  it("treats a past offer expiry as inactive on read-only paths", () => {
+    assert.equal(
+      isActiveWaitlistOfferAt("offered", "2026-06-05T11:30:00.000Z", now),
+      false,
+    );
+  });
+
+  it("does not treat waiting rows as active offers", () => {
+    assert.equal(
+      isActiveWaitlistOfferAt("waiting", "2026-06-05T12:30:00.000Z", now),
+      false,
+    );
+  });
+});
 
 describe("getEffectiveSpacesAvailable", () => {
   it("treats an active waitlist offer as holding the last open spot", () => {

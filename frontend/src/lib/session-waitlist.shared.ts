@@ -53,6 +53,15 @@ export function isSessionPubliclyBookable(
   return spaces === null || spaces > 0;
 }
 
+/** True when an offered row still has a future expiry (read-only paths use this without running expiry). */
+export function isActiveWaitlistOfferAt(
+  status: string,
+  expiresAt: string | null | undefined,
+  nowIso: string,
+) {
+  return status === "offered" && Boolean(expiresAt && expiresAt > nowIso);
+}
+
 export function buildWaitlistOfferSessionMarker(sessionId: string) {
   return `${WAITLIST_OFFER_SESSION_MARKER_PREFIX}${sessionId.trim()}`;
 }
