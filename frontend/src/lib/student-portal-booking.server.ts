@@ -13,6 +13,7 @@ import {
 import {
   loadSessionWaitlistBookingAvailabilityBySessionId,
   loadSessionWaitlistDisplayBySessionId,
+  processExpiredWaitlistOffersForSessions,
 } from "@/lib/session-waitlist.server";
 import {
   formatScheduleDayLabel,
@@ -264,11 +265,14 @@ export async function loadStudentPortalBookableSessionGroups(
   }
 
   const sessionIds = bookableClubSessions.map((session) => session.id);
+  await processExpiredWaitlistOffersForSessions(sessionIds);
+
+  const waitlistLoaderOptions = { skipExpiryProcessing: true as const };
   const [memberBookingDetailsBySessionId, waitlistBySessionId, waitlistAvailabilityBySessionId] =
     await Promise.all([
       loadMemberBookingDetailsBySessionId(userId, sessionIds),
-      loadSessionWaitlistDisplayBySessionId(userId, sessionIds),
-      loadSessionWaitlistBookingAvailabilityBySessionId(sessionIds),
+      loadSessionWaitlistDisplayBySessionId(userId, sessionIds, waitlistLoaderOptions),
+      loadSessionWaitlistBookingAvailabilityBySessionId(sessionIds, waitlistLoaderOptions),
     ]);
 
   const bookableSessions: StudentPortalBookableSession[] = bookableClubSessions.map(

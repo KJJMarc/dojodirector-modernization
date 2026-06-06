@@ -503,9 +503,15 @@ export async function createNextWaitlistOfferAfterCancellation(input: {
   return { offeredUserId: result.offeredUserId };
 }
 
+export interface SessionWaitlistLoaderOptions {
+  /** When true, expiry was already processed for these session IDs in this request. */
+  skipExpiryProcessing?: boolean;
+}
+
 export async function loadSessionWaitlistDisplayBySessionId(
   userId: string,
   sessionIds: string[],
+  options?: SessionWaitlistLoaderOptions,
 ): Promise<Map<string, SessionWaitlistDisplayInfo>> {
   const displayBySessionId = new Map<string, SessionWaitlistDisplayInfo>();
 
@@ -522,7 +528,9 @@ export async function loadSessionWaitlistDisplayBySessionId(
     return displayBySessionId;
   }
 
-  await processExpiredWaitlistOffersForSessions(sessionIds);
+  if (!options?.skipExpiryProcessing) {
+    await processExpiredWaitlistOffersForSessions(sessionIds);
+  }
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
@@ -600,6 +608,7 @@ export async function loadSessionWaitlistDisplayBySessionId(
 
 export async function loadSessionWaitlistBookingAvailabilityBySessionId(
   sessionIds: string[],
+  options?: SessionWaitlistLoaderOptions,
 ): Promise<Map<string, SessionWaitlistBookingAvailability>> {
   const availabilityBySessionId = new Map<string, SessionWaitlistBookingAvailability>();
 
@@ -614,7 +623,9 @@ export async function loadSessionWaitlistBookingAvailabilityBySessionId(
     return availabilityBySessionId;
   }
 
-  await processExpiredWaitlistOffersForSessions(sessionIds);
+  if (!options?.skipExpiryProcessing) {
+    await processExpiredWaitlistOffersForSessions(sessionIds);
+  }
 
   const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
