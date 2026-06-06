@@ -9,9 +9,18 @@ export const ATTENDANCE_REGISTER_NAV_FROM = {
 export type AttendanceRegisterNavFrom =
   (typeof ATTENDANCE_REGISTER_NAV_FROM)[keyof typeof ATTENDANCE_REGISTER_NAV_FROM];
 
+export const ATTENDANCE_SESSION_LIST_MODE = {
+  register: "register",
+  kiosk: "kiosk",
+} as const;
+
+export type AttendanceSessionListMode =
+  (typeof ATTENDANCE_SESSION_LIST_MODE)[keyof typeof ATTENDANCE_SESSION_LIST_MODE];
+
 export interface AttendanceRegisterNavContext {
   from: AttendanceRegisterNavFrom;
   clubSlug?: string;
+  mode?: AttendanceSessionListMode;
 }
 
 export interface AttendanceRegisterSearchParams {

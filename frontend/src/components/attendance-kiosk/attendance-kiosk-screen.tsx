@@ -9,7 +9,7 @@ import {
   type AttendanceKioskCheckInResult,
   type AttendanceKioskStudentOption,
 } from "@/lib/attendance-kiosk.shared";
-import { instructorPortalAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
+import { instructorPortalAttendanceKioskListPath } from "@/lib/instructor-portal-routing.shared";
 
 type KioskFeedbackState =
   | { kind: "idle" }
@@ -135,7 +135,7 @@ export function AttendanceKioskScreen({
             </p>
           </div>
           <Link
-            href={instructorPortalAttendanceRegisterPath(clubSlug)}
+            href={instructorPortalAttendanceKioskListPath(clubSlug)}
             className="inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
           >
             Exit kiosk

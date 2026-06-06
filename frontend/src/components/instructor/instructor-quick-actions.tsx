@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { instructorPortalAttendanceRegisterPath } from "@/lib/attendance-register-navigation.shared";
-import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
+import {
+  instructorPortalAttendanceKioskListPath,
+  instructorPortalClubPath,
+} from "@/lib/instructor-portal-routing.shared";
 
 export interface InstructorQuickActionItem {
   label: string;
@@ -30,7 +33,7 @@ export function InstructorQuickActions({
     },
     {
       label: "Attendance Kiosk",
-      href: instructorPortalAttendanceRegisterPath(clubSlug),
+      href: instructorPortalAttendanceKioskListPath(clubSlug),
       description: "Open the self check-in kiosk for today's classes.",
     },
     {
@@ -54,7 +57,7 @@ export function InstructorQuickActions({
       <div className="grid gap-3">
         {actions.map(({ label, href, description, badgeCount }) => (
           <Link
-            key={href}
+            key={label}
             href={href}
             className="flex min-h-[88px] flex-col justify-center rounded-xl border border-dojo-border bg-dojo-surface px-5 py-4 transition hover:border-dojo-red/50 hover:bg-dojo-elevated active:scale-[0.99]"
           >

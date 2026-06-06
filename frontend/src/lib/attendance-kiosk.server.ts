@@ -12,6 +12,23 @@ import {
 } from "@/lib/attendance-schedule";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
+function resolveSessionClassName(session: {
+  class_name?: string | null;
+  classes?: { name?: string | null } | { name?: string | null }[] | null;
+}): string {
+  const fromSession = session.class_name?.trim();
+  if (fromSession) {
+    return fromSession;
+  }
+
+  const classRow = Array.isArray(session.classes)
+    ? session.classes[0]
+    : session.classes;
+  const fromClass = classRow?.name?.trim();
+
+  return fromClass || "Unnamed class";
+}
+
 interface SessionAttendeeRow {
   id: string;
   user_id: string;
@@ -173,7 +190,7 @@ export async function loadAttendanceKioskPageData(
   const scheduleSession: AttendanceScheduleSession = {
     id: session.id,
     classId: session.class_id,
-    className: session.class_name,
+    className: resolveSessionClassName(session),
     programmeId: null,
     startsAt: session.starts_at,
     endsAt,
@@ -242,7 +259,7 @@ export async function loadAttendanceKioskPageData(
     clubName,
     clubSlug,
     sessionId,
-    className: session.class_name,
+    className: resolveSessionClassName(session),
     timeLabel: formatAttendanceSessionTimeRange(scheduleSession),
     locationLabel: session.location?.trim() || "Location not set",
     isCancelled,

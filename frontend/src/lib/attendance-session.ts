@@ -28,7 +28,25 @@ interface ClassSessionMetaRow {
   external_id: string | null;
   capacity: number | null;
   status: string | null;
-  classes: { programme_type: ProgrammeType } | { programme_type: ProgrammeType }[] | null;
+  classes:
+    | {
+        id: string;
+        name: string;
+        programme_type: ProgrammeType;
+      }
+    | {
+        id: string;
+        name: string;
+        programme_type: ProgrammeType;
+      }[]
+    | null;
+}
+
+function resolveClassNameFromMeta(meta: ClassSessionMetaRow): string | null {
+  const classRow = Array.isArray(meta.classes) ? meta.classes[0] : meta.classes;
+  const name = classRow?.name?.trim();
+
+  return name ? name : null;
 }
 
 export interface AttendanceSessionDetails {
@@ -163,8 +181,11 @@ function buildSessionFromRows(
   }
 
   const classId = meta.class_id;
+  const metaClassName = resolveClassNameFromMeta(meta);
   const className =
-    rows.find((row) => row.class_name)?.class_name ?? "Unnamed class";
+    rows.find((row) => row.class_name)?.class_name ??
+    metaClassName ??
+    "Unnamed class";
 
   return {
     id: sessionId,
@@ -190,7 +211,7 @@ export async function getAttendanceSessionDetails(
   const { data: meta, error: metaError } = await supabase
     .from("class_sessions")
     .select(
-      "id, class_id, club_id, starts_at, ends_at, external_id, capacity, status, classes(programme_type)",
+      "id, class_id, club_id, starts_at, ends_at, external_id, capacity, status, classes(id, name, programme_type)",
     )
     .eq("id", sessionId)
     .maybeSingle();

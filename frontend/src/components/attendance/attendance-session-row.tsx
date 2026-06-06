@@ -10,6 +10,7 @@ import {
 import { formatSessionLocation } from "@/lib/booking";
 import {
   ATTENDANCE_REGISTER_NAV_FROM,
+  ATTENDANCE_SESSION_LIST_MODE,
   type AttendanceRegisterNavContext,
   withAttendanceRegisterNavContext,
 } from "@/lib/attendance-register-navigation.shared";
@@ -63,11 +64,12 @@ export function AttendanceSessionRow({
     ? withAttendanceRegisterNavContext(`/attendance/${session.id}`, navContext)
     : `/attendance/${session.id}`;
 
-  const showKioskActions =
+  const isInstructorPortalKioskList =
     navContext?.from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal &&
+    navContext.mode === ATTENDANCE_SESSION_LIST_MODE.kiosk &&
     Boolean(navContext.clubSlug);
 
-  if (showKioskActions && navContext?.clubSlug) {
+  if (isInstructorPortalKioskList && navContext?.clubSlug) {
     const kioskHref = instructorPortalAttendanceKioskPath(
       navContext.clubSlug,
       session.id,
@@ -94,16 +96,10 @@ export function AttendanceSessionRow({
             ) : null}
           </div>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Link
-            href={registerHref}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red active:scale-[0.99]"
-          >
-            Open Register
-          </Link>
+        <div className="mt-3">
           <Link
             href={kioskHref}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover active:scale-[0.99]"
+            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover active:scale-[0.99]"
           >
             Open Kiosk
           </Link>
