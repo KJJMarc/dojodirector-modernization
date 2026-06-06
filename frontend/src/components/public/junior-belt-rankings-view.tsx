@@ -98,6 +98,13 @@ export function JuniorBeltRankingsView({ pageData }: JuniorBeltRankingsViewProps
       </div>
 
       <div className="space-y-5 bg-neutral-50/70 px-4 py-6 sm:space-y-6 sm:px-6 sm:py-7">
+        <BeltRankingsRecentPromotions
+          title="Congratulations To Our Recently Promoted Junior Students"
+          message={JUNIOR_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE}
+          emptyMessage="No junior belt promotions have been awarded in the last 30 days."
+          promotions={pageData.recentPromotions}
+        />
+
         {pageData.beltGroups.length === 0 ? (
           <p className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600">
             No junior belt rankings are available yet.
@@ -107,13 +114,6 @@ export function JuniorBeltRankingsView({ pageData }: JuniorBeltRankingsViewProps
             <BeltRankingsSection key={group.sectionKey} group={group} />
           ))
         )}
-
-        <BeltRankingsRecentPromotions
-          title="Congratulations To Our Recently Promoted Junior Students"
-          message={JUNIOR_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE}
-          emptyMessage="No junior belt promotions have been awarded in the last 30 days."
-          promotions={pageData.recentPromotions}
-        />
       </div>
     </div>
   );

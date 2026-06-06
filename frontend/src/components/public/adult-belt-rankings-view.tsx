@@ -156,6 +156,13 @@ export function AdultBeltRankingsView({ pageData }: AdultBeltRankingsViewProps) 
       </div>
 
       <div className="space-y-5 bg-neutral-50/70 px-4 py-6 sm:space-y-6 sm:px-6 sm:py-7">
+        <BeltRankingsRecentPromotions
+          title="Congratulations To Our Recently Promoted Students"
+          message={ADULT_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE}
+          emptyMessage="No belt promotions have been awarded in the last 30 days."
+          promotions={pageData.recentPromotions}
+        />
+
         {pageData.beltGroups.length === 0 ? (
           <p className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600">
             No active adult belt rankings are available at the moment.
@@ -165,13 +172,6 @@ export function AdultBeltRankingsView({ pageData }: AdultBeltRankingsViewProps) 
             <BeltRankingsSection key={group.beltColor} group={group} />
           ))
         )}
-
-        <BeltRankingsRecentPromotions
-          title="Congratulations To Our Recently Promoted Students"
-          message={ADULT_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE}
-          emptyMessage="No belt promotions have been awarded in the last 30 days."
-          promotions={pageData.recentPromotions}
-        />
       </div>
     </div>
   );
