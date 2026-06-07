@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
+import { StudentRetentionSummaryCards } from "@/components/admin/student-retention-summary-cards";
 import { StudentRetentionTable } from "@/components/admin/student-retention-table";
 import { AppHeader } from "@/components/layout/app-header";
 import { loadAdminStudentRetentionRows } from "@/lib/admin-student-retention.server";
@@ -47,6 +48,8 @@ export default async function StudentRetentionPage({
           are sent from this page.
         </p>
       </section>
+
+      <StudentRetentionSummaryCards rows={rows} />
 
       <StudentRetentionTable rows={rows} />
     </main>

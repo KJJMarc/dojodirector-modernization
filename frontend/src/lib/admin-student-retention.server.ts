@@ -1,12 +1,14 @@
 import "server-only";
 
 import { loadLatestGradeAwardsByUserId } from "@/lib/admin-belt-promotion.server";
+import { loadActiveStudentMembershipDetailRows } from "@/lib/admin-club-memberships.server";
 import { formatAdminBeltLabel } from "@/lib/admin-students";
 import {
   type AdminStudentRetentionRow,
   computeStudentRetentionScore,
   sortRetentionRowsByRiskScore,
 } from "@/lib/admin-student-retention.shared";
+import { isActiveStudentClubMembership } from "@/lib/admin-student-membership.shared";
 import { getStudentFullName } from "@/lib/attendance";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import { clubAdminPath } from "@/lib/clubs.shared";
@@ -14,13 +16,6 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 const ATTENDANCE_PAGE_SIZE = 1000;
-
-interface MembershipRow {
-  user_id: string;
-  role: string | null;
-  status: string | null;
-  joined_at: string | null;
-}
 
 interface UserRow {
   id: string;
@@ -244,29 +239,16 @@ export async function loadAdminStudentRetentionRows(
   clubId: string,
   clubSlug: string,
 ): Promise<AdminStudentRetentionRow[]> {
-  const supabase = getSupabaseAdminClient();
   const todayKey = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgoKey = subtractDaysFromDateKey(todayKey, 30);
 
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("memberships")
-    .select("user_id, role, status, joined_at")
-    .eq("club_id", clubId)
-    .eq("role", "student")
-    .eq("status", "active");
-
-  if (membershipsError) {
-    throw new Error(
-      `Failed to load students for retention: ${membershipsError.message}`,
-    );
-  }
-
-  const membershipRows = (memberships ?? []) as MembershipRow[];
+  const membershipRows = await loadActiveStudentMembershipDetailRows(clubId);
 
   if (membershipRows.length === 0) {
     return [];
   }
 
+  const supabase = getSupabaseAdminClient();
   const userIds = membershipRows.map((membership) => membership.user_id);
 
   const { data: users, error: usersError } = await supabase
@@ -304,6 +286,10 @@ export async function loadAdminStudentRetentionRows(
   const rows: AdminStudentRetentionRow[] = [];
 
   for (const membership of membershipRows) {
+    if (!isActiveStudentClubMembership(membership)) {
+      continue;
+    }
+
     const user = userById.get(membership.user_id);
 
     if (!user) {

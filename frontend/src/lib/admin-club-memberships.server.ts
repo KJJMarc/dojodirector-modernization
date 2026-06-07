@@ -9,6 +9,10 @@ export interface ClubMembershipRow {
   status: string | null;
 }
 
+export interface ClubMembershipDetailRow extends ClubMembershipRow {
+  joined_at: string | null;
+}
+
 export interface AdminStudentProfileRow {
   id: string;
   first_name: string | null;
@@ -63,11 +67,52 @@ export async function loadClubMembershipRows(
   return membershipRows;
 }
 
+/** Paginated club memberships including joined_at (all roles/statuses). */
+export async function loadClubMembershipDetailRows(
+  clubId: string,
+): Promise<ClubMembershipDetailRow[]> {
+  const supabase = getSupabaseAdminClient();
+  const membershipRows: ClubMembershipDetailRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("memberships")
+      .select("user_id, role, status, joined_at")
+      .eq("club_id", clubId)
+      .order("user_id", { ascending: true })
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(`Failed to load memberships: ${error.message}`);
+    }
+
+    const page = (data ?? []) as ClubMembershipDetailRow[];
+    membershipRows.push(...page);
+
+    if (page.length < SUPABASE_PAGE_SIZE) {
+      break;
+    }
+
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return membershipRows;
+}
+
 /** Active student memberships only — used for programme student area counts and lists. */
 export async function loadActiveStudentMembershipRows(
   clubId: string,
 ): Promise<ClubMembershipRow[]> {
   const membershipRows = await loadClubMembershipRows(clubId);
+  return membershipRows.filter(isActiveStudentClubMembership);
+}
+
+/** Active student memberships with joined_at — same scope as the admin Students list. */
+export async function loadActiveStudentMembershipDetailRows(
+  clubId: string,
+): Promise<ClubMembershipDetailRow[]> {
+  const membershipRows = await loadClubMembershipDetailRows(clubId);
   return membershipRows.filter(isActiveStudentClubMembership);
 }
 

@@ -198,6 +198,38 @@ export function computeStudentRetentionScore(
   };
 }
 
+export interface StudentRetentionRiskSummary {
+  totalActiveStudents: number;
+  redCount: number;
+  amberCount: number;
+  greenCount: number;
+}
+
+export function buildStudentRetentionRiskSummary(
+  rows: AdminStudentRetentionRow[],
+): StudentRetentionRiskSummary {
+  let redCount = 0;
+  let amberCount = 0;
+  let greenCount = 0;
+
+  for (const row of rows) {
+    if (row.level === "critical" || row.level === "high") {
+      redCount += 1;
+    } else if (row.level === "medium") {
+      amberCount += 1;
+    } else {
+      greenCount += 1;
+    }
+  }
+
+  return {
+    totalActiveStudents: rows.length,
+    redCount,
+    amberCount,
+    greenCount,
+  };
+}
+
 export function sortRetentionRowsByRiskScore(
   rows: AdminStudentRetentionRow[],
 ): AdminStudentRetentionRow[] {
