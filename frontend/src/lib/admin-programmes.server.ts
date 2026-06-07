@@ -212,16 +212,22 @@ async function shouldUseMembershipStudentCountFallback(
   return (await countActiveStudentMemberships(clubId)) > 0;
 }
 
-async function loadActiveProgrammeMembershipUserIds(
+async function queryProgrammeMembershipUserIds(
   programmeId: string,
+  options?: { activeOnly?: boolean },
 ): Promise<string[]> {
   const supabase = getSupabaseAdminClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("programme_memberships")
     .select("user_id")
-    .eq("programme_id", programmeId)
-    .eq("status", "active");
+    .eq("programme_id", programmeId);
+
+  if (options?.activeOnly) {
+    query = query.eq("status", "active");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`Failed to load programme memberships: ${error.message}`);
@@ -232,8 +238,15 @@ async function loadActiveProgrammeMembershipUserIds(
   );
 }
 
-async function loadActiveProgrammeMemberUserIdsForClub(
+async function loadActiveProgrammeMembershipUserIds(
+  programmeId: string,
+): Promise<string[]> {
+  return queryProgrammeMembershipUserIds(programmeId, { activeOnly: true });
+}
+
+async function loadProgrammeMemberUserIdsForClub(
   clubId: string,
+  options?: { activeOnly?: boolean },
 ): Promise<string[]> {
   const supabase = getSupabaseAdminClient();
 
@@ -254,11 +267,16 @@ async function loadActiveProgrammeMemberUserIdsForClub(
     return [];
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("programme_memberships")
     .select("user_id")
-    .in("programme_id", programmeIds)
-    .eq("status", "active");
+    .in("programme_id", programmeIds);
+
+  if (options?.activeOnly) {
+    query = query.eq("status", "active");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`Failed to load club programme memberships: ${error.message}`);
@@ -267,6 +285,12 @@ async function loadActiveProgrammeMemberUserIdsForClub(
   return Array.from(
     new Set(((data ?? []) as { user_id: string }[]).map((row) => row.user_id)),
   );
+}
+
+async function loadActiveProgrammeMemberUserIdsForClub(
+  clubId: string,
+): Promise<string[]> {
+  return loadProgrammeMemberUserIdsForClub(clubId, { activeOnly: true });
 }
 
 /** Single source of truth for programme student area counts and member lists. */
@@ -315,6 +339,37 @@ export async function resolveProgrammeStudentAreaMemberUserIds(
   }
 
   return memberProfileIds;
+}
+
+/** Programme student-area scope for admin lists (includes paused/inactive club members). */
+export async function resolveProgrammeStudentAreaAdminListUserIds(
+  clubId: string,
+  programme: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+): Promise<string[]> {
+  const membershipRows = await loadClubMembershipRows(clubId);
+  const studentRoleIds = membershipRows
+    .filter((membership) => membership.role === "student")
+    .map((membership) => membership.user_id);
+
+  if (programme.id === LEGACY_BJJ_PROGRAMME_ID) {
+    const programmeMemberIds = await loadProgrammeMemberUserIdsForClub(clubId);
+    return Array.from(new Set([...studentRoleIds, ...programmeMemberIds]));
+  }
+
+  const programmeMemberIds = await queryProgrammeMembershipUserIds(programme.id);
+
+  if (
+    programmeMemberIds.length === 0 &&
+    (await shouldUseMembershipStudentCountFallback(
+      clubId,
+      programme,
+      programmeMemberIds.length,
+    ))
+  ) {
+    return studentRoleIds;
+  }
+
+  return programmeMemberIds;
 }
 
 async function resolveProgrammeStudentCount(

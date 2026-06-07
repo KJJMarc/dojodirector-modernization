@@ -2,15 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import {
+  AdminStudentListStatusFilter,
   AdminStudentSort,
   AdminStudentSortKey,
   buildAdminStudentsListHref,
+  DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 } from "@/lib/admin-students";
 
 interface StudentMobileSortProps {
   clubSlug: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
+  statusFilter?: AdminStudentListStatusFilter;
   studentsPath?: string;
   showBjjColumns?: boolean;
 }
@@ -41,6 +44,7 @@ export function StudentMobileSort({
   clubSlug,
   currentSort,
   searchQuery,
+  statusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
   studentsPath = "students",
   showBjjColumns = true,
 }: StudentMobileSortProps) {
@@ -73,6 +77,7 @@ export function StudentMobileSort({
               dir: nextSort.dir,
               searchQuery,
               studentsPath,
+              statusFilter,
             }),
           );
         }}

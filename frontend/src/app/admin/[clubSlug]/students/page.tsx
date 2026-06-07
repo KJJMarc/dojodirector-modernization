@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { StudentSearchForm } from "@/components/admin/student-search-form";
+import { StudentStatusFilter } from "@/components/admin/student-status-filter";
 import { StudentsList } from "@/components/admin/students-list";
 import { AppHeader } from "@/components/layout/app-header";
 import { clubProgrammeStudentAreasPath } from "@/lib/admin-programmes.shared";
@@ -10,6 +11,7 @@ import { requireClubBjjProgramme } from "@/lib/admin-programmes.server";
 import {
   filterAdminStudents,
   parseAdminStudentSort,
+  parseAdminStudentStatusFilter,
   sortAdminStudents,
 } from "@/lib/admin-students";
 import { getBjjProgrammeStudents } from "@/lib/admin-students.server";
@@ -24,6 +26,7 @@ interface ClubAdminStudentsPageProps {
     q?: string;
     sort?: string;
     dir?: string;
+    status?: string;
     deleted?: string;
   };
 }
@@ -46,11 +49,12 @@ export default async function ClubAdminStudentsPage({
   const club = await requireClubBySlug(params.clubSlug);
   const bjjProgramme = await requireClubBjjProgramme(club.id);
   const searchQuery = searchParams.q?.trim();
+  const statusFilter = parseAdminStudentStatusFilter(searchParams.status);
   const currentSort = parseAdminStudentSort(
     searchParams.sort,
     searchParams.dir,
   );
-  const allStudents = await getBjjProgrammeStudents(club.id);
+  const allStudents = await getBjjProgrammeStudents(club.id, statusFilter);
   const students = sortAdminStudents(
     filterAdminStudents(allStudents, searchQuery),
     currentSort,
@@ -107,11 +111,18 @@ export default async function ClubAdminStudentsPage({
             this list are scoped to Brazilian Jiu Jitsu classes.
           </p>
         </div>
+        <StudentStatusFilter
+          clubSlug={club.slug}
+          currentFilter={statusFilter}
+          currentSort={currentSort}
+          searchQuery={searchQuery}
+        />
         <StudentSearchForm
           clubSlug={club.slug}
           initialQuery={searchQuery ?? ""}
           sortKey={currentSort.key}
           sortDir={currentSort.dir}
+          statusFilter={statusFilter}
         />
       </section>
 
@@ -120,6 +131,7 @@ export default async function ClubAdminStudentsPage({
         students={students}
         totalCount={allStudents.length}
         searchQuery={searchQuery}
+        statusFilter={statusFilter}
         currentSort={currentSort}
         memberLabel="BJJ student"
         memberLabelPlural="BJJ students"

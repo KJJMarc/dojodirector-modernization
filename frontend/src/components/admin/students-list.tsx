@@ -4,9 +4,12 @@ import { StudentMobileSort } from "@/components/admin/student-mobile-sort";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   AdminStudent,
+  AdminStudentListStatusFilter,
   AdminStudentSort,
   AdminStudentSortKey,
   buildAdminStudentsListHref,
+  DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
+  formatAdminStudentCountLabel,
   formatStudentRole,
   getNextAdminStudentSortDir,
 } from "@/lib/admin-students";
@@ -16,6 +19,7 @@ interface StudentsListProps {
   students: AdminStudent[];
   totalCount: number;
   searchQuery?: string;
+  statusFilter?: AdminStudentListStatusFilter;
   currentSort: AdminStudentSort;
   memberLabel?: string;
   memberLabelPlural?: string;
@@ -144,6 +148,7 @@ function SortableHeader({
   label,
   currentSort,
   searchQuery,
+  statusFilter,
   studentsPath,
 }: {
   clubSlug: string;
@@ -151,6 +156,7 @@ function SortableHeader({
   label: string;
   currentSort: AdminStudentSort;
   searchQuery?: string;
+  statusFilter?: AdminStudentListStatusFilter;
   studentsPath?: string;
 }) {
   const nextDir = getNextAdminStudentSortDir(currentSort, columnKey);
@@ -160,6 +166,7 @@ function SortableHeader({
     dir: nextDir,
     searchQuery,
     studentsPath,
+    statusFilter,
   });
   const isActive = currentSort.key === columnKey;
 
@@ -193,6 +200,7 @@ export function StudentsList({
   students,
   totalCount,
   searchQuery,
+  statusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
   currentSort,
   memberLabel = "student",
   memberLabelPlural = "students",
@@ -213,11 +221,14 @@ export function StudentsList({
     return true;
   });
 
-  const isFiltered = Boolean(searchQuery?.trim());
-  const countLabel =
-    isFiltered && students.length !== totalCount
-      ? `${students.length} of ${totalCount} ${memberLabelPlural}`
-      : `${totalCount} ${totalCount === 1 ? memberLabel : memberLabelPlural}`;
+  const isSearchFiltered = Boolean(searchQuery?.trim());
+  const countLabel = formatAdminStudentCountLabel({
+    count: totalCount,
+    filter: statusFilter,
+    memberLabel,
+    memberLabelPlural,
+    visibleCount: isSearchFiltered ? students.length : undefined,
+  });
 
   const defaultEmptyMessage = `No ${memberLabelPlural} found for this programme.`;
 
@@ -229,13 +240,14 @@ export function StudentsList({
         clubSlug={clubSlug}
         currentSort={currentSort}
         searchQuery={searchQuery}
+        statusFilter={statusFilter}
         studentsPath={studentsPath}
         showBjjColumns={showBjjColumns}
       />
 
       {students.length === 0 ? (
         <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
-          {isFiltered
+          {isSearchFiltered
             ? `No ${memberLabelPlural} match your search.`
             : (emptyMessage ?? defaultEmptyMessage)}
         </div>
@@ -253,6 +265,7 @@ export function StudentsList({
                       label={label}
                       currentSort={currentSort}
                       searchQuery={searchQuery}
+                      statusFilter={statusFilter}
                       studentsPath={studentsPath}
                     />
                   ))}

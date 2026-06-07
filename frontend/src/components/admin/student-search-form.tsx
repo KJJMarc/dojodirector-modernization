@@ -4,8 +4,10 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
+  AdminStudentListStatusFilter,
   AdminStudentSortDir,
   AdminStudentSortKey,
+  DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 } from "@/lib/admin-students";
 
 interface StudentSearchFormProps {
@@ -13,6 +15,7 @@ interface StudentSearchFormProps {
   initialQuery?: string;
   sortKey: AdminStudentSortKey;
   sortDir: AdminStudentSortDir;
+  statusFilter?: AdminStudentListStatusFilter;
   studentsPath?: string;
   searchLabel?: string;
 }
@@ -22,6 +25,7 @@ export function StudentSearchForm({
   initialQuery = "",
   sortKey,
   sortDir,
+  statusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
   studentsPath = "students",
   searchLabel = "Search BJJ students",
 }: StudentSearchFormProps) {
@@ -38,6 +42,10 @@ export function StudentSearchForm({
 
     if (trimmedQuery) {
       params.set("q", trimmedQuery);
+    }
+
+    if (statusFilter !== DEFAULT_ADMIN_STUDENT_STATUS_FILTER) {
+      params.set("status", statusFilter);
     }
 
     router.push(`${clubAdminPath(clubSlug, studentsPath)}?${params.toString()}`);

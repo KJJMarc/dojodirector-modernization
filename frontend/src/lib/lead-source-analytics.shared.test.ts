@@ -13,6 +13,7 @@ function buildStudent(overrides: Partial<AdminStudent> = {}): AdminStudent {
     lastName: "Silva",
     email: "alex@example.com",
     role: "student",
+    membershipStatus: "active",
     originalLeadSource: "google_ads",
     originalLeadSourceLabel: "Google Ads",
     beltLabel: "White Belt",

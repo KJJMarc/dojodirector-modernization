@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { StudentSearchForm } from "@/components/admin/student-search-form";
+import { StudentStatusFilter } from "@/components/admin/student-status-filter";
 import { StudentsList } from "@/components/admin/students-list";
 import { ProgrammeManagementUnavailableNotice } from "@/components/admin/programme-management-unavailable-notice";
 import { AppHeader } from "@/components/layout/app-header";
@@ -20,6 +21,7 @@ import {
 import {
   filterAdminStudents,
   parseAdminStudentSort,
+  parseAdminStudentStatusFilter,
   sortAdminStudents,
 } from "@/lib/admin-students";
 import { getClubStudents } from "@/lib/admin-students.server";
@@ -29,7 +31,7 @@ export const dynamic = "force-dynamic";
 
 interface ProgrammeStudentsPageProps {
   params: { clubSlug: string; programmeSlug: string };
-  searchParams: { q?: string; sort?: string; dir?: string };
+  searchParams: { q?: string; sort?: string; dir?: string; status?: string };
 }
 
 export async function generateMetadata({
@@ -88,11 +90,12 @@ export default async function ProgrammeStudentsPage({
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
   const pageTitle = formatProgrammeStudentsLabel(programme);
   const searchQuery = searchParams.q?.trim();
+  const statusFilter = parseAdminStudentStatusFilter(searchParams.status);
   const currentSort = parseAdminStudentSort(
     searchParams.sort,
     searchParams.dir,
   );
-  const allStudents = await getClubStudents(club.id, programme);
+  const allStudents = await getClubStudents(club.id, programme, statusFilter);
   const students = sortAdminStudents(
     filterAdminStudents(allStudents, searchQuery),
     currentSort,
@@ -141,11 +144,19 @@ export default async function ProgrammeStudentsPage({
             Search by first name, last name or email.
           </p>
         </div>
+        <StudentStatusFilter
+          clubSlug={club.slug}
+          currentFilter={statusFilter}
+          currentSort={currentSort}
+          searchQuery={searchQuery}
+          studentsPath={`programmes/${programme.slug}/students`}
+        />
         <StudentSearchForm
           clubSlug={club.slug}
           initialQuery={searchQuery ?? ""}
           sortKey={currentSort.key}
           sortDir={currentSort.dir}
+          statusFilter={statusFilter}
           studentsPath={`programmes/${programme.slug}/students`}
         />
       </section>
@@ -155,6 +166,7 @@ export default async function ProgrammeStudentsPage({
         students={students}
         totalCount={allStudents.length}
         searchQuery={searchQuery}
+        statusFilter={statusFilter}
         currentSort={currentSort}
         memberLabel="member"
         memberLabelPlural="members"

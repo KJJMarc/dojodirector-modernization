@@ -5,7 +5,27 @@ import {
   normalizeLeadSourceForAnalytics,
   type AnalyticsLeadSource,
 } from "@/lib/lead-source-analytics.shared";
+import {
+  isActiveMembershipStatus,
+  isInactiveMembershipStatus,
+  isPausedMembershipStatus,
+} from "@/lib/membership-status.shared";
 import { BeltLevel } from "@/types/database";
+
+export type AdminStudentListStatusFilter = "active" | "all" | "paused" | "inactive";
+
+export const DEFAULT_ADMIN_STUDENT_STATUS_FILTER: AdminStudentListStatusFilter =
+  "active";
+
+export const ADMIN_STUDENT_LIST_STATUS_FILTER_OPTIONS: {
+  value: AdminStudentListStatusFilter;
+  label: string;
+}[] = [
+  { value: "active", label: "Active" },
+  { value: "all", label: "All Students" },
+  { value: "paused", label: "Paused" },
+  { value: "inactive", label: "Inactive" },
+];
 
 export interface AdminStudent {
   id: string;
@@ -13,6 +33,7 @@ export interface AdminStudent {
   lastName: string | null;
   email: string | null;
   role: string | null;
+  membershipStatus: string | null;
   originalLeadSource: AnalyticsLeadSource | null;
   originalLeadSourceLabel: string | null;
   beltLabel: string;
@@ -103,12 +124,70 @@ export function getNextAdminStudentSortDir(
   return "asc";
 }
 
+export function parseAdminStudentStatusFilter(
+  value?: string,
+): AdminStudentListStatusFilter {
+  if (value === "all" || value === "paused" || value === "inactive") {
+    return value;
+  }
+
+  return DEFAULT_ADMIN_STUDENT_STATUS_FILTER;
+}
+
+export function matchesAdminStudentListStatusFilter(
+  status: string | null | undefined,
+  filter: AdminStudentListStatusFilter,
+): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "paused":
+      return isPausedMembershipStatus(status);
+    case "inactive":
+      return isInactiveMembershipStatus(status);
+    default:
+      return isActiveMembershipStatus(status);
+  }
+}
+
+export function formatAdminStudentCountLabel(options: {
+  count: number;
+  filter: AdminStudentListStatusFilter;
+  memberLabel: string;
+  memberLabelPlural: string;
+  visibleCount?: number;
+}): string {
+  const { count, filter, memberLabel, memberLabelPlural, visibleCount } = options;
+  const noun = count === 1 ? memberLabel : memberLabelPlural;
+  const statusPrefix =
+    filter === "active"
+      ? "Active "
+      : filter === "paused"
+        ? "Paused "
+        : filter === "inactive"
+          ? "Inactive "
+          : "";
+
+  const baseLabel = `${count} ${statusPrefix}${noun}`.replace(/\s+/g, " ").trim();
+
+  if (
+    visibleCount !== undefined &&
+    visibleCount !== count &&
+    visibleCount >= 0
+  ) {
+    return `${visibleCount} of ${baseLabel}`;
+  }
+
+  return baseLabel;
+}
+
 export function buildAdminStudentsListHref(options: {
   clubSlug: string;
   sort: AdminStudentSortKey;
   dir: AdminStudentSortDir;
   searchQuery?: string;
   studentsPath?: string;
+  statusFilter?: AdminStudentListStatusFilter;
 }) {
   const params = new URLSearchParams();
   params.set("sort", options.sort);
@@ -116,6 +195,12 @@ export function buildAdminStudentsListHref(options: {
 
   if (options.searchQuery) {
     params.set("q", options.searchQuery);
+  }
+
+  const statusFilter = options.statusFilter ?? DEFAULT_ADMIN_STUDENT_STATUS_FILTER;
+
+  if (statusFilter !== DEFAULT_ADMIN_STUDENT_STATUS_FILTER) {
+    params.set("status", statusFilter);
   }
 
   const section = options.studentsPath ?? "students";

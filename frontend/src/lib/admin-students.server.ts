@@ -6,12 +6,14 @@ import type { BjjAttendanceSummary } from "@/lib/admin-bjj-attendance.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import {
+  DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
   formatAdminBeltLabel,
+  matchesAdminStudentListStatusFilter,
   resolveAdminStudentLeadSource,
   type AdminStudent,
+  type AdminStudentListStatusFilter,
 } from "@/lib/admin-students";
 import {
-  loadActiveStudentMembershipRows,
   loadAdminStudentProfileRowsByIds,
   loadClubMembershipRows,
   type AdminStudentProfileRow,
@@ -20,9 +22,9 @@ import {
 import type { AdminProgramme } from "@/lib/admin-programmes.shared";
 import {
   requireClubBjjProgramme,
-  resolveProgrammeStudentAreaMemberUserIds,
+  resolveProgrammeStudentAreaAdminListUserIds,
 } from "@/lib/admin-programmes.server";
-import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
+import { isStudentMembershipRole } from "@/lib/admin-student-membership.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface GradeAwardRow {
@@ -79,27 +81,35 @@ interface ScopedClubStudentRows {
 async function loadScopedClubStudentRows(
   clubId: string,
   programme?: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+  statusFilter: AdminStudentListStatusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 ): Promise<ScopedClubStudentRows | null> {
-  let scopedMembershipRows: ClubMembershipRow[];
+  const membershipRows = await loadClubMembershipRows(clubId);
+  let programmeUserIds: Set<string> | null = null;
 
   if (programme) {
-    const programmeUserIds = new Set(
-      await resolveProgrammeStudentAreaMemberUserIds(clubId, programme),
+    const userIds = await resolveProgrammeStudentAreaAdminListUserIds(
+      clubId,
+      programme,
     );
 
-    if (programmeUserIds.size === 0) {
+    if (userIds.length === 0) {
       return null;
     }
 
-    const membershipRows = await loadClubMembershipRows(clubId);
-    scopedMembershipRows = membershipRows.filter(
-      (membership) =>
-        programmeUserIds.has(membership.user_id) &&
-        isActiveMembershipStatus(membership.status),
-    );
-  } else {
-    scopedMembershipRows = await loadActiveStudentMembershipRows(clubId);
+    programmeUserIds = new Set(userIds);
   }
+
+  const scopedMembershipRows = membershipRows.filter((membership) => {
+    if (programmeUserIds && !programmeUserIds.has(membership.user_id)) {
+      return false;
+    }
+
+    if (!isStudentMembershipRole(membership.role)) {
+      return false;
+    }
+
+    return matchesAdminStudentListStatusFilter(membership.status, statusFilter);
+  });
 
   if (scopedMembershipRows.length === 0) {
     return null;
@@ -118,8 +128,13 @@ async function loadScopedClubStudentRows(
 export async function countClubStudents(
   clubId: string = ACTIVE_CLUB_ID,
   programme?: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+  statusFilter: AdminStudentListStatusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 ): Promise<number> {
-  const scopedRows = await loadScopedClubStudentRows(clubId, programme);
+  const scopedRows = await loadScopedClubStudentRows(
+    clubId,
+    programme,
+    statusFilter,
+  );
 
   if (!scopedRows) {
     return 0;
@@ -142,8 +157,13 @@ export async function getClubStudents(
     AdminProgramme,
     "id" | "slug" | "programmeType" | "beltsRanksEnabled" | "promotionCandidatesEnabled"
   >,
+  statusFilter: AdminStudentListStatusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 ): Promise<AdminStudent[]> {
-  const scopedRows = await loadScopedClubStudentRows(clubId, programme);
+  const scopedRows = await loadScopedClubStudentRows(
+    clubId,
+    programme,
+    statusFilter,
+  );
 
   if (!scopedRows) {
     return [];
@@ -208,6 +228,7 @@ export async function getClubStudents(
       lastName: user.last_name,
       email: user.email,
       role: membership.role,
+      membershipStatus: membership.status,
       originalLeadSource: leadSource.originalLeadSource,
       originalLeadSourceLabel: leadSource.originalLeadSourceLabel,
       beltLabel: useBjjEnrichment ? formatAdminBeltLabel(beltLevel) : "—",
@@ -223,14 +244,16 @@ export async function getClubStudents(
 
 export async function getBjjProgrammeStudents(
   clubId: string = ACTIVE_CLUB_ID,
+  statusFilter: AdminStudentListStatusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 ): Promise<AdminStudent[]> {
   const bjjProgramme = await requireClubBjjProgramme(clubId);
-  return getClubStudents(clubId, bjjProgramme);
+  return getClubStudents(clubId, bjjProgramme, statusFilter);
 }
 
 export async function countBjjProgrammeStudents(
   clubId: string = ACTIVE_CLUB_ID,
+  statusFilter: AdminStudentListStatusFilter = DEFAULT_ADMIN_STUDENT_STATUS_FILTER,
 ): Promise<number> {
   const bjjProgramme = await requireClubBjjProgramme(clubId);
-  return countClubStudents(clubId, bjjProgramme);
+  return countClubStudents(clubId, bjjProgramme, statusFilter);
 }
