@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { getStudentFullName } from "@/lib/attendance";
 import { formatBookingDate, getBookingDateRange } from "@/lib/booking";
 import {
@@ -10,10 +11,7 @@ import {
   getEffectiveSpacesAvailable,
   isSessionPubliclyBookable,
 } from "@/lib/session-waitlist.shared";
-import {
-  loadSessionWaitlistBookingAvailabilityBySessionId,
-  loadSessionWaitlistDisplayBySessionId,
-} from "@/lib/session-waitlist.server";
+import { loadSessionWaitlistDisplayAndAvailabilityBySessionId } from "@/lib/session-waitlist.server";
 import {
   formatScheduleDayLabel,
   formatScheduleTimeRange,
@@ -238,10 +236,11 @@ function filterSessionsByStudentBookingAccess(
   });
 }
 
-export async function loadStudentPortalBookableSessionGroups(
-  userId: string,
-  clubId: string,
-): Promise<StudentPortalBookableSessionGroup[]> {
+export const loadStudentPortalBookableSessionGroups = cache(
+  async function loadStudentPortalBookableSessionGroups(
+    userId: string,
+    clubId: string,
+  ): Promise<StudentPortalBookableSessionGroup[]> {
   const { startIso, endIso } = getBookingDateRange();
   const [sessions, allowedProgrammeIds] = await Promise.all([
     loadClassScheduleSessions({
@@ -265,12 +264,16 @@ export async function loadStudentPortalBookableSessionGroups(
 
   const sessionIds = bookableClubSessions.map((session) => session.id);
   const waitlistLoaderOptions = { skipExpiryProcessing: true as const };
-  const [memberBookingDetailsBySessionId, waitlistBySessionId, waitlistAvailabilityBySessionId] =
-    await Promise.all([
-      loadMemberBookingDetailsBySessionId(userId, sessionIds),
-      loadSessionWaitlistDisplayBySessionId(userId, sessionIds, waitlistLoaderOptions),
-      loadSessionWaitlistBookingAvailabilityBySessionId(sessionIds, waitlistLoaderOptions),
-    ]);
+  const [memberBookingDetailsBySessionId, waitlistState] = await Promise.all([
+    loadMemberBookingDetailsBySessionId(userId, sessionIds),
+    loadSessionWaitlistDisplayAndAvailabilityBySessionId(
+      userId,
+      sessionIds,
+      waitlistLoaderOptions,
+    ),
+  ]);
+  const waitlistBySessionId = waitlistState.displayBySessionId;
+  const waitlistAvailabilityBySessionId = waitlistState.availabilityBySessionId;
 
   const bookableSessions: StudentPortalBookableSession[] = bookableClubSessions.map(
     (session) => {
@@ -340,4 +343,5 @@ export async function loadStudentPortalBookableSessionGroups(
   }
 
   return Array.from(groups.values());
-}
+  },
+);

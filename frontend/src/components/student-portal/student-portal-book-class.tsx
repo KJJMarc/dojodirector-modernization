@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   acceptWaitlistOfferFromStudentPortal,
   bookClassFromStudentPortal,
@@ -15,6 +15,7 @@ import {
   isStudentPortalBookableSession,
 } from "@/lib/student-portal-action-result.shared";
 import {
+  formatPortalMemberBookingStatus,
   formatPortalWaitlistCount,
   formatPortalWaitlistPosition,
 } from "@/lib/student-portal-format.shared";
@@ -31,9 +32,34 @@ interface StudentPortalBookClassProps {
   sessionGroups: StudentPortalBookableSessionGroup[];
 }
 
+type PendingAction =
+  | "book"
+  | "join-waitlist"
+  | "leave-waitlist"
+  | "accept-offer"
+  | "decline-offer";
+
+function getPendingButtonLabel(action: PendingAction | null) {
+  switch (action) {
+    case "book":
+      return "Booking…";
+    case "join-waitlist":
+      return "Joining…";
+    case "leave-waitlist":
+      return "Leaving…";
+    case "accept-offer":
+      return "Accepting…";
+    case "decline-offer":
+      return "Declining…";
+    default:
+      return null;
+  }
+}
+
 function BookableSessionCard({
   session,
-  isPending,
+  pendingSessionId,
+  pendingAction,
   onBook,
   onJoinWaitlist,
   onLeaveWaitlist,
@@ -41,13 +67,17 @@ function BookableSessionCard({
   onDeclineOffer,
 }: {
   session: StudentPortalBookableSession;
-  isPending: boolean;
+  pendingSessionId: string | null;
+  pendingAction: PendingAction | null;
   onBook: (classSessionId: string) => void;
   onJoinWaitlist: (classSessionId: string) => void;
   onLeaveWaitlist: (classSessionId: string) => void;
   onAcceptOffer: (classSessionId: string) => void;
   onDeclineOffer: (classSessionId: string) => void;
 }) {
+  const isThisSessionPending = pendingSessionId === session.id;
+  const isPending = isThisSessionPending;
+  const pendingLabel = isThisSessionPending ? getPendingButtonLabel(pendingAction) : null;
   const isBooked = session.memberBookingStatus === "booked";
   const waitlistPositionLabel = formatPortalWaitlistPosition(session.waitlistPosition);
   const waitlistCountLabel = formatPortalWaitlistCount(session.waitlistCount);
@@ -96,6 +126,10 @@ function BookableSessionCard({
             <WaitlistOfferActions
               expiresAt={session.offerExpiresAt}
               isPending={isPending}
+              acceptLabel={pendingAction === "accept-offer" ? pendingLabel ?? undefined : undefined}
+              declineLabel={
+                pendingAction === "decline-offer" ? pendingLabel ?? undefined : undefined
+              }
               onAccept={() => onAcceptOffer(session.id)}
               onDecline={() => onDeclineOffer(session.id)}
             />
@@ -113,7 +147,9 @@ function BookableSessionCard({
               onClick={() => onLeaveWaitlist(session.id)}
               className="min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Leave waitlist
+              {pendingAction === "leave-waitlist" && pendingLabel
+                ? pendingLabel
+                : "Leave waitlist"}
             </button>
           </div>
         ) : session.isFull ? (
@@ -125,7 +161,9 @@ function BookableSessionCard({
               onClick={() => onJoinWaitlist(session.id)}
               className="min-h-[40px] w-full rounded-md bg-dojo-red px-3 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Join waitlist
+              {pendingAction === "join-waitlist" && pendingLabel
+                ? pendingLabel
+                : "Join waitlist"}
             </button>
           </div>
         ) : (
@@ -135,7 +173,7 @@ function BookableSessionCard({
             onClick={() => onBook(session.id)}
             className="min-h-[40px] w-full rounded-md bg-green-600 px-3 text-sm font-semibold text-white ring-1 ring-green-500 transition hover:bg-green-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Book class
+            {pendingAction === "book" && pendingLabel ? pendingLabel : "Book class"}
           </button>
         )}
       </div>
@@ -143,26 +181,60 @@ function BookableSessionCard({
   );
 }
 
+function markSessionBooked(
+  groups: StudentPortalBookableSessionGroup[],
+  sessionId: string,
+): StudentPortalBookableSessionGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    sessions: group.sessions.map((session) => {
+      if (session.id !== sessionId) {
+        return session;
+      }
+
+      return {
+        ...session,
+        memberBookingStatus: "booked",
+        memberBookingStatusLabel: formatPortalMemberBookingStatus("booked"),
+        isFull: false,
+      };
+    }),
+  }));
+}
+
 export function StudentPortalBookClass({
   clubSlug,
   userId,
-  sessionGroups,
+  sessionGroups: initialSessionGroups,
 }: StudentPortalBookClassProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [sessionGroups, setSessionGroups] = useState(initialSessionGroups);
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    setSessionGroups(initialSessionGroups);
+  }, [initialSessionGroups]);
+
   const runAction = (
+    sessionId: string,
+    actionType: PendingAction,
     action: () => Promise<StudentPortalActionResult | void>,
     successText: string,
+    optimisticUpdate?: () => void,
   ) => {
+    setPendingSessionId(sessionId);
+    setPendingAction(actionType);
     setErrorMessage(null);
     setSuccessMessage(null);
 
     startTransition(async () => {
       try {
         const result = await action();
+        optimisticUpdate?.();
         setSuccessMessage(
           formatStudentPortalActionSuccessMessage(successText, result),
         );
@@ -174,19 +246,29 @@ export function StudentPortalBookClass({
             ? error.message
             : "We could not complete your request. Please try again.",
         );
+      } finally {
+        setPendingSessionId(null);
+        setPendingAction(null);
       }
     });
   };
 
   const handleBookSession = (classSessionId: string) => {
     runAction(
+      classSessionId,
+      "book",
       () => bookClassFromStudentPortal(clubSlug, userId, classSessionId),
       "You are booked for [class].",
+      () => {
+        setSessionGroups((current) => markSessionBooked(current, classSessionId));
+      },
     );
   };
 
   const handleJoinWaitlist = (classSessionId: string) => {
     runAction(
+      classSessionId,
+      "join-waitlist",
       () => joinWaitlistFromStudentPortal(clubSlug, userId, classSessionId),
       "You have joined the waitlist for [class].",
     );
@@ -194,6 +276,8 @@ export function StudentPortalBookClass({
 
   const handleLeaveWaitlist = (classSessionId: string) => {
     runAction(
+      classSessionId,
+      "leave-waitlist",
       () => leaveWaitlistFromStudentPortal(clubSlug, userId, classSessionId),
       "You have left the waitlist for [class].",
     );
@@ -201,13 +285,20 @@ export function StudentPortalBookClass({
 
   const handleAcceptOffer = (classSessionId: string) => {
     runAction(
+      classSessionId,
+      "accept-offer",
       () => acceptWaitlistOfferFromStudentPortal(clubSlug, userId, classSessionId),
       WAITLIST_ACCEPT_SUCCESS_MESSAGE,
+      () => {
+        setSessionGroups((current) => markSessionBooked(current, classSessionId));
+      },
     );
   };
 
   const handleDeclineOffer = (classSessionId: string) => {
     runAction(
+      classSessionId,
+      "decline-offer",
       () => declineWaitlistOfferFromStudentPortal(clubSlug, userId, classSessionId),
       "You declined the waitlist offer for [class].",
     );
@@ -222,9 +313,7 @@ export function StudentPortalBookClass({
   }
 
   return (
-    <div
-      className={`space-y-4 ${isPending ? "pointer-events-none opacity-60" : ""}`}
-    >
+    <div className="space-y-4">
       {successMessage ? (
         <section className="rounded-xl border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-dojo-white">
           {successMessage}
@@ -250,7 +339,8 @@ export function StudentPortalBookClass({
               <li key={session.id}>
                 <BookableSessionCard
                   session={session}
-                  isPending={isPending}
+                  pendingSessionId={pendingSessionId}
+                  pendingAction={pendingAction}
                   onBook={handleBookSession}
                   onJoinWaitlist={handleJoinWaitlist}
                   onLeaveWaitlist={handleLeaveWaitlist}

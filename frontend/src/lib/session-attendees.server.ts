@@ -1,12 +1,12 @@
 import "server-only";
 
+import { ATTENDANCE_REGISTER_BOOKING_STATUSES } from "@/lib/attendance-register-booking.shared";
 import type { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const SUPABASE_PAGE_SIZE = 1000;
 
 export interface SessionAttendeeScheduleCountRow {
-  id: string;
   class_session_id: string;
   booking_status: string | null;
   user_id: string | null;
@@ -31,8 +31,10 @@ export async function fetchSessionAttendeesForScheduleCounts(
   while (true) {
     const { data, error } = await supabase
       .from("session_attendees")
-      .select("id, class_session_id, booking_status, user_id")
+      .select("class_session_id, booking_status, user_id")
       .in("class_session_id", sessionIds)
+      .in("booking_status", [...ATTENDANCE_REGISTER_BOOKING_STATUSES])
+      .not("user_id", "is", null)
       .range(from, from + SUPABASE_PAGE_SIZE - 1);
 
     if (error) {

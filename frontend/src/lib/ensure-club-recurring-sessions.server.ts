@@ -21,21 +21,30 @@ export async function ensureClubRecurringFutureSessions(clubId: string) {
     return;
   }
 
-  for (const schedule of schedules) {
-    const { count, error: countError } = await supabase
-      .from("class_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("recurring_schedule_id", schedule.id)
-      .gte("starts_at", nowIso)
-      .neq("status", "cancelled");
+  const futureSessionCounts = await Promise.all(
+    schedules.map(async (schedule) => {
+      const { count, error: countError } = await supabase
+        .from("class_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("recurring_schedule_id", schedule.id)
+        .gte("starts_at", nowIso)
+        .neq("status", "cancelled");
 
-    if (countError || (count ?? 0) >= MIN_FUTURE_SESSIONS_PER_ACTIVE_SCHEDULE) {
+      return {
+        scheduleId: schedule.id,
+        futureSessionCount: countError ? MIN_FUTURE_SESSIONS_PER_ACTIVE_SCHEDULE : (count ?? 0),
+      };
+    }),
+  );
+
+  for (const { scheduleId, futureSessionCount } of futureSessionCounts) {
+    if (futureSessionCount >= MIN_FUTURE_SESSIONS_PER_ACTIVE_SCHEDULE) {
       continue;
     }
 
     try {
       await generateRecurringClassSessions(
-        schedule.id,
+        scheduleId,
         RECURRING_CLASS_SESSION_DAYS_AHEAD,
       );
     } catch {

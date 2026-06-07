@@ -2,7 +2,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { buildSessionDisplayLabels } from "@/lib/class-session-schedule";
-import { assertSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
+import { assertLoadedClassSessionIsBookableForClub } from "@/lib/class-session-booking-eligibility.server";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
 import { assertStudentCanBookClassProgramme } from "@/lib/admin-programmes.server";
 import { clubBookingPath } from "@/lib/clubs.shared";
@@ -42,6 +42,7 @@ interface ClassSessionRow {
   status: string | null;
   source: string | null;
   external_id: string | null;
+  recurring_schedule_id: string | null;
 }
 
 interface SessionAttendeeRow {
@@ -60,7 +61,9 @@ async function getClassSession(classSessionId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("class_sessions")
-    .select("id, class_id, club_id, starts_at, ends_at, capacity, status, source, external_id")
+    .select(
+      "id, class_id, club_id, starts_at, ends_at, capacity, status, source, external_id, recurring_schedule_id",
+    )
     .eq("id", classSessionId)
     .maybeSingle();
 
@@ -274,19 +277,20 @@ export async function bookClassSessionForUser(
   }
 
   const clubId = input.clubId ?? classSession.club_id;
-  await assertSessionIsBookableForClub(classSessionId, clubId);
 
-  const membershipAccess = await assertActiveMembershipForBooking(userId, clubId);
+  const [membershipAccess] = await Promise.all([
+    assertActiveMembershipForBooking(userId, clubId),
+    assertLoadedClassSessionIsBookableForClub(classSession, clubId),
+    assertStudentCanBookClassProgramme({
+      userId,
+      clubId,
+      classId: classSession.class_id,
+    }),
+  ]);
 
   if (!membershipAccess.allowed) {
     throw new Error(membershipAccess.message);
   }
-
-  await assertStudentCanBookClassProgramme({
-    userId,
-    clubId,
-    classId: classSession.class_id,
-  });
 
   const [className, location, existingBooking] = await Promise.all([
     getClassName(classSession.class_id),
@@ -304,7 +308,9 @@ export async function bookClassSessionForUser(
     );
   }
 
-  await assertClassSessionHasSpaceForBooking(classSessionId, classSession.capacity);
+  await assertClassSessionHasSpaceForBooking(classSessionId, classSession.capacity, {
+    skipExpiryProcessing: true,
+  });
 
   await createMemberSessionAttendee(classSessionId, userId, existingBooking);
   await cancelActiveSessionWaitlistForUserIfPresent(classSessionId, userId);

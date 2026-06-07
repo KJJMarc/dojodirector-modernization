@@ -509,11 +509,13 @@ export interface SessionWaitlistLoaderOptions {
   skipExpiryProcessing?: boolean;
 }
 
-export async function loadSessionWaitlistDisplayBySessionId(
-  userId: string,
-  sessionIds: string[],
-  options?: SessionWaitlistLoaderOptions,
-): Promise<Map<string, SessionWaitlistDisplayInfo>> {
+interface SessionWaitlistQueueEntry {
+  userId: string;
+  status: string;
+  expiresAt: string | null;
+}
+
+function createEmptySessionWaitlistDisplayMap(sessionIds: string[]) {
   const displayBySessionId = new Map<string, SessionWaitlistDisplayInfo>();
 
   for (const sessionId of sessionIds) {
@@ -525,46 +527,29 @@ export async function loadSessionWaitlistDisplayBySessionId(
     });
   }
 
-  if (sessionIds.length === 0) {
-    return displayBySessionId;
-  }
+  return displayBySessionId;
+}
 
-  if (!options?.skipExpiryProcessing) {
-    await processExpiredWaitlistOffersForSessions(sessionIds);
-  }
+function createEmptySessionWaitlistAvailabilityMap(sessionIds: string[]) {
+  const availabilityBySessionId = new Map<string, SessionWaitlistBookingAvailability>();
 
-  const supabase = getSupabaseAdminClient();
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("session_waitlist")
-    .select("id, session_id, user_id, status, joined_at, expires_at")
-    .in("session_id", sessionIds)
-    .in("status", ["waiting", "offered"])
-    .order("joined_at", { ascending: true });
-
-  if (error) {
-    throw new Error(`Failed to load waitlist: ${error.message}`);
-  }
-
-  const waitingBySessionId = new Map<
-    string,
-    Array<{ userId: string; status: string; expiresAt: string | null }>
-  >();
-
-  for (const row of (data ?? []) as Array<{
-    session_id: string;
-    user_id: string;
-    status: string;
-    expires_at: string | null;
-  }>) {
-    const queue = waitingBySessionId.get(row.session_id) ?? [];
-    queue.push({
-      userId: row.user_id,
-      status: row.status,
-      expiresAt: row.expires_at,
+  for (const sessionId of sessionIds) {
+    availabilityBySessionId.set(sessionId, {
+      hasActiveWaitlistOffer: false,
+      waitingQueueCount: 0,
     });
-    waitingBySessionId.set(row.session_id, queue);
   }
+
+  return availabilityBySessionId;
+}
+
+function buildSessionWaitlistDisplayMap(
+  userId: string,
+  sessionIds: string[],
+  waitingBySessionId: Map<string, SessionWaitlistQueueEntry[]>,
+  now: string,
+) {
+  const displayBySessionId = createEmptySessionWaitlistDisplayMap(sessionIds);
 
   for (const [sessionId, queue] of Array.from(waitingBySessionId.entries())) {
     const waitingOnly = queue.filter((entry) => entry.status === "waiting");
@@ -621,21 +606,49 @@ export async function loadSessionWaitlistDisplayBySessionId(
   return displayBySessionId;
 }
 
-export async function loadSessionWaitlistBookingAvailabilityBySessionId(
+function buildSessionWaitlistAvailabilityMap(
   sessionIds: string[],
-  options?: SessionWaitlistLoaderOptions,
-): Promise<Map<string, SessionWaitlistBookingAvailability>> {
-  const availabilityBySessionId = new Map<string, SessionWaitlistBookingAvailability>();
+  waitingBySessionId: Map<string, SessionWaitlistQueueEntry[]>,
+  now: string,
+) {
+  const availabilityBySessionId = createEmptySessionWaitlistAvailabilityMap(sessionIds);
 
-  for (const sessionId of sessionIds) {
-    availabilityBySessionId.set(sessionId, {
-      hasActiveWaitlistOffer: false,
-      waitingQueueCount: 0,
-    });
+  for (const [sessionId, queue] of Array.from(waitingBySessionId.entries())) {
+    const existing = availabilityBySessionId.get(sessionId);
+
+    if (!existing) {
+      continue;
+    }
+
+    for (const entry of queue) {
+      if (entry.status === "waiting") {
+        existing.waitingQueueCount += 1;
+        continue;
+      }
+
+      if (
+        entry.status === "offered" &&
+        isActiveWaitlistOfferAt(entry.status, entry.expiresAt, now)
+      ) {
+        existing.hasActiveWaitlistOffer = true;
+      }
+    }
   }
 
+  return availabilityBySessionId;
+}
+
+async function loadSessionWaitlistQueueBySessionId(
+  sessionIds: string[],
+  options?: SessionWaitlistLoaderOptions,
+) {
+  const waitingBySessionId = new Map<string, SessionWaitlistQueueEntry[]>();
+
   if (sessionIds.length === 0) {
-    return availabilityBySessionId;
+    return {
+      waitingBySessionId,
+      now: new Date().toISOString(),
+    };
   }
 
   if (!options?.skipExpiryProcessing) {
@@ -646,34 +659,86 @@ export async function loadSessionWaitlistBookingAvailabilityBySessionId(
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("session_waitlist")
-    .select("session_id, status, expires_at")
+    .select("session_id, user_id, status, joined_at, expires_at")
     .in("session_id", sessionIds)
-    .in("status", ["waiting", "offered"]);
+    .in("status", ["waiting", "offered"])
+    .order("joined_at", { ascending: true });
 
   if (error) {
-    throw new Error(`Failed to load waitlist availability: ${error.message}`);
+    throw new Error(`Failed to load waitlist: ${error.message}`);
   }
 
   for (const row of (data ?? []) as Array<{
     session_id: string;
+    user_id: string;
     status: string;
     expires_at: string | null;
   }>) {
-    const existing = availabilityBySessionId.get(row.session_id);
-
-    if (!existing) {
-      continue;
-    }
-
-    if (row.status === "waiting") {
-      existing.waitingQueueCount += 1;
-      continue;
-    }
-
-    if (row.status === "offered" && isActiveWaitlistOfferAt(row.status, row.expires_at, now)) {
-      existing.hasActiveWaitlistOffer = true;
-    }
+    const queue = waitingBySessionId.get(row.session_id) ?? [];
+    queue.push({
+      userId: row.user_id,
+      status: row.status,
+      expiresAt: row.expires_at,
+    });
+    waitingBySessionId.set(row.session_id, queue);
   }
+
+  return { waitingBySessionId, now };
+}
+
+export async function loadSessionWaitlistDisplayAndAvailabilityBySessionId(
+  userId: string,
+  sessionIds: string[],
+  options?: SessionWaitlistLoaderOptions,
+): Promise<{
+  displayBySessionId: Map<string, SessionWaitlistDisplayInfo>;
+  availabilityBySessionId: Map<string, SessionWaitlistBookingAvailability>;
+}> {
+  const { waitingBySessionId, now } = await loadSessionWaitlistQueueBySessionId(
+    sessionIds,
+    options,
+  );
+
+  return {
+    displayBySessionId: buildSessionWaitlistDisplayMap(
+      userId,
+      sessionIds,
+      waitingBySessionId,
+      now,
+    ),
+    availabilityBySessionId: buildSessionWaitlistAvailabilityMap(
+      sessionIds,
+      waitingBySessionId,
+      now,
+    ),
+  };
+}
+
+export async function loadSessionWaitlistDisplayBySessionId(
+  userId: string,
+  sessionIds: string[],
+  options?: SessionWaitlistLoaderOptions,
+): Promise<Map<string, SessionWaitlistDisplayInfo>> {
+  const { displayBySessionId } =
+    await loadSessionWaitlistDisplayAndAvailabilityBySessionId(
+      userId,
+      sessionIds,
+      options,
+    );
+
+  return displayBySessionId;
+}
+
+export async function loadSessionWaitlistBookingAvailabilityBySessionId(
+  sessionIds: string[],
+  options?: SessionWaitlistLoaderOptions,
+): Promise<Map<string, SessionWaitlistBookingAvailability>> {
+  const { availabilityBySessionId } =
+    await loadSessionWaitlistDisplayAndAvailabilityBySessionId(
+      "",
+      sessionIds,
+      options,
+    );
 
   return availabilityBySessionId;
 }
@@ -1071,10 +1136,11 @@ export async function cancelActiveSessionWaitlistForUserIfPresent(
 export async function assertClassSessionHasSpaceForBooking(
   sessionId: string,
   capacity: number | null,
+  options?: SessionWaitlistLoaderOptions,
 ) {
   const [bookedCount, availability] = await Promise.all([
     getBookedCount(sessionId),
-    loadSessionWaitlistBookingAvailabilityBySessionId([sessionId]).then(
+    loadSessionWaitlistBookingAvailabilityBySessionId([sessionId], options).then(
       (map) =>
         map.get(sessionId) ?? {
           hasActiveWaitlistOffer: false,

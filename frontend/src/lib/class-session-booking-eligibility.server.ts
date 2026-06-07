@@ -2,11 +2,10 @@ import "server-only";
 
 import {
   isSessionEligibleForActiveBooking,
-  mapRecurringClassScheduleRowsForBookingEligibility,
+  mapRecurringScheduleRowsForBookingEligibility,
   type ClassBookingEligibilityRow,
   type SessionBookingEligibilityRow,
 } from "@/lib/class-session-booking-eligibility.shared";
-import { getRecurringClassSchedules } from "@/lib/admin-recurring-classes.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const SESSION_NOT_BOOKABLE_MESSAGE =
@@ -40,6 +39,33 @@ async function loadClassSessionForBookingGuard(
   return data as ClassSessionBookingGuardRow;
 }
 
+async function loadRecurringSchedulesForBookingEligibility(
+  clubId: string,
+  classId: string,
+) {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("recurring_class_schedules")
+    .select("id, class_id, day_of_week, start_time, location, is_active")
+    .eq("club_id", clubId)
+    .eq("class_id", classId);
+
+  if (error) {
+    throw new Error(`Failed to load recurring classes: ${error.message}`);
+  }
+
+  return mapRecurringScheduleRowsForBookingEligibility(
+    (data ?? []) as Array<{
+      id: string;
+      class_id: string;
+      day_of_week: number;
+      start_time: string;
+      location: string | null;
+      is_active: boolean;
+    }>,
+  );
+}
+
 async function loadClassBookingEligibilityRow(
   classId: string,
 ): Promise<ClassBookingEligibilityRow | null> {
@@ -57,32 +83,46 @@ async function loadClassBookingEligibilityRow(
   return (data as ClassBookingEligibilityRow | null) ?? null;
 }
 
-export async function assertSessionIsBookableForClub(
-  classSessionId: string,
+async function assertLoadedSessionIsBookableForClub(
+  session: ClassSessionBookingGuardRow,
   clubId: string,
 ) {
-  const session = await loadClassSessionForBookingGuard(classSessionId);
-
   if (session.club_id !== clubId) {
     throw new Error("This class is not available for booking at this club.");
   }
 
   const [classRow, recurringSchedules] = await Promise.all([
     loadClassBookingEligibilityRow(session.class_id),
-    getRecurringClassSchedules(clubId),
+    loadRecurringSchedulesForBookingEligibility(clubId, session.class_id),
   ]);
 
-  if (
-    !isSessionEligibleForActiveBooking(
-      session,
-      classRow,
-      mapRecurringClassScheduleRowsForBookingEligibility(recurringSchedules),
-    )
-  ) {
+  if (!isSessionEligibleForActiveBooking(session, classRow, recurringSchedules)) {
     throw new Error(SESSION_NOT_BOOKABLE_MESSAGE);
   }
 
   return session;
+}
+
+export async function assertSessionIsBookableForClub(
+  classSessionId: string,
+  clubId: string,
+) {
+  const session = await loadClassSessionForBookingGuard(classSessionId);
+  return assertLoadedSessionIsBookableForClub(session, clubId);
+}
+
+export async function assertLoadedClassSessionIsBookableForClub(
+  session: SessionBookingEligibilityRow & {
+    id: string;
+    club_id: string;
+    recurring_schedule_id?: string | null;
+  },
+  clubId: string,
+) {
+  return assertLoadedSessionIsBookableForClub(
+    session as ClassSessionBookingGuardRow,
+    clubId,
+  );
 }
 
 export { SESSION_NOT_BOOKABLE_MESSAGE };

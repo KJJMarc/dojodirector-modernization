@@ -8,6 +8,8 @@ interface WaitlistOfferActionsProps {
   isPending: boolean;
   onAccept: () => void;
   onDecline: () => void;
+  acceptLabel?: string;
+  declineLabel?: string;
   layout?: "stacked" | "inline";
 }
 
@@ -33,6 +35,8 @@ export function WaitlistOfferActions({
   isPending,
   onAccept,
   onDecline,
+  acceptLabel,
+  declineLabel,
   layout = "stacked",
 }: WaitlistOfferActionsProps) {
   const buttonClass =
@@ -50,7 +54,7 @@ export function WaitlistOfferActions({
           onClick={onAccept}
           className={`${buttonClass} bg-green-600 text-white ring-1 ring-green-500 hover:bg-green-500`}
         >
-          Accept Booking
+          {acceptLabel ?? "Accept Booking"}
         </button>
         <button
           type="button"
@@ -58,7 +62,7 @@ export function WaitlistOfferActions({
           onClick={onDecline}
           className={`${buttonClass} border border-dojo-border bg-dojo-elevated text-dojo-white hover:border-dojo-red/50`}
         >
-          Decline Place
+          {declineLabel ?? "Decline Place"}
         </button>
       </div>
     </div>

@@ -56,6 +56,11 @@ assert(
 );
 
 assert(
+  bookingLoader.includes("loadSessionWaitlistDisplayAndAvailabilityBySessionId"),
+  "Book page uses a single combined waitlist query",
+);
+
+assert(
   waitlistServer.includes("await processExpiredWaitlistOffersForSession(sessionId);"),
   "Accept/decline waitlist paths still process expiry for the target session",
 );
