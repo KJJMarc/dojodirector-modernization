@@ -19,7 +19,7 @@ import {
   formatDayOfWeekLabel,
   formatScheduleTimeLabel,
 } from "@/lib/admin-recurring-classes.shared";
-import { formatBookingTime, formatSessionLocation } from "@/lib/booking";
+import { formatSessionLocation } from "@/lib/booking";
 import {
   addLondonCalendarDays,
   getLondonTodayDateKey,
@@ -27,10 +27,10 @@ import {
 } from "@/lib/london-datetime";
 import {
   formatScheduleDayLabel,
+  resolveEffectiveRecurringScheduleId,
   resolveSessionLocationFromRow,
   resolveSessionSlotTimeFromRow,
 } from "@/lib/class-session-schedule";
-import { loadInstructorNameBySessionId } from "@/lib/student-portal-booking.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface InstructorAssignmentRow {
@@ -39,36 +39,33 @@ interface InstructorAssignmentRow {
   class_session_id: string | null;
 }
 
-async function loadInstructorUserIdBySessionId(clubId: string, sessionIds: string[]) {
+async function loadInstructorResolutionBySessionId(
+  clubId: string,
+  sessions: MetricsSessionRow[],
+  effectiveScheduleIdBySessionId: Map<string, string>,
+) {
+  const instructorNameBySessionId = new Map<string, string>();
   const instructorUserIdBySessionId = new Map<string, string>();
 
-  if (sessionIds.length === 0) {
-    return instructorUserIdBySessionId;
+  if (sessions.length === 0) {
+    return { instructorNameBySessionId, instructorUserIdBySessionId };
   }
 
   const supabase = getSupabaseAdminClient();
+  const { data: assignments, error: assignmentsError } = await supabase
+    .from("instructor_assignments")
+    .select("instructor_user_id, recurring_schedule_id, class_session_id")
+    .eq("club_id", clubId)
+    .eq("is_active", true);
 
-  const [sessionsResult, assignmentsResult] = await Promise.all([
-    supabase
-      .from("class_sessions")
-      .select("id, recurring_schedule_id")
-      .in("id", sessionIds),
-    supabase
-      .from("instructor_assignments")
-      .select("instructor_user_id, recurring_schedule_id, class_session_id")
-      .eq("club_id", clubId)
-      .eq("is_active", true),
-  ]);
-
-  if (sessionsResult.error || assignmentsResult.error) {
-    return instructorUserIdBySessionId;
+  if (assignmentsError) {
+    return { instructorNameBySessionId, instructorUserIdBySessionId };
   }
 
   const sessionAssignmentBySessionId = new Map<string, string>();
   const recurringAssignmentByScheduleId = new Map<string, string>();
 
-  for (const assignment of (assignmentsResult.data ??
-    []) as InstructorAssignmentRow[]) {
+  for (const assignment of (assignments ?? []) as InstructorAssignmentRow[]) {
     if (assignment.class_session_id) {
       sessionAssignmentBySessionId.set(
         assignment.class_session_id,
@@ -85,20 +82,56 @@ async function loadInstructorUserIdBySessionId(clubId: string, sessionIds: strin
     }
   }
 
-  for (const session of sessionsResult.data ?? []) {
+  const instructorUserIds = new Set<string>();
+
+  for (const session of sessions) {
     const sessionOverrideId = sessionAssignmentBySessionId.get(session.id);
+    const effectiveScheduleId = effectiveScheduleIdBySessionId.get(session.id);
     const instructorUserId =
       sessionOverrideId ??
-      (session.recurring_schedule_id
-        ? recurringAssignmentByScheduleId.get(session.recurring_schedule_id)
+      (effectiveScheduleId
+        ? recurringAssignmentByScheduleId.get(effectiveScheduleId)
         : undefined);
 
     if (instructorUserId) {
       instructorUserIdBySessionId.set(session.id, instructorUserId);
+      instructorUserIds.add(instructorUserId);
     }
   }
 
-  return instructorUserIdBySessionId;
+  const instructorNameByUserId = new Map<string, string>();
+
+  if (instructorUserIds.size > 0) {
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name")
+      .in("id", Array.from(instructorUserIds));
+
+    if (!usersError) {
+      for (const user of (users ?? []) as UserRow[]) {
+        instructorNameByUserId.set(
+          user.id,
+          getStudentFullName(user.first_name, user.last_name),
+        );
+      }
+    }
+  }
+
+  for (const session of sessions) {
+    const instructorUserId = instructorUserIdBySessionId.get(session.id);
+
+    if (!instructorUserId) {
+      continue;
+    }
+
+    const instructorName = instructorNameByUserId.get(instructorUserId);
+
+    if (instructorName) {
+      instructorNameBySessionId.set(session.id, instructorName);
+    }
+  }
+
+  return { instructorNameBySessionId, instructorUserIdBySessionId };
 }
 
 const METRICS_LOOKBACK_DAYS = 90;
@@ -137,6 +170,7 @@ interface RecurringScheduleRow {
   day_of_week: number;
   start_time: string;
   location: string | null;
+  is_active: boolean;
 }
 
 interface UserRow {
@@ -191,8 +225,32 @@ function formatUtilisationPercent(numerator: number, denominator: number) {
   return Math.round((numerator / denominator) * 100);
 }
 
-function getSlotKey(session: MetricsSessionRow) {
-  return `${session.class_id}:${session.recurring_schedule_id ?? "adhoc"}`;
+function resolveMetricsSessionContext(
+  session: MetricsSessionRow,
+  schedules: RecurringScheduleRow[],
+  scheduleById: Map<string, RecurringScheduleRow>,
+) {
+  const effectiveScheduleId = resolveEffectiveRecurringScheduleId(session, schedules, {
+    activeOnly: false,
+  });
+  const schedule = effectiveScheduleId
+    ? (scheduleById.get(effectiveScheduleId) ?? null)
+    : null;
+
+  return {
+    effectiveScheduleId,
+    schedule,
+    slotKey: `${session.class_id}:${effectiveScheduleId ?? "adhoc"}`,
+    dayLabel: schedule
+      ? formatDayOfWeekLabel(schedule.day_of_week)
+      : formatScheduleDayLabel(session.starts_at),
+    timeLabel: schedule
+      ? formatScheduleTimeLabel(schedule.start_time)
+      : formatScheduleTimeLabel(resolveSessionSlotTimeFromRow(session)),
+    locationLabel: formatSessionLocation(
+      schedule?.location ?? resolveSessionLocationFromRow(session) ?? null,
+    ),
+  };
 }
 
 function pickTopInstructor(instructorCounts: Map<string, number>) {
@@ -267,35 +325,19 @@ export async function getAdminClassMetricsPageData(
 
   const sessionIds = sessions.map((session) => session.id);
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
-  const scheduleIds = Array.from(
-    new Set(
-      sessions
-        .map((session) => session.recurring_schedule_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  );
 
-  const [
-    attendeesResult,
-    classesResult,
-    schedulesResult,
-    instructorNameBySessionId,
-    instructorUserIdBySessionId,
-  ] = await Promise.all([
-      supabase
-        .from("session_attendees")
-        .select("id, class_session_id, user_id, booking_status, attendance_status")
-        .in("class_session_id", sessionIds),
-      supabase.from("classes").select("id, name").in("id", classIds),
-      scheduleIds.length > 0
-        ? supabase
-            .from("recurring_class_schedules")
-            .select("id, class_id, day_of_week, start_time, location")
-            .in("id", scheduleIds)
-        : Promise.resolve({ data: [], error: null }),
-      loadInstructorNameBySessionId(clubId, sessionIds),
-      loadInstructorUserIdBySessionId(clubId, sessionIds),
-    ]);
+  const [attendeesResult, classesResult, schedulesResult] = await Promise.all([
+    supabase
+      .from("session_attendees")
+      .select("id, class_session_id, user_id, booking_status, attendance_status")
+      .in("class_session_id", sessionIds),
+    supabase.from("classes").select("id, name").in("id", classIds),
+    supabase
+      .from("recurring_class_schedules")
+      .select("id, class_id, day_of_week, start_time, location, is_active")
+      .eq("club_id", clubId)
+      .in("class_id", classIds),
+  ]);
 
   if (attendeesResult.error) {
     throw new Error(`Unable to load bookings: ${attendeesResult.error.message}`);
@@ -314,12 +356,27 @@ export async function getAdminClassMetricsPageData(
   const classNameById = new Map(
     ((classesResult.data ?? []) as ClassNameRow[]).map((row) => [row.id, row.name]),
   );
-  const scheduleById = new Map(
-    ((schedulesResult.data ?? []) as RecurringScheduleRow[]).map((row) => [
-      row.id,
-      row,
-    ]),
-  );
+  const schedules = (schedulesResult.data ?? []) as RecurringScheduleRow[];
+  const scheduleById = new Map(schedules.map((row) => [row.id, row]));
+  const effectiveScheduleIdBySessionId = new Map<string, string>();
+
+  for (const session of sessions) {
+    const effectiveScheduleId = resolveEffectiveRecurringScheduleId(session, schedules, {
+      activeOnly: false,
+    });
+
+    if (effectiveScheduleId) {
+      effectiveScheduleIdBySessionId.set(session.id, effectiveScheduleId);
+    }
+  }
+
+  const { instructorNameBySessionId, instructorUserIdBySessionId } =
+    await loadInstructorResolutionBySessionId(
+      clubId,
+      sessions,
+      effectiveScheduleIdBySessionId,
+    );
+
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
   const attendees = (attendeesResult.data ?? []) as MetricsAttendeeRow[];
 
@@ -347,21 +404,8 @@ export async function getAdminClassMetricsPageData(
 
   for (const session of sessions) {
     const className = classNameById.get(session.class_id) ?? "Unnamed class";
-    const schedule = session.recurring_schedule_id
-      ? scheduleById.get(session.recurring_schedule_id)
-      : null;
-    const slotKey = getSlotKey(session);
-    const dayLabel = schedule
-      ? formatDayOfWeekLabel(schedule.day_of_week)
-      : formatScheduleDayLabel(session.starts_at);
-    const timeLabel = schedule
-      ? formatScheduleTimeLabel(schedule.start_time)
-      : formatBookingTime(session.starts_at);
-    const locationLabel = formatSessionLocation(
-      schedule?.location ??
-        resolveSessionLocationFromRow(session) ??
-        null,
-    );
+    const { slotKey, dayLabel, timeLabel, locationLabel } =
+      resolveMetricsSessionContext(session, schedules, scheduleById);
     const instructorName =
       instructorNameBySessionId.get(session.id) ?? "Unassigned";
     const scheduleLabel = buildScheduleLabel(className, dayLabel, timeLabel);
@@ -416,11 +460,11 @@ export async function getAdminClassMetricsPageData(
       continue;
     }
 
-    const className = classNameById.get(session.class_id) ?? "Unnamed class";
-    const schedule = session.recurring_schedule_id
-      ? scheduleById.get(session.recurring_schedule_id)
-      : null;
-    const slotKey = getSlotKey(session);
+    const { slotKey, dayLabel, timeLabel } = resolveMetricsSessionContext(
+      session,
+      schedules,
+      scheduleById,
+    );
     const slot = slotAggregates.get(slotKey);
 
     if (!slot) {
@@ -430,12 +474,6 @@ export async function getAdminClassMetricsPageData(
     const instructorUserId = instructorUserIdBySessionId.get(session.id);
     const instructorName =
       instructorNameBySessionId.get(session.id) ?? "Unassigned";
-    const dayLabel = schedule
-      ? formatDayOfWeekLabel(schedule.day_of_week)
-      : formatScheduleDayLabel(session.starts_at);
-    const timeLabel = schedule
-      ? formatScheduleTimeLabel(schedule.start_time)
-      : resolveSessionSlotTimeFromRow(session);
     const dayTimeKey = `${dayLabel}|${timeLabel}`;
     const dayTime = dayTimeAggregates.get(dayTimeKey);
 

@@ -267,6 +267,57 @@ function normalizeVenueLabel(value: string) {
     .replace(/\s+/g, " ");
 }
 
+export interface RecurringScheduleSessionMatchRow {
+  id: string;
+  class_id: string;
+  day_of_week: number;
+  start_time: string;
+  location: string | null;
+  is_active?: boolean;
+}
+
+/** Prefer explicit FK; otherwise match by class, day, time, and location (same rules as admin instructors). */
+export function resolveEffectiveRecurringScheduleId(
+  session: {
+    class_id: string;
+    starts_at: string;
+    external_id: string | null;
+    recurring_schedule_id: string | null;
+    source?: string | null;
+  },
+  schedules: RecurringScheduleSessionMatchRow[],
+  options?: { activeOnly?: boolean },
+): string | null {
+  if (session.recurring_schedule_id) {
+    return session.recurring_schedule_id;
+  }
+
+  const activeOnly = options?.activeOnly ?? false;
+
+  for (const schedule of schedules) {
+    if (activeOnly && schedule.is_active === false) {
+      continue;
+    }
+
+    if (schedule.class_id !== session.class_id) {
+      continue;
+    }
+
+    if (
+      sessionBelongsToRecurringScheduleRow(session, {
+        scheduleId: schedule.id,
+        dayOfWeek: schedule.day_of_week,
+        startTime: schedule.start_time,
+        location: schedule.location,
+      })
+    ) {
+      return schedule.id;
+    }
+  }
+
+  return null;
+}
+
 export function sessionBelongsToRecurringScheduleRow(
   session: {
     starts_at: string;

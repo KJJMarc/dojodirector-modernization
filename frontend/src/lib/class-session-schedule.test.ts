@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   formatScheduleTimeRange,
   formatScheduleDayLabelSafe,
+  resolveEffectiveRecurringScheduleId,
   resolveScheduleDateKey,
 } from "./class-session-schedule.ts";
 import { utcIsoToLondonTime } from "./london-datetime.ts";
@@ -58,6 +59,81 @@ describe("resolveScheduleDateKey", () => {
           "kjj_timetable:class:2026-06-04:18:00:Tiffin_Sport",
       }),
       "2026-06-04",
+    );
+  });
+});
+
+describe("resolveEffectiveRecurringScheduleId", () => {
+  const tiffinSchedule = {
+    id: "schedule-tiffin",
+    class_id: "class-muay-thai",
+    day_of_week: 4,
+    start_time: "18:00",
+    location: "Tiffin Sport",
+    is_active: true,
+  };
+
+  const parishSchedule = {
+    id: "schedule-parish",
+    class_id: "class-muay-thai",
+    day_of_week: 4,
+    start_time: "18:00",
+    location: "St. John's Parish Hall",
+    is_active: true,
+  };
+
+  const thursdaySession = {
+    class_id: "class-muay-thai",
+    starts_at: "2026-06-04T19:00:00+00:00",
+    external_id:
+      "kjj_timetable:class-muay-thai:2026-06-04:18:00:Tiffin_Sport",
+    recurring_schedule_id: null as string | null,
+    source: "kjj_timetable_seed",
+  };
+
+  it("matches an unlinked session to its recurring schedule by slot", () => {
+    assert.equal(
+      resolveEffectiveRecurringScheduleId(thursdaySession, [tiffinSchedule]),
+      "schedule-tiffin",
+    );
+  });
+
+  it("prefers location when multiple schedules share day and time", () => {
+    assert.equal(
+      resolveEffectiveRecurringScheduleId(thursdaySession, [
+        parishSchedule,
+        tiffinSchedule,
+      ]),
+      "schedule-tiffin",
+    );
+  });
+
+  it("returns the explicit recurring_schedule_id when set", () => {
+    assert.equal(
+      resolveEffectiveRecurringScheduleId(
+        { ...thursdaySession, recurring_schedule_id: "schedule-parish" },
+        [tiffinSchedule, parishSchedule],
+      ),
+      "schedule-parish",
+    );
+  });
+
+  it("skips inactive schedules when activeOnly is true", () => {
+    assert.equal(
+      resolveEffectiveRecurringScheduleId(
+        thursdaySession,
+        [{ ...tiffinSchedule, is_active: false }],
+        { activeOnly: true },
+      ),
+      null,
+    );
+    assert.equal(
+      resolveEffectiveRecurringScheduleId(
+        thursdaySession,
+        [{ ...tiffinSchedule, is_active: false }],
+        { activeOnly: false },
+      ),
+      "schedule-tiffin",
     );
   });
 });
