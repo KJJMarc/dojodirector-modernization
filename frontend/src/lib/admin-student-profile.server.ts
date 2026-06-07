@@ -20,7 +20,10 @@ import {
   parseProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import type { AdminStudentProfilePageData } from "@/lib/admin-student-profile.shared";
-import { resolveKidsToAdultMigrationEligibility } from "@/lib/admin-migrate-kids-to-adult.server";
+import {
+  maybeRepairKidsToAdultHistoricalData,
+  resolveKidsToAdultMigrationEligibility,
+} from "@/lib/admin-migrate-kids-to-adult.server";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import {
@@ -174,6 +177,8 @@ export async function getAdminStudentProfilePageData(
   userId: string,
   clubId: string = ACTIVE_CLUB_ID,
 ): Promise<AdminStudentProfilePageData> {
+  await maybeRepairKidsToAdultHistoricalData(userId, clubId);
+
   const [
     { user, address },
     membership,

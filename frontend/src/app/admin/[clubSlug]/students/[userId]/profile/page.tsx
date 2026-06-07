@@ -63,7 +63,8 @@ export default async function ClubStudentProfilePage({
           className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-dojo-white"
           role="status"
         >
-          Student migrated to Kingston Jiu Jitsu successfully.
+          Student migrated to Kingston Jiu Jitsu successfully. Attendance and grading
+          history have been preserved.
           {searchParams.portalInvite === "1"
             ? " A student portal invite email has been sent."
             : " Adult student portal access is active."}

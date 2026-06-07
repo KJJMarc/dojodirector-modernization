@@ -183,11 +183,14 @@ export function formatProfileField(value: string | null) {
 
 /** Prefix(es) written by legacy import scripts into grade_awards.notes for audit — hidden in UI. */
 const LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX = "legacy_import";
+const KIDS_ADULT_MIGRATION_NOTE_PREFIX = "kids_adult_migration";
 
-function isLegacyGradeAwardImportNote(notes: string): boolean {
+function isHiddenGradeAwardSystemNote(notes: string): boolean {
   return (
     notes === LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX ||
-    notes.startsWith(`${LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX}:`)
+    notes.startsWith(`${LEGACY_GRADE_AWARD_IMPORT_NOTE_PREFIX}:`) ||
+    notes === KIDS_ADULT_MIGRATION_NOTE_PREFIX ||
+    notes.startsWith(`${KIDS_ADULT_MIGRATION_NOTE_PREFIX}:`)
   );
 }
 
@@ -195,10 +198,14 @@ function isLegacyGradeAwardImportNote(notes: string): boolean {
 export function formatGradeAwardNotesForDisplay(
   notes: string | null | undefined,
 ): string | null {
-  const trimmed = (notes ?? "").trim();
-  if (!trimmed || isLegacyGradeAwardImportNote(trimmed)) {
+  const displayLines = (notes ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !isHiddenGradeAwardSystemNote(line));
+
+  if (displayLines.length === 0) {
     return null;
   }
 
-  return trimmed;
+  return displayLines.join("\n");
 }
