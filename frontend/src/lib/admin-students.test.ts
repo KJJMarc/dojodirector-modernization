@@ -4,6 +4,7 @@ import {
   buildAdminStudentsListHref,
   filterAdminStudents,
   formatAdminStudentCountLabel,
+  formatStudentRole,
   matchesAdminStudentListStatusFilter,
   parseAdminStudentStatusFilter,
   sortAdminStudents,
@@ -130,6 +131,15 @@ describe("buildAdminStudentsListHref", () => {
   });
 });
 
+describe("formatStudentRole", () => {
+  it("formats academy membership roles for the students list", () => {
+    assert.equal(formatStudentRole("student"), "Student");
+    assert.equal(formatStudentRole("instructor"), "Instructor");
+    assert.equal(formatStudentRole("admin"), "Admin");
+    assert.equal(formatStudentRole("super_admin"), "Super Admin");
+  });
+});
+
 describe("student list filtering with search and sort", () => {
   it("filters by search within the supplied status-scoped list", () => {
     const students = [
@@ -142,5 +152,29 @@ describe("student list filtering with search and sort", () => {
 
     assert.equal(filtered.length, 1);
     assert.equal(sorted[0]?.firstName, "Alex");
+  });
+
+  it("finds admins and instructors by name or email", () => {
+    const students = [
+      buildStudent({
+        id: "1",
+        firstName: "Marc",
+        lastName: "Barton",
+        email: "marc@example.com",
+        role: "admin",
+      }),
+      buildStudent({
+        id: "2",
+        firstName: "Jamie",
+        lastName: "Silva",
+        role: "student",
+      }),
+    ];
+
+    const filtered = filterAdminStudents(students, "barton");
+
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0]?.role, "admin");
+    assert.equal(filtered[0]?.lastName, "Barton");
   });
 });

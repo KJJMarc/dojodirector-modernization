@@ -307,5 +307,9 @@ export function formatStudentRole(role: string | null) {
     return "—";
   }
 
+  if (role === "super_admin") {
+    return "Super Admin";
+  }
+
   return role.charAt(0).toUpperCase() + role.slice(1);
 }

@@ -104,7 +104,8 @@ async function loadScopedClubStudentRows(
       return false;
     }
 
-    if (!isStudentMembershipRole(membership.role)) {
+    // Club-wide lists stay student-only; programme lists include instructors/admins with programme access.
+    if (!programme && !isStudentMembershipRole(membership.role)) {
       return false;
     }
 
