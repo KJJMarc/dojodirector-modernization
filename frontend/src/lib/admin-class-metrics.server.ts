@@ -1,7 +1,13 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
+import { loadClubMembershipRows } from "@/lib/admin-club-memberships.server";
 import type { AdminClassMetricsPageData } from "@/lib/admin-class-metrics.shared";
+import {
+  isNoShow,
+  isNoShowTrackingEligibleStudentMembership,
+  isPresentAttendanceStatus,
+} from "@/lib/admin-class-metrics.shared";
 import type {
   ClassPopularityRow,
   ClassTrendRow,
@@ -177,22 +183,6 @@ function countsAsBooking(status: string | null) {
   return status != null && BOOKING_STATUSES.has(status);
 }
 
-function isPresent(attendanceStatus: string | null) {
-  return attendanceStatus === "present";
-}
-
-function isNoShow(
-  bookingStatus: string | null,
-  attendanceStatus: string | null,
-  sessionStarted: boolean,
-) {
-  return (
-    sessionStarted &&
-    (bookingStatus === "booked" || bookingStatus === "walk_in") &&
-    !isPresent(attendanceStatus)
-  );
-}
-
 function formatUtilisationPercent(numerator: number, denominator: number) {
   if (denominator <= 0) {
     return null;
@@ -232,6 +222,13 @@ export async function getAdminClassMetricsPageData(
 ): Promise<AdminClassMetricsPageData> {
   const supabase = getSupabaseAdminClient();
   const { startIso, endIso, nowIso, recentNoShowCutoffIso } = getMetricsDateRange();
+
+  const membershipRows = await loadClubMembershipRows(clubId);
+  const eligibleNoShowStudentUserIds = new Set(
+    membershipRows
+      .filter(isNoShowTrackingEligibleStudentMembership)
+      .map((membership) => membership.user_id),
+  );
 
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("class_sessions")
@@ -368,7 +365,6 @@ export async function getAdminClassMetricsPageData(
     const instructorName =
       instructorNameBySessionId.get(session.id) ?? "Unassigned";
     const scheduleLabel = buildScheduleLabel(className, dayLabel, timeLabel);
-    const sessionStarted = session.starts_at < nowIso;
 
     if (!slotAggregates.has(slotKey)) {
       slotAggregates.set(slotKey, {
@@ -431,7 +427,6 @@ export async function getAdminClassMetricsPageData(
       continue;
     }
 
-    const sessionStarted = session.starts_at < nowIso;
     const instructorUserId = instructorUserIdBySessionId.get(session.id);
     const instructorName =
       instructorNameBySessionId.get(session.id) ?? "Unassigned";
@@ -466,7 +461,7 @@ export async function getAdminClassMetricsPageData(
       }
     }
 
-    if (isPresent(attendee.attendance_status)) {
+    if (isPresentAttendanceStatus(attendee.attendance_status)) {
       slot.attendanceCount += 1;
 
       if (dayTime) {
@@ -482,7 +477,16 @@ export async function getAdminClassMetricsPageData(
       }
     }
 
-    if (isNoShow(attendee.booking_status, attendee.attendance_status, sessionStarted)) {
+    if (
+      attendee.user_id &&
+      eligibleNoShowStudentUserIds.has(attendee.user_id) &&
+      isNoShow(
+        attendee.booking_status,
+        attendee.attendance_status,
+        session,
+        nowIso,
+      )
+    ) {
       totalNoShows += 1;
       slot.noShowCount += 1;
 

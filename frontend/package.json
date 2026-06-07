@@ -14,6 +14,7 @@
     "test:grade-awards": "npx --yes tsx --test src/lib/admin-belt-promotion.shared.test.ts",
     "test:grade-award-delete": "npx --yes tsx --test src/lib/admin-grade-award.shared.test.ts",
     "test:class-session-schedule": "npx --yes tsx --test src/lib/class-session-schedule.test.ts",
+    "test:class-metrics": "npx --yes tsx --test src/lib/admin-class-metrics.shared.test.ts",
     "test:london-datetime": "npx --yes tsx --test src/lib/london-datetime.test.ts",
     "verify:london-migrations": "node scripts/verify-london-recurring-migrations.mjs",
     "repair:london-sessions": "node scripts/repair-london-timetable-sessions.mjs"

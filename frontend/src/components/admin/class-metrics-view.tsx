@@ -193,7 +193,7 @@ export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
 
       <MetricsSection
         title="No-show tracking"
-        description="Students who booked but were not marked present for a session that has already started."
+        description="Students who booked but were not marked present after the class ended and the register completion window passed."
       >
         {data.noShowStudents.length === 0 ? (
           <EmptyState message="No no-shows recorded in this period." />
