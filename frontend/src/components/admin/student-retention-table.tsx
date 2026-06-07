@@ -160,6 +160,8 @@ export function StudentRetentionTable({ rows }: StudentRetentionTableProps) {
                 <td className="px-3 py-3">
                   <Link
                     href={row.profileHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={retentionStudentProfileLinkClassName}
                     title={`View profile for ${row.fullName}`}
                     aria-label={`View profile for ${row.fullName}`}
