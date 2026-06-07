@@ -39,6 +39,11 @@ export interface LoadClassScheduleSessionsOptions {
   activeClassesOnly?: boolean;
   /** When set, only sessions for classes belonging to this club are returned. */
   clubId?: string;
+  /**
+   * When false, skip best-effort recurring horizon fill (read-only list views).
+   * Defaults to true for admin and public booking paths.
+   */
+  ensureRecurringSessions?: boolean;
 }
 
 export function isValidScheduleStartsAt(

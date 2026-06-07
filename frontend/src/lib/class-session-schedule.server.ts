@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import {
   countsAsAttendanceRegisterStudent,
 } from "@/lib/attendance-register-booking.shared";
@@ -15,7 +16,9 @@ import type {
   LoadClassScheduleSessionsOptions,
 } from "@/lib/class-session-schedule";
 import { resolveSessionLocationFromRow } from "@/lib/class-session-schedule";
-import { ensureClubRecurringFutureSessions } from "@/lib/ensure-club-recurring-sessions.server";
+import {
+  ensureClubRecurringFutureSessions,
+} from "@/lib/ensure-club-recurring-sessions.server";
 import { fetchSessionAttendeesForScheduleCounts } from "@/lib/session-attendees.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,8 +53,9 @@ export async function loadClassScheduleSessions(
     includeCancelled = false,
     activeClassesOnly = false,
     clubId,
+    ensureRecurringSessions = true,
   } = options;
-  if (clubId) {
+  if (clubId && ensureRecurringSessions) {
     await ensureClubRecurringFutureSessions(clubId);
   }
 

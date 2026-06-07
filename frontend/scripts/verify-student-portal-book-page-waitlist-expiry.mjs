@@ -61,6 +61,11 @@ assert(
 );
 
 assert(
+  bookingLoader.includes("ensureRecurringSessions: false"),
+  "Book page skips recurring session generation on read",
+);
+
+assert(
   waitlistServer.includes("await processExpiredWaitlistOffersForSession(sessionId);"),
   "Accept/decline waitlist paths still process expiry for the target session",
 );

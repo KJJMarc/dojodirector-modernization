@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
 import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -7,7 +8,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 /** Regenerate when an active schedule has no upcoming sessions (e.g. after orphan cleanup). */
 const MIN_FUTURE_SESSIONS_PER_ACTIVE_SCHEDULE = 1;
 
-export async function ensureClubRecurringFutureSessions(clubId: string) {
+export const ensureClubRecurringFutureSessions = cache(
+  async function ensureClubRecurringFutureSessions(clubId: string) {
   const supabase = getSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 
@@ -51,4 +53,5 @@ export async function ensureClubRecurringFutureSessions(clubId: string) {
       // Best-effort horizon fill; booking paths surface generation errors explicitly.
     }
   }
-}
+  },
+);

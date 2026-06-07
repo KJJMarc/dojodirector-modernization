@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { hasAcceptedCurrentStudentAgreements } from "@/lib/student-portal-agreements.server";
 import {
@@ -21,7 +22,7 @@ export interface StudentPortalPageContext {
   clubContext: Awaited<ReturnType<typeof resolveStudentPortalClubContext>>;
 }
 
-export async function requireStudentPortalPageContext(
+export const requireStudentPortalPageContext = cache(async function requireStudentPortalPageContext(
   clubSlug: string,
   userId: string,
 ): Promise<StudentPortalPageContext> {
@@ -58,7 +59,7 @@ export async function requireStudentPortalPageContext(
     club,
     clubContext,
   };
-}
+});
 
 export async function requireAuthenticatedStudentPortalProfile() {
   const profile = await getAuthenticatedStudentPortalProfile();

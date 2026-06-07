@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import {
   loadStudentBjjFeatureVisibility,
   studentHasActiveBjjProgrammeMembership,
@@ -275,7 +276,7 @@ export async function getStudentPortalBookingsPageData(
   };
 }
 
-export async function getStudentPortalBookPageData(
+export const getStudentPortalBookPageData = cache(async function getStudentPortalBookPageData(
   userId: string,
   clubId: string,
 ): Promise<StudentPortalBookPageData> {
@@ -285,4 +286,4 @@ export async function getStudentPortalBookPageData(
   );
 
   return { bookableSessionGroups };
-}
+});

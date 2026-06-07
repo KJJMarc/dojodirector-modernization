@@ -161,15 +161,24 @@ async function fetchSessionAttendeesForScheduleCounts(sessionIds) {
   return rows;
 }
 
-async function loadClassScheduleSessions({ startIso, endIso, clubId }, timings) {
-  const ensureTimed = await time("ensureClubRecurringFutureSessions", () =>
-    ensureClubRecurringFutureSessions(clubId),
-  );
-  if (timings) {
-    timings.ensureClubRecurringFutureSessions = ensureTimed.ms;
-    timings.ensureDetail = ensureTimed.result;
+async function loadClassScheduleSessions(
+  { startIso, endIso, clubId, ensureRecurringSessions = true },
+  timings,
+) {
+  let ensure = { scheduleCount: 0, rpcCalls: 0 };
+  if (ensureRecurringSessions) {
+    const ensureTimed = await time("ensureClubRecurringFutureSessions", () =>
+      ensureClubRecurringFutureSessions(clubId),
+    );
+    if (timings) {
+      timings.ensureClubRecurringFutureSessions = ensureTimed.ms;
+      timings.ensureDetail = ensureTimed.result;
+    }
+    ensure = ensureTimed.result;
+  } else if (timings) {
+    timings.ensureClubRecurringFutureSessions = 0;
+    timings.ensureDetail = ensure;
   }
-  const ensure = ensureTimed.result;
 
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("class_sessions")
@@ -412,7 +421,10 @@ async function loadStudentPortalBookableSessionGroups(userId, clubId) {
   const [scheduleResult, allowedProgrammeIds] = await Promise.all([
     (async () => {
       const t = await time("loadClassScheduleSessions", () =>
-        loadClassScheduleSessions({ startIso, endIso, clubId }, innerTimings),
+        loadClassScheduleSessions(
+          { startIso, endIso, clubId, ensureRecurringSessions: false },
+          innerTimings,
+        ),
       );
       innerTimings.loadClassScheduleSessions = t.ms;
       innerTimings.scheduleDetail = t.result;

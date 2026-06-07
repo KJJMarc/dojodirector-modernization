@@ -249,6 +249,7 @@ export const loadStudentPortalBookableSessionGroups = cache(
       includeCancelled: false,
       activeClassesOnly: true,
       clubId,
+      ensureRecurringSessions: false,
     }),
     loadStudentActiveProgrammeIdsForBooking(userId, clubId),
   ]);

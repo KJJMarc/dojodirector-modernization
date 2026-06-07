@@ -224,7 +224,10 @@ export function StudentPortalBookClass({
     actionType: PendingAction,
     action: () => Promise<StudentPortalActionResult | void>,
     successText: string,
-    optimisticUpdate?: () => void,
+    options?: {
+      optimisticUpdate?: () => void;
+      refreshAfterSuccess?: boolean;
+    },
   ) => {
     setPendingSessionId(sessionId);
     setPendingAction(actionType);
@@ -234,11 +237,13 @@ export function StudentPortalBookClass({
     startTransition(async () => {
       try {
         const result = await action();
-        optimisticUpdate?.();
+        options?.optimisticUpdate?.();
         setSuccessMessage(
           formatStudentPortalActionSuccessMessage(successText, result),
         );
-        router.refresh();
+        if (options?.refreshAfterSuccess ?? true) {
+          router.refresh();
+        }
       } catch (error) {
         setSuccessMessage(null);
         setErrorMessage(
@@ -259,8 +264,11 @@ export function StudentPortalBookClass({
       "book",
       () => bookClassFromStudentPortal(clubSlug, userId, classSessionId),
       "You are booked for [class].",
-      () => {
-        setSessionGroups((current) => markSessionBooked(current, classSessionId));
+      {
+        optimisticUpdate: () => {
+          setSessionGroups((current) => markSessionBooked(current, classSessionId));
+        },
+        refreshAfterSuccess: false,
       },
     );
   };
@@ -289,8 +297,11 @@ export function StudentPortalBookClass({
       "accept-offer",
       () => acceptWaitlistOfferFromStudentPortal(clubSlug, userId, classSessionId),
       WAITLIST_ACCEPT_SUCCESS_MESSAGE,
-      () => {
-        setSessionGroups((current) => markSessionBooked(current, classSessionId));
+      {
+        optimisticUpdate: () => {
+          setSessionGroups((current) => markSessionBooked(current, classSessionId));
+        },
+        refreshAfterSuccess: false,
       },
     );
   };
