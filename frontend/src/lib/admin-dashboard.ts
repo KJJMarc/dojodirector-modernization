@@ -80,7 +80,7 @@ export async function getAdminDashboardStats(
     presentToday = presentResult.count ?? 0;
   }
 
-  const studentsTotal = await countBjjProgrammeStudents(clubId);
+  const studentsTotal = await countBjjProgrammeStudents(clubId, "active");
 
   return {
     todaysSessions: todaysSessionsCount,

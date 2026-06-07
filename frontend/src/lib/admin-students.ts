@@ -15,14 +15,14 @@ import { BeltLevel } from "@/types/database";
 export type AdminStudentListStatusFilter = "active" | "all" | "paused" | "inactive";
 
 export const DEFAULT_ADMIN_STUDENT_STATUS_FILTER: AdminStudentListStatusFilter =
-  "active";
+  "all";
 
 export const ADMIN_STUDENT_LIST_STATUS_FILTER_OPTIONS: {
   value: AdminStudentListStatusFilter;
   label: string;
 }[] = [
-  { value: "active", label: "Active" },
   { value: "all", label: "All Students" },
+  { value: "active", label: "Active" },
   { value: "paused", label: "Paused" },
   { value: "inactive", label: "Inactive" },
 ];
@@ -127,7 +127,12 @@ export function getNextAdminStudentSortDir(
 export function parseAdminStudentStatusFilter(
   value?: string,
 ): AdminStudentListStatusFilter {
-  if (value === "all" || value === "paused" || value === "inactive") {
+  if (
+    value === "active" ||
+    value === "all" ||
+    value === "paused" ||
+    value === "inactive"
+  ) {
     return value;
   }
 

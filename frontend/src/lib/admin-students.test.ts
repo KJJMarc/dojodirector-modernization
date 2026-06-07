@@ -29,12 +29,13 @@ function buildStudent(overrides: Partial<AdminStudent> = {}): AdminStudent {
 }
 
 describe("parseAdminStudentStatusFilter", () => {
-  it("defaults to active", () => {
-    assert.equal(parseAdminStudentStatusFilter(undefined), "active");
-    assert.equal(parseAdminStudentStatusFilter("unknown"), "active");
+  it("defaults to all students", () => {
+    assert.equal(parseAdminStudentStatusFilter(undefined), "all");
+    assert.equal(parseAdminStudentStatusFilter("unknown"), "all");
   });
 
   it("parses supported filters", () => {
+    assert.equal(parseAdminStudentStatusFilter("active"), "active");
     assert.equal(parseAdminStudentStatusFilter("all"), "all");
     assert.equal(parseAdminStudentStatusFilter("paused"), "paused");
     assert.equal(parseAdminStudentStatusFilter("inactive"), "inactive");
@@ -98,7 +99,7 @@ describe("formatAdminStudentCountLabel", () => {
 });
 
 describe("buildAdminStudentsListHref", () => {
-  it("omits status for the default active filter", () => {
+  it("omits status for the default all-students filter", () => {
     const href = buildAdminStudentsListHref({
       clubSlug: "kingston-jiu-jitsu",
       sort: "last_name",
@@ -109,7 +110,13 @@ describe("buildAdminStudentsListHref", () => {
   });
 
   it("preserves non-default status filters", () => {
-    const href = buildAdminStudentsListHref({
+    const activeHref = buildAdminStudentsListHref({
+      clubSlug: "kingston-jiu-jitsu",
+      sort: "last_name",
+      dir: "asc",
+      statusFilter: "active",
+    });
+    const pausedHref = buildAdminStudentsListHref({
       clubSlug: "kingston-jiu-jitsu",
       sort: "last_name",
       dir: "asc",
@@ -117,8 +124,9 @@ describe("buildAdminStudentsListHref", () => {
       searchQuery: "alex",
     });
 
-    assert.match(href, /status=paused/);
-    assert.match(href, /q=alex/);
+    assert.match(activeHref, /status=active/);
+    assert.match(pausedHref, /status=paused/);
+    assert.match(pausedHref, /q=alex/);
   });
 });
 
