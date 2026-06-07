@@ -14,6 +14,9 @@ interface StudentRetentionTableProps {
   rows: AdminStudentRetentionRow[];
 }
 
+const retentionActionButtonClassName =
+  "whitespace-nowrap rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
+
 function riskBadgeClassName(level: StudentRetentionRiskLevel) {
   switch (level) {
     case "critical":
@@ -177,13 +180,23 @@ export function StudentRetentionTable({ rows }: StudentRetentionTableProps) {
                   </span>
                 </td>
                 <td className="px-3 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setOpenUserId(row.userId)}
-                    className="whitespace-nowrap rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
-                  >
-                    Suggested Actions
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={row.profileHref}
+                      className={retentionActionButtonClassName}
+                      title="Profile"
+                      aria-label="Profile"
+                    >
+                      Profile
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setOpenUserId(row.userId)}
+                      className={retentionActionButtonClassName}
+                    >
+                      Suggested Actions
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
