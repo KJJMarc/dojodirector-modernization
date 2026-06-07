@@ -276,6 +276,41 @@ export interface RecurringScheduleSessionMatchRow {
   is_active?: boolean;
 }
 
+function findMatchingRecurringScheduleId(
+  session: {
+    class_id: string;
+    starts_at: string;
+    external_id: string | null;
+    recurring_schedule_id: string | null;
+    source?: string | null;
+  },
+  schedules: RecurringScheduleSessionMatchRow[],
+  options: { activeOnly: boolean; requireSameClass: boolean },
+): string | null {
+  for (const schedule of schedules) {
+    if (options.activeOnly && schedule.is_active === false) {
+      continue;
+    }
+
+    if (options.requireSameClass && schedule.class_id !== session.class_id) {
+      continue;
+    }
+
+    if (
+      sessionBelongsToRecurringScheduleRow(session, {
+        scheduleId: schedule.id,
+        dayOfWeek: schedule.day_of_week,
+        startTime: schedule.start_time,
+        location: schedule.location,
+      })
+    ) {
+      return schedule.id;
+    }
+  }
+
+  return null;
+}
+
 /** Prefer explicit FK; otherwise match by class, day, time, and location (same rules as admin instructors). */
 export function resolveEffectiveRecurringScheduleId(
   session: {
@@ -293,26 +328,24 @@ export function resolveEffectiveRecurringScheduleId(
   }
 
   const activeOnly = options?.activeOnly ?? false;
+  const sameClassMatch = findMatchingRecurringScheduleId(session, schedules, {
+    activeOnly,
+    requireSameClass: true,
+  });
 
-  for (const schedule of schedules) {
-    if (activeOnly && schedule.is_active === false) {
-      continue;
-    }
+  if (sameClassMatch) {
+    return sameClassMatch;
+  }
 
-    if (schedule.class_id !== session.class_id) {
-      continue;
-    }
+  const classHasSchedules = schedules.some(
+    (schedule) => schedule.class_id === session.class_id,
+  );
 
-    if (
-      sessionBelongsToRecurringScheduleRow(session, {
-        scheduleId: schedule.id,
-        dayOfWeek: schedule.day_of_week,
-        startTime: schedule.start_time,
-        location: schedule.location,
-      })
-    ) {
-      return schedule.id;
-    }
+  if (!classHasSchedules) {
+    return findMatchingRecurringScheduleId(session, schedules, {
+      activeOnly,
+      requireSameClass: false,
+    });
   }
 
   return null;

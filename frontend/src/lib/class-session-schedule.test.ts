@@ -118,6 +118,31 @@ describe("resolveEffectiveRecurringScheduleId", () => {
     );
   });
 
+  it("matches a manual session on a duplicate class when that class has no schedules", () => {
+    const thursdayAllLevelsSchedule = {
+      id: "schedule-thu-all-levels",
+      class_id: "class-all-levels-jiu-jitsu",
+      day_of_week: 4,
+      start_time: "20:00",
+      location: "Tiffin Sport",
+      is_active: true,
+    };
+    const manualSession = {
+      class_id: "class-all-levels-duplicate",
+      starts_at: "2026-05-28T19:00:00+00:00",
+      external_id: null,
+      recurring_schedule_id: null,
+      source: "manual",
+    };
+
+    assert.equal(
+      resolveEffectiveRecurringScheduleId(manualSession, [
+        thursdayAllLevelsSchedule,
+      ]),
+      "schedule-thu-all-levels",
+    );
+  });
+
   it("skips inactive schedules when activeOnly is true", () => {
     assert.equal(
       resolveEffectiveRecurringScheduleId(

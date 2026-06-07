@@ -335,8 +335,7 @@ export async function getAdminClassMetricsPageData(
     supabase
       .from("recurring_class_schedules")
       .select("id, class_id, day_of_week, start_time, location, is_active")
-      .eq("club_id", clubId)
-      .in("class_id", classIds),
+      .eq("club_id", clubId),
   ]);
 
   if (attendeesResult.error) {
