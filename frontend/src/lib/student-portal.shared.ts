@@ -41,7 +41,6 @@ export interface StudentPortalUpcomingBooking {
   startsAt: string;
   endsAt: string | null;
   locationLabel: string;
-  instructorName: string | null;
   bookingStatus: string;
   dateLabel: string;
   timeLabel: string;

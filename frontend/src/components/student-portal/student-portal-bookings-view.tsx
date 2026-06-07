@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cancelClassBookingFromStudentPortal } from "@/app/student-portal/[clubSlug]/[userId]/actions";
 import { resolveStudentPortalActionClassName } from "@/lib/student-portal-action-result.shared";
+import type { StudentPortalBookingsPageData } from "@/lib/student-portal.shared";
 
 const CANCEL_BOOKING_BUTTON_CLASS =
   "inline-flex min-h-[32px] items-center justify-center rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-green-500 transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60";
@@ -11,20 +12,7 @@ const CANCEL_BOOKING_BUTTON_CLASS =
 interface StudentPortalBookingsViewProps {
   clubSlug: string;
   userId: string;
-  pageData: {
-    upcomingBookings: Array<{
-      id: string;
-      classSessionId: string;
-      className: string;
-      locationLabel: string;
-      instructorName: string | null;
-      bookingStatus: string;
-      dateLabel: string;
-      timeLabel: string;
-      canCancelBooking: boolean;
-      cancelBlockedMessage: string | null;
-    }>;
-  };
+  pageData: StudentPortalBookingsPageData;
 }
 
 export function StudentPortalBookingsView({
@@ -119,9 +107,6 @@ export function StudentPortalBookingsView({
                   </p>
                   <p className="text-sm leading-snug text-dojo-muted">
                     {booking.locationLabel}
-                  </p>
-                  <p className="text-sm leading-snug text-dojo-muted">
-                    Instructor: {booking.instructorName ?? "TBC"}
                   </p>
                 </div>
 

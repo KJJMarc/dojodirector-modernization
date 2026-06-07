@@ -13,10 +13,7 @@ import {
 } from "@/lib/class-session-schedule";
 import { getStudentAttendanceCardData } from "@/lib/attendance-card.server";
 import { getStudentAgreementStatus } from "@/lib/student-portal-agreements.server";
-import {
-  loadInstructorNameBySessionId,
-  loadStudentPortalBookableSessionGroups,
-} from "@/lib/student-portal-booking.server";
+import { loadStudentPortalBookableSessionGroups } from "@/lib/student-portal-booking.server";
 import { formatPortalBookingStatus } from "@/lib/student-portal-format.shared";
 import type {
   StudentPortalAttendancePageData,
@@ -131,9 +128,7 @@ async function loadStudentUpcomingBookings(
     throw new Error(`Failed to load upcoming bookings: ${error.message}`);
   }
 
-  const pendingBookings: Array<
-    StudentPortalUpcomingBooking & { classSessionId: string }
-  > = [];
+  const bookings: StudentPortalUpcomingBooking[] = [];
 
   for (const row of (data ?? []) as unknown as SessionAttendeeBookingRow[]) {
     const session = normalizeClassSession(row.class_sessions);
@@ -152,14 +147,13 @@ async function loadStudentUpcomingBookings(
       attendanceStatus: row.attendance_status,
     });
 
-    pendingBookings.push({
+    bookings.push({
       id: row.id,
       classSessionId: session.id,
       className: resolveClassName(session.classes),
       startsAt: session.starts_at,
       endsAt: session.ends_at,
       locationLabel: resolveSessionLocationFromRow(session) ?? "Location TBC",
-      instructorName: null,
       bookingStatus: formatBookingStatusLabel(row.booking_status),
       dateLabel: formatSessionDateLabelForDisplay({
         startsAt: session.starts_at,
@@ -177,19 +171,6 @@ async function loadStudentUpcomingBookings(
       ),
     });
   }
-
-  const instructorNameBySessionId = await loadInstructorNameBySessionId(
-    clubId,
-    pendingBookings.map((booking) => booking.classSessionId),
-  );
-
-  const bookings: StudentPortalUpcomingBooking[] = pendingBookings.map(
-    (booking) => ({
-      ...booking,
-      instructorName:
-        instructorNameBySessionId.get(booking.classSessionId) ?? null,
-    }),
-  );
 
   return bookings.sort(
     (left, right) =>
