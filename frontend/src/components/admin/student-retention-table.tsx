@@ -14,7 +14,10 @@ interface StudentRetentionTableProps {
   rows: AdminStudentRetentionRow[];
 }
 
-const retentionActionButtonClassName =
+const retentionStudentProfileLinkClassName =
+  "font-medium text-dojo-white underline-offset-2 transition hover:text-dojo-red hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dojo-red";
+
+const retentionSuggestedActionsButtonClassName =
   "whitespace-nowrap rounded-md border border-dojo-border bg-dojo-elevated px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
 
 function riskBadgeClassName(level: StudentRetentionRiskLevel) {
@@ -154,10 +157,12 @@ export function StudentRetentionTable({ rows }: StudentRetentionTableProps) {
           <tbody className="divide-y divide-dojo-border">
             {rows.map((row) => (
               <tr key={row.userId} className="text-dojo-white">
-                <td className="px-3 py-3 font-medium">
+                <td className="px-3 py-3">
                   <Link
                     href={row.profileHref}
-                    className="text-dojo-white transition hover:text-dojo-red"
+                    className={retentionStudentProfileLinkClassName}
+                    title={`View profile for ${row.fullName}`}
+                    aria-label={`View profile for ${row.fullName}`}
                   >
                     {row.fullName}
                   </Link>
@@ -180,23 +185,13 @@ export function StudentRetentionTable({ rows }: StudentRetentionTableProps) {
                   </span>
                 </td>
                 <td className="px-3 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={row.profileHref}
-                      className={retentionActionButtonClassName}
-                      title="Profile"
-                      aria-label="Profile"
-                    >
-                      Profile
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setOpenUserId(row.userId)}
-                      className={retentionActionButtonClassName}
-                    >
-                      Suggested Actions
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpenUserId(row.userId)}
+                    className={retentionSuggestedActionsButtonClassName}
+                  >
+                    Suggested Actions
+                  </button>
                 </td>
               </tr>
             ))}
