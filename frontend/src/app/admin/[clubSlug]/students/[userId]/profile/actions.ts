@@ -7,7 +7,11 @@ import {
   adminUpdateMembershipStatus,
 } from "@/lib/admin-student-membership.server";
 import { revalidateMembershipAdminPaths } from "@/lib/admin-revalidate.server";
-import { clubAdminPath, parseClubSlugFromForm } from "@/lib/clubs.shared";
+import {
+  clubAdminPath,
+  KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
+  parseClubSlugFromForm,
+} from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import {
   sendInstructorPortalInvite,
@@ -22,6 +26,8 @@ import {
   updateStudentProgrammeBookingAccess,
   updateStudentProgrammeMemberships,
 } from "@/lib/admin-programmes.server";
+import { adminMigrateKidsStudentToAdultProgramme } from "@/lib/admin-migrate-kids-to-adult.server";
+import { revalidateStudentAdminPaths } from "@/lib/admin-revalidate.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function isInstructorFacingRole(role: string | null | undefined) {
@@ -238,6 +244,52 @@ export async function updateStudentProgrammeAccessAction(
 export type DeleteStudentActionResult =
   | { success: true }
   | { success: false; error: string };
+
+export type MigrateKidsToAdultProgrammeActionResult =
+  | { success: true; redirectHref: string }
+  | { success: false; error: string };
+
+export async function migrateKidsStudentToAdultProgrammeAction(
+  clubSlug: string,
+  userId: string,
+): Promise<MigrateKidsToAdultProgrammeActionResult> {
+  try {
+    await requireAdminAccessForClubSlug(clubSlug);
+    const club = await requireClubBySlug(clubSlug);
+    const result = await adminMigrateKidsStudentToAdultProgramme({
+      userId,
+      kidsClubId: club.id,
+    });
+
+    revalidateStudentAdminPaths(KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG, userId);
+    revalidateStudentAdminPaths(result.adultClubSlug, userId);
+
+    const redirectHref = `${clubAdminPath(
+      result.adultClubSlug,
+      `students/${userId}/profile`,
+    )}?migrated=1${result.portalInviteSent ? "&portalInvite=1" : ""}`;
+
+    return { success: true, redirectHref };
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    console.error("[migrateKidsStudentToAdultProgrammeAction] failed", {
+      clubSlug,
+      userId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unable to migrate student to the adult programme.",
+    };
+  }
+}
 
 export async function deleteStudentAction(
   formData: FormData,

@@ -20,6 +20,7 @@ import {
   parseProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import type { AdminStudentProfilePageData } from "@/lib/admin-student-profile.shared";
+import { resolveKidsToAdultMigrationEligibility } from "@/lib/admin-migrate-kids-to-adult.server";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import {
@@ -273,8 +274,15 @@ export async function getAdminStudentProfilePageData(
       })
     : null;
   const leadSource = resolveAdminStudentLeadSource(user.original_lead_source);
+  const kidsToAdultMigration = await resolveKidsToAdultMigrationEligibility({
+    userId,
+    clubId,
+    membershipRole: membership.role,
+    membershipStatus: membership.status,
+  });
 
   return {
+    kidsToAdultMigration,
     leadSource: {
       sourceLabel: leadSource.originalLeadSourceLabel,
     },

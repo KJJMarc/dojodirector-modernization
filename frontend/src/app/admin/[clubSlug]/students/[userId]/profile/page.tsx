@@ -13,6 +13,10 @@ export const dynamic = "force-dynamic";
 
 interface ClubStudentProfilePageProps {
   params: { clubSlug: string; userId: string };
+  searchParams: {
+    migrated?: string;
+    portalInvite?: string;
+  };
 }
 
 export async function generateMetadata({
@@ -28,6 +32,7 @@ export async function generateMetadata({
 
 export default async function ClubStudentProfilePage({
   params,
+  searchParams,
 }: ClubStudentProfilePageProps) {
   const club = await requireClubBySlug(params.clubSlug);
   let pageData;
@@ -52,6 +57,18 @@ export default async function ClubStudentProfilePage({
           ← Back to BJJ Students
         </Link>
       </AdminNavLinks>
+
+      {searchParams.migrated === "1" ? (
+        <p
+          className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-dojo-white"
+          role="status"
+        >
+          Student migrated to Kingston Jiu Jitsu successfully.
+          {searchParams.portalInvite === "1"
+            ? " A student portal invite email has been sent."
+            : " Adult student portal access is active."}
+        </p>
+      ) : null}
 
       <StudentProfileView clubSlug={club.slug} pageData={pageData} />
     </main>

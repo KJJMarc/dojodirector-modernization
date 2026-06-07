@@ -134,7 +134,11 @@ export function StudentProfileView({
         </dl>
       </section>
 
-      <StudentProfileMembershipManager clubSlug={clubSlug} student={student} />
+      <StudentProfileMembershipManager
+        clubSlug={clubSlug}
+        student={student}
+        kidsToAdultMigration={pageData.kidsToAdultMigration}
+      />
 
       <StudentProgrammeAccessPanel
         clubSlug={clubSlug}

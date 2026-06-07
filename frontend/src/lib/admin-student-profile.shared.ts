@@ -1,5 +1,6 @@
 import type { BeltPromotionAssessment } from "@/lib/admin-belt-promotion.shared";
 import { formatMembershipStatusLabel } from "@/lib/membership-status.shared";
+import type { KidsToAdultMigrationEligibility } from "@/lib/admin-migrate-kids-to-adult.shared";
 import type { StudentBjjFeatureVisibility } from "@/lib/admin-programmes.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import type { SignatoryType } from "@/lib/student-portal-agreements.shared";
@@ -131,6 +132,7 @@ export interface AdminStudentProfileLeadSourceSummary {
 }
 
 export interface AdminStudentProfilePageData {
+  kidsToAdultMigration: KidsToAdultMigrationEligibility;
   student: AdminStudentProfileDetails;
   leadSource: AdminStudentProfileLeadSourceSummary;
   loginAccess: ProfileLoginAccessSummary;

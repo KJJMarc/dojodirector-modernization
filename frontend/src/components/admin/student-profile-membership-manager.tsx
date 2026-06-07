@@ -7,6 +7,7 @@ import {
   updateMembershipRoleAction,
   updateMembershipStatusAction,
 } from "@/app/admin/[clubSlug]/students/[userId]/profile/actions";
+import { MigrateToAdultProgrammePanel } from "@/components/admin/migrate-to-adult-programme-panel";
 import {
   ProfileDetailItem,
   ProfileSectionHeading,
@@ -21,6 +22,7 @@ import {
   type ProfileMembershipStatusValue,
 } from "@/lib/admin-student-membership.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
+import type { KidsToAdultMigrationEligibility } from "@/lib/admin-migrate-kids-to-adult.shared";
 import {
   formatMembershipStatus,
   type AdminStudentProfileDetails,
@@ -29,6 +31,7 @@ import {
 interface StudentProfileMembershipManagerProps {
   clubSlug: string;
   student: AdminStudentProfileDetails;
+  kidsToAdultMigration: KidsToAdultMigrationEligibility;
 }
 
 const fieldClassName =
@@ -43,6 +46,7 @@ const saveButtonClassName =
 export function StudentProfileMembershipManager({
   clubSlug,
   student,
+  kidsToAdultMigration,
 }: StudentProfileMembershipManagerProps) {
   const router = useRouter();
   const [isRolePending, startRoleTransition] = useTransition();
@@ -228,6 +232,14 @@ export function StudentProfileMembershipManager({
           </p>
         ) : null}
       </section>
+
+      <MigrateToAdultProgrammePanel
+        clubSlug={clubSlug}
+        userId={student.id}
+        studentName={student.fullName}
+        canMigrate={kidsToAdultMigration.canMigrate}
+        disabledReason={kidsToAdultMigration.disabledReason}
+      />
 
       <section className="space-y-2 rounded-xl border border-dojo-red/40 bg-dojo-red/5 p-3">
         <ProfileSectionHeading
