@@ -36,3 +36,22 @@ FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
   AND p.proname = 'generate_recurring_class_sessions';
+
+-- 6) timestamptz overload exists for generate_series slot_day compatibility
+SELECT EXISTS (
+  SELECT 1
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  JOIN pg_type t0 ON t0.oid = ANY (p.proargtypes)
+  WHERE n.nspname = 'public'
+    AND p.proname = 'london_wall_clock_to_timestamptz'
+    AND pg_get_function_identity_arguments(p.oid) LIKE '%timestamp with time zone%'
+) AS london_wall_clock_timestamptz_overload_exists;
+
+-- 7) generate_recurring_class_sessions casts slot_day to date
+SELECT pg_get_functiondef(p.oid) LIKE '%slot_day::date%'
+  AS generate_casts_slot_day_to_date
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'generate_recurring_class_sessions';

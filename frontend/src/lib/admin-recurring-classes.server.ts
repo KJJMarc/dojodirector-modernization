@@ -14,6 +14,7 @@ import type {
   UpdateRecurringClassInput,
 } from "@/lib/admin-recurring-classes.input";
 import { sessionBelongsToRecurringScheduleRow } from "@/lib/class-session-schedule";
+import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type { RecurringClassScheduleRow, CreateRecurringClassInput };
@@ -417,17 +418,16 @@ export async function createRecurringClassSchedule(
   }
 
   if (input.isActive ?? true) {
-    const { error: generateError } = await supabase.rpc(
-      "generate_recurring_class_sessions",
-      {
-        p_schedule_id: scheduleId,
-        p_days_ahead: RECURRING_CLASS_SESSION_DAYS_AHEAD,
-      },
-    );
-
-    if (generateError) {
+    try {
+      await generateRecurringClassSessions(
+        scheduleId,
+        RECURRING_CLASS_SESSION_DAYS_AHEAD,
+      );
+    } catch (error) {
       throw new Error(
-        `Recurring class created but session generation failed: ${generateError.message}`,
+        `Recurring class created but session generation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       );
     }
   }

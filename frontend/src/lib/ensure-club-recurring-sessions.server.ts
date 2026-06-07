@@ -1,6 +1,7 @@
 import "server-only";
 
 import { RECURRING_CLASS_SESSION_DAYS_AHEAD } from "@/lib/admin-recurring-classes.shared";
+import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** Regenerate when an active schedule has no upcoming sessions (e.g. after orphan cleanup). */
@@ -32,9 +33,13 @@ export async function ensureClubRecurringFutureSessions(clubId: string) {
       continue;
     }
 
-    await supabase.rpc("generate_recurring_class_sessions", {
-      p_schedule_id: schedule.id,
-      p_days_ahead: RECURRING_CLASS_SESSION_DAYS_AHEAD,
-    });
+    try {
+      await generateRecurringClassSessions(
+        schedule.id,
+        RECURRING_CLASS_SESSION_DAYS_AHEAD,
+      );
+    } catch {
+      // Best-effort horizon fill; booking paths surface generation errors explicitly.
+    }
   }
 }

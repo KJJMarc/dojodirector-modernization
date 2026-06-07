@@ -23,6 +23,7 @@ import {
   getLondonTodayDateKey,
   londonLocalDateTimeToUtcIso,
 } from "@/lib/london-datetime";
+import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   getRecurringBlockBookingMaxEndDate,
@@ -254,13 +255,13 @@ async function tryEnsureRecurringScheduleFutureSessions(
   let generationError: string | null = null;
 
   while (canonicalSessions.length < sessionCount && daysAhead <= 420) {
-    const { error } = await supabase.rpc("generate_recurring_class_sessions", {
-      p_schedule_id: scheduleId,
-      p_days_ahead: daysAhead,
-    });
-
-    if (error) {
-      generationError = `Unable to generate recurring sessions: ${error.message}`;
+    try {
+      await generateRecurringClassSessions(scheduleId, daysAhead);
+    } catch (error) {
+      generationError =
+        error instanceof Error
+          ? error.message
+          : "Unable to generate recurring sessions.";
       break;
     }
 
@@ -337,17 +338,21 @@ async function ensureRecurringScheduleSessionsThroughDate(
     RECURRING_CLASS_SESSION_DAYS_AHEAD,
   );
 
-  const { error } = await supabase.rpc("generate_recurring_class_sessions", {
-    p_schedule_id: scheduleId,
-    p_days_ahead: daysAhead,
-  });
+  let generationError: string | null = null;
+
+  try {
+    await generateRecurringClassSessions(scheduleId, daysAhead);
+  } catch (error) {
+    generationError =
+      error instanceof Error ? error.message : "Session generation failed.";
+  }
 
   const sessions = await loadFutureSessionsForRecurringSchedule(schedule, endIso);
 
   if (sessions.length === 0) {
-    if (error) {
+    if (generationError) {
       throw new Error(
-        `No future sessions are scheduled for this class. Session generation failed: ${error.message}`,
+        `No future sessions are scheduled for this class. Session generation failed: ${generationError}`,
       );
     }
 

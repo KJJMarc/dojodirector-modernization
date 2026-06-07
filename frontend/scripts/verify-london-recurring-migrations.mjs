@@ -169,12 +169,16 @@ async function main() {
     console.error(
       "\nApply migrations:\n" +
         "  supabase/migrations/20260602150000_fix_london_recurring_session_generation.sql\n" +
-        "  supabase/migrations/20260602170000_recurring_session_generation_one_year.sql",
+        "  supabase/migrations/20260602170000_recurring_session_generation_one_year.sql\n" +
+        "  supabase/migrations/20260608130000_fix_london_wall_clock_generate_recurring_date_cast.sql",
     );
     process.exit(1);
   }
 
   console.log("\nAll London recurring migration checks passed.");
+  console.log(
+    "For Kids Saturday generation, also run: node frontend/scripts/verify-kids-saturday-recurring-generation.mjs",
+  );
 }
 
 main().catch((error) => {
