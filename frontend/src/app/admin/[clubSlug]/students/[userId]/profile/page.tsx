@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { StudentProfileView } from "@/components/admin/student-profile-view";
 import { AppHeader } from "@/components/layout/app-header";
 import { getAdminStudentProfilePageData } from "@/lib/admin-student-profile.server";
+import { MIGRATION_PORTAL_INVITE_FAILED_MESSAGE } from "@/lib/admin-migrate-kids-to-adult.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -16,6 +17,7 @@ interface ClubStudentProfilePageProps {
   searchParams: {
     migrated?: string;
     portalInvite?: string;
+    portalInviteFailed?: string;
   };
 }
 
@@ -59,16 +61,22 @@ export default async function ClubStudentProfilePage({
       </AdminNavLinks>
 
       {searchParams.migrated === "1" ? (
-        <p
-          className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-dojo-white"
-          role="status"
-        >
-          Student migrated to Kingston Jiu Jitsu successfully. Attendance and grading
-          history have been preserved.
-          {searchParams.portalInvite === "1"
-            ? " A student portal invite email has been sent."
-            : " Adult student portal access is active."}
-        </p>
+        <div className="space-y-2" role="status">
+          <p className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-dojo-white">
+            Student migrated to Kingston Jiu Jitsu successfully. Attendance and grading
+            history have been preserved.
+            {searchParams.portalInvite === "1"
+              ? " A student portal invite email has been sent."
+              : searchParams.portalInviteFailed !== "1"
+                ? " Adult student portal access is active."
+                : null}
+          </p>
+          {searchParams.portalInviteFailed === "1" ? (
+            <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-dojo-white">
+              {MIGRATION_PORTAL_INVITE_FAILED_MESSAGE}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <StudentProfileView clubSlug={club.slug} pageData={pageData} />

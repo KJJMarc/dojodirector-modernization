@@ -48,6 +48,7 @@ export interface AdminStudentPortalAccessSummary {
   portalLoginEmail: string | null;
   inviteSentAt: string | null;
   canSetPassword: boolean;
+  canSendInvite: boolean;
 }
 
 export interface AdminInstructorPortalAccessSummary {

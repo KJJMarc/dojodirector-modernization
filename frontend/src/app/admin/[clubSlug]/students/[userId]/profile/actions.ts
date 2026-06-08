@@ -264,10 +264,18 @@ export async function migrateKidsStudentToAdultProgrammeAction(
     revalidateStudentAdminPaths(KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG, userId);
     revalidateStudentAdminPaths(result.adultClubSlug, userId);
 
+    const migrationParams = new URLSearchParams({ migrated: "1" });
+
+    if (result.portalInviteSent) {
+      migrationParams.set("portalInvite", "1");
+    } else if (result.portalInviteError) {
+      migrationParams.set("portalInviteFailed", "1");
+    }
+
     const redirectHref = `${clubAdminPath(
       result.adultClubSlug,
       `students/${userId}/profile`,
-    )}?migrated=1${result.portalInviteSent ? "&portalInvite=1" : ""}`;
+    )}?${migrationParams.toString()}`;
 
     return { success: true, redirectHref };
   } catch (error) {

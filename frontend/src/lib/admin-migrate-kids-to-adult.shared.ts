@@ -1,6 +1,9 @@
 export const MIGRATE_TO_ADULT_PROGRAMME_DIALOG_MESSAGE =
   "This will move this student from Kingston Jiu Jitsu Kids to Kingston Jiu Jitsu and give them adult student portal access. Their attendance card, belt history, grading history and profile data will be preserved.";
 
+export const MIGRATION_PORTAL_INVITE_FAILED_MESSAGE =
+  "Student migrated successfully, but the portal invite could not be sent. Please resend it later.";
+
 export const KIDS_ADULT_MIGRATION_GRADE_AWARD_NOTE_PREFIX = "kids_adult_migration";
 
 export interface KidsToAdultMigrationEligibility {

@@ -321,6 +321,7 @@ export async function getAdminStudentProfilePageData(
       portalLoginEmail: portalAccess.portalLoginEmail,
       inviteSentAt: portalAccess.portalInvitedAt,
       canSetPassword: portalAccess.canSetPassword,
+      canSendInvite: portalAccess.canSendInvite,
     },
     instructorPortalAccess: instructorPortalAccess
       ? (() => {

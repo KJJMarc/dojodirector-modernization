@@ -151,6 +151,8 @@ export function StudentProfileView({
         clubSlug={clubSlug}
         userId={student.id}
         loginAccess={loginAccess}
+        canSendPortalInvite={portalAccess.canSendInvite}
+        portalInviteSentAt={portalAccess.inviteSentAt}
       />
 
       <PortalSetupPanel

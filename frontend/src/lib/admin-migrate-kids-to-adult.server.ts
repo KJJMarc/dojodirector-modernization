@@ -513,15 +513,28 @@ async function ensureAdultStudentPortalAccess(userId: string, adultClubId: strin
   }
 
   if (portalUser.portalAuthStatus === "active" && portalUser.authUserId) {
-    return { portalInviteSent: false };
+    return { portalInviteSent: false, portalInviteError: null };
   }
 
-  await sendStudentPortalInvite({
-    userId,
-    clubId: adultClubId,
-  });
+  try {
+    await sendStudentPortalInvite({
+      userId,
+      clubId: adultClubId,
+    });
 
-  return { portalInviteSent: true };
+    return { portalInviteSent: true, portalInviteError: null };
+  } catch (error) {
+    const portalInviteError =
+      error instanceof Error ? error.message : "Unable to send portal invite.";
+
+    console.error("[ensureAdultStudentPortalAccess] portal invite failed", {
+      userId,
+      adultClubId,
+      message: portalInviteError,
+    });
+
+    return { portalInviteSent: false, portalInviteError };
+  }
 }
 
 export async function resolveKidsToAdultMigrationEligibility(input: {
@@ -631,6 +644,7 @@ export async function adminMigrateKidsStudentToAdultProgramme(input: {
     kidsClubId: kidsClub.id,
     adultClubId: adultClub.id,
     portalInviteSent: portalResult.portalInviteSent,
+    portalInviteError: portalResult.portalInviteError,
     attendanceTransferred: historyTransfer.attendanceTransferred,
     gradeAwardsCopied: historyTransfer.gradeAwardsCopied,
   });
@@ -638,6 +652,7 @@ export async function adminMigrateKidsStudentToAdultProgramme(input: {
   return {
     adultClubSlug: adultClub.slug,
     portalInviteSent: portalResult.portalInviteSent,
+    portalInviteError: portalResult.portalInviteError,
     attendanceTransferred: historyTransfer.attendanceTransferred,
     gradeAwardsCopied: historyTransfer.gradeAwardsCopied,
   };

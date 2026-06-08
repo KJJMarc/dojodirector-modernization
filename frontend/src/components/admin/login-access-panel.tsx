@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setProfileLoginPasswordAction } from "@/app/admin/[clubSlug]/students/[userId]/profile/actions";
+import {
+  sendStudentPortalInviteAction,
+  setProfileLoginPasswordAction,
+} from "@/app/admin/[clubSlug]/students/[userId]/profile/actions";
 import {
   ProfileDetailItem,
   ProfileSectionHeading,
@@ -14,6 +17,8 @@ interface LoginAccessPanelProps {
   clubSlug: string;
   userId: string;
   loginAccess: ProfileLoginAccessSummary;
+  canSendPortalInvite: boolean;
+  portalInviteSentAt: string | null;
 }
 
 const inputClassName =
@@ -26,11 +31,16 @@ export function LoginAccessPanel({
   clubSlug,
   userId,
   loginAccess,
+  canSendPortalInvite,
+  portalInviteSentAt,
 }: LoginAccessPanelProps) {
   const [showForm, setShowForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [inviteSuccessMessage, setInviteSuccessMessage] = useState<string | null>(null);
+  const [inviteErrorMessage, setInviteErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isInvitePending, startInviteTransition] = useTransition();
 
   return (
     <section className={profileSectionClassName}>
@@ -57,6 +67,55 @@ export function LoginAccessPanel({
           value={loginAccess.authLinkedLabel}
         />
       </dl>
+
+      {canSendPortalInvite ? (
+        <div className="space-y-2">
+          <button
+            type="button"
+            disabled={isInvitePending}
+            onClick={() => {
+              setInviteSuccessMessage(null);
+              setInviteErrorMessage(null);
+
+              startInviteTransition(async () => {
+                try {
+                  await sendStudentPortalInviteAction(clubSlug, userId);
+                  setInviteSuccessMessage(
+                    portalInviteSentAt
+                      ? "Portal invite resent."
+                      : "Portal invite sent.",
+                  );
+                } catch (error) {
+                  setInviteErrorMessage(
+                    error instanceof Error
+                      ? error.message
+                      : "Unable to send portal invite.",
+                  );
+                }
+              });
+            }}
+            className="inline-flex min-h-[36px] items-center justify-center rounded-md bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isInvitePending
+              ? "Sending…"
+              : portalInviteSentAt
+                ? "Resend portal invite"
+                : "Send portal invite"}
+          </button>
+
+          {inviteSuccessMessage ? (
+            <p className="rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white">
+              {inviteSuccessMessage}
+            </p>
+          ) : null}
+
+          {inviteErrorMessage ? (
+            <p className="rounded-lg border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-white">
+              {inviteErrorMessage}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {!loginAccess.canSetPassword ? (
         <p className="text-sm leading-snug text-dojo-muted">
