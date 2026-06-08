@@ -29,8 +29,9 @@ export function CancelSessionBookingsManager({
 
   const submitCancelBooking = (
     attendeeId: string,
-    userId: string,
+    userId: string | null,
     studentName: string,
+    isGuest: boolean,
   ) => {
     const confirmed = window.confirm(
       `Cancel booking for ${studentName}? This removes them from the session booking list.`,
@@ -47,7 +48,9 @@ export function CancelSessionBookingsManager({
     formData.set("clubSlug", clubSlug);
     formData.set("attendeeId", attendeeId);
     formData.set("sessionId", session.id);
-    formData.set("userId", userId);
+    if (userId) {
+      formData.set("userId", userId);
+    }
 
     startTransition(async () => {
       try {
@@ -92,10 +95,10 @@ export function CancelSessionBookingsManager({
       <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            BOOKED STUDENTS
+            BOOKED ATTENDEES
           </h3>
           <p className="mt-1 text-xs text-dojo-muted">
-            Cancel a booking to remove the student from this session.
+            Cancel a booking to remove the student or guest from this session.
           </p>
         </div>
 
@@ -117,7 +120,14 @@ export function CancelSessionBookingsManager({
                   className="flex flex-col gap-3 rounded-lg border border-dojo-border bg-dojo-elevated px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-dojo-white">{studentName}</p>
+                    <p className="font-medium text-dojo-white">
+                      {studentName}
+                      {attendee.isGuest ? (
+                        <span className="ml-2 rounded bg-dojo-elevated px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dojo-muted">
+                          Guest
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-dojo-muted">
                       {attendee.email ?? "No email on file"}
                     </p>
@@ -129,7 +139,12 @@ export function CancelSessionBookingsManager({
                     type="button"
                     disabled={isPending}
                     onClick={() =>
-                      submitCancelBooking(attendee.id, attendee.userId, studentName)
+                      submitCancelBooking(
+                        attendee.id,
+                        attendee.userId,
+                        studentName,
+                        attendee.isGuest,
+                      )
                     }
                     className={cancelBookingButtonClassName}
                   >

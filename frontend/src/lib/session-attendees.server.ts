@@ -10,6 +10,7 @@ export interface SessionAttendeeScheduleCountRow {
   class_session_id: string;
   booking_status: string | null;
   user_id: string | null;
+  guest_booking_id: string | null;
 }
 
 type SessionAttendeesSupabaseClient =
@@ -31,10 +32,9 @@ export async function fetchSessionAttendeesForScheduleCounts(
   while (true) {
     const { data, error } = await supabase
       .from("session_attendees")
-      .select("class_session_id, booking_status, user_id")
+      .select("class_session_id, booking_status, user_id, guest_booking_id")
       .in("class_session_id", sessionIds)
       .in("booking_status", [...ATTENDANCE_REGISTER_BOOKING_STATUSES])
-      .not("user_id", "is", null)
       .range(from, from + SUPABASE_PAGE_SIZE - 1);
 
     if (error) {

@@ -102,7 +102,7 @@ export function SessionBookingsManager({
     });
   };
 
-  const submitCancelBooking = (attendeeId: string, userId: string) => {
+  const submitCancelBooking = (attendeeId: string, userId: string | null) => {
     setMessage(null);
     setError(null);
 
@@ -110,7 +110,9 @@ export function SessionBookingsManager({
     formData.set("clubSlug", clubSlug);
     formData.set("attendeeId", attendeeId);
     formData.set("sessionId", session.id);
-    formData.set("userId", userId);
+    if (userId) {
+      formData.set("userId", userId);
+    }
 
     startTransition(async () => {
       try {
@@ -303,7 +305,14 @@ export function SessionBookingsManager({
                       className="border-b border-dojo-border/70 last:border-b-0"
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-dojo-white">{studentName}</div>
+                        <div className="font-medium text-dojo-white">
+                          {studentName}
+                          {attendee.isGuest ? (
+                            <span className="ml-2 rounded bg-dojo-elevated px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dojo-muted">
+                              Guest
+                            </span>
+                          ) : null}
+                        </div>
                         {attendee.email ? (
                           <div className="text-xs text-dojo-muted">{attendee.email}</div>
                         ) : null}
@@ -316,7 +325,7 @@ export function SessionBookingsManager({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          {showAttendanceCard ? (
+                          {showAttendanceCard && attendee.userId ? (
                             <Link
                               href={`/students/${attendee.userId}/attendance-card`}
                               className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"

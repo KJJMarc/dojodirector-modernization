@@ -203,20 +203,24 @@ export async function loadAttendanceKioskPageData(
     isCancelled,
   };
 
-  const bookedAttendees = session.session_attendees.map((attendee) => {
-    const user = Array.isArray(attendee.users)
-      ? attendee.users[0]
-      : attendee.users;
+  const bookedAttendees = session.session_attendees
+    .filter((attendee): attendee is typeof attendee & { user_id: string } =>
+      Boolean(attendee.user_id),
+    )
+    .map((attendee) => {
+      const user = Array.isArray(attendee.users)
+        ? attendee.users[0]
+        : attendee.users;
 
-    return {
-      userId: attendee.user_id,
-      firstName: user?.first_name ?? null,
-      lastName: user?.last_name ?? null,
-      email: user?.email ?? null,
-      attendeeId: attendee.id,
-      isPresent: attendee.attendance_status === "present",
-    };
-  });
+      return {
+        userId: attendee.user_id,
+        firstName: user?.first_name ?? null,
+        lastName: user?.last_name ?? null,
+        email: user?.email ?? null,
+        attendeeId: attendee.id,
+        isPresent: attendee.attendance_status === "present",
+      };
+    });
 
   const eligibleStudents = await getBookingStudentOptions(clubId, {
     programmeType,

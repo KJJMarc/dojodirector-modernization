@@ -10,6 +10,7 @@ import {
   resolveScheduleDateKey,
   resolveSessionLocationFromRow,
 } from "@/lib/class-session-schedule";
+import { cancelGuestBookingRegisterEntry } from "@/lib/guest-booking-session-attendee.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const ACTIVE_BOOKING_STATUSES = ["booked", "waitlisted", "walk_in"] as const;
@@ -152,7 +153,9 @@ export async function adminCancelSessionBookingPreserveAttendance(
 
   const { data, error } = await supabase
     .from("session_attendees")
-    .select("id, booking_status, attendance_status, class_session_id")
+    .select(
+      "id, guest_booking_id, booking_status, attendance_status, class_session_id",
+    )
     .eq("id", attendeeId)
     .maybeSingle();
 
@@ -167,6 +170,18 @@ export async function adminCancelSessionBookingPreserveAttendance(
   if (data.booking_status === "cancelled") {
     return {
       sessionId: data.class_session_id as string,
+    };
+  }
+
+  if (data.guest_booking_id) {
+    const guestResult = await cancelGuestBookingRegisterEntry(attendeeId);
+
+    if (!guestResult) {
+      throw new Error("Guest booking not found.");
+    }
+
+    return {
+      sessionId: guestResult.sessionId,
     };
   }
 

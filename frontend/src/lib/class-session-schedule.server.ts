@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import {
-  countsAsAttendanceRegisterStudent,
+  countsAsAttendanceRegisterAttendee,
 } from "@/lib/attendance-register-booking.shared";
 import {
   getSpacesAvailable,
@@ -175,7 +175,7 @@ export async function loadClassScheduleSessions(
   const bookedCountBySession = new Map<string, number>();
 
   for (const attendee of attendeeRows) {
-    if (!countsAsAttendanceRegisterStudent(attendee)) {
+    if (!countsAsAttendanceRegisterAttendee(attendee)) {
       continue;
     }
 

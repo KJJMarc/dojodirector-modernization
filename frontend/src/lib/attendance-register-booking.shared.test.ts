@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  countsAsAttendanceRegisterAttendee,
   countsAsAttendanceRegisterStudent,
   countsTowardAttendanceRegister,
 } from "./attendance-register-booking.shared.ts";
@@ -34,6 +35,37 @@ describe("countsAsAttendanceRegisterStudent", () => {
     );
     assert.equal(
       countsAsAttendanceRegisterStudent({ booking_status: "waitlisted", user_id: "user-1" }),
+      false,
+    );
+  });
+});
+
+describe("countsAsAttendanceRegisterAttendee", () => {
+  it("includes booked members and guests", () => {
+    assert.equal(
+      countsAsAttendanceRegisterAttendee({
+        booking_status: "booked",
+        user_id: "user-1",
+      }),
+      true,
+    );
+    assert.equal(
+      countsAsAttendanceRegisterAttendee({
+        booking_status: "booked",
+        user_id: null,
+        guest_booking_id: "guest-1",
+      }),
+      true,
+    );
+  });
+
+  it("excludes rows without a member or guest link", () => {
+    assert.equal(
+      countsAsAttendanceRegisterAttendee({
+        booking_status: "booked",
+        user_id: null,
+        guest_booking_id: null,
+      }),
       false,
     );
   });

@@ -6,7 +6,7 @@ import { AttendanceStatus } from "@/types/database";
 
 interface StudentAttendanceCardProps {
   attendeeId: string;
-  userId: string;
+  userId: string | null;
   studentName: string;
   status: AttendanceStatus;
   markAttendanceAction: (formData: FormData) => Promise<void>;

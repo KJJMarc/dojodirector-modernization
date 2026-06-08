@@ -4,6 +4,7 @@ import {
   ATTENDANCE_REGISTER_BOOKING_STATUSES,
 } from "@/lib/attendance-register-booking.shared";
 import { getSessionLocationMap } from "@/lib/booking";
+import { loadGuestBookingProfilesById } from "@/lib/guest-booking-session-attendee.server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { ClassSession, UserProfile } from "@/types/database";
 
@@ -66,7 +67,8 @@ export interface AttendanceSessionDetails {
 interface SessionAttendeeRow {
   id: string;
   class_session_id: string;
-  user_id: string;
+  user_id: string | null;
+  guest_booking_id: string | null;
   booking_status: string | null;
   attendance_status: string | null;
   notes: string | null;
@@ -94,7 +96,7 @@ async function loadSessionAttendeeRegisterRows(
   const { data: attendeeRows, error: attendeesError } = await supabase
     .from("session_attendees")
     .select(
-      "id, class_session_id, user_id, booking_status, attendance_status, notes",
+      "id, class_session_id, user_id, guest_booking_id, booking_status, attendance_status, notes",
     )
     .eq("class_session_id", sessionId)
     .in("booking_status", [...ATTENDANCE_REGISTER_BOOKING_STATUSES]);
@@ -104,17 +106,35 @@ async function loadSessionAttendeeRegisterRows(
   }
 
   const attendees = (attendeeRows ?? []) as SessionAttendeeRow[];
+  const registerAttendees = attendees.filter(
+    (attendee) => attendee.user_id || attendee.guest_booking_id,
+  );
 
-  if (attendees.length === 0) {
+  if (registerAttendees.length === 0) {
     return [];
   }
 
-  const userIds = Array.from(new Set(attendees.map((attendee) => attendee.user_id)));
+  const userIds = Array.from(
+    new Set(
+      registerAttendees
+        .map((attendee) => attendee.user_id)
+        .filter((userId): userId is string => Boolean(userId)),
+    ),
+  );
+  const guestBookingIds = Array.from(
+    new Set(
+      registerAttendees
+        .map((attendee) => attendee.guest_booking_id)
+        .filter((guestBookingId): guestBookingId is string => Boolean(guestBookingId)),
+    ),
+  );
 
-  const { data: userRows, error: usersError } = await supabase
-    .from("users")
-    .select("id, first_name, last_name, email")
-    .in("id", userIds);
+  const [{ data: userRows, error: usersError }, guestBookingById] = await Promise.all([
+    userIds.length > 0
+      ? supabase.from("users").select("id, first_name, last_name, email").in("id", userIds)
+      : Promise.resolve({ data: [], error: null }),
+    loadGuestBookingProfilesById(guestBookingIds),
+  ]);
 
   if (usersError) {
     throw new Error(`Failed to load attendee profiles: ${usersError.message}`);
@@ -124,8 +144,11 @@ async function loadSessionAttendeeRegisterRows(
     ((userRows ?? []) as UserRow[]).map((user) => [user.id, user]),
   );
 
-  const rows: AttendanceRegisterRow[] = attendees.map((attendee) => {
-    const user = userById.get(attendee.user_id);
+  const rows: AttendanceRegisterRow[] = registerAttendees.map((attendee) => {
+    const user = attendee.user_id ? userById.get(attendee.user_id) : null;
+    const guest = attendee.guest_booking_id
+      ? guestBookingById.get(attendee.guest_booking_id)
+      : null;
     const attendanceStatus: AttendanceRegisterRow["attendance_status"] =
       attendee.attendance_status === "present" ||
       attendee.attendance_status === "absent"
@@ -142,9 +165,9 @@ async function loadSessionAttendeeRegisterRows(
       session_attendee_id: attendee.id,
       user_id: attendee.user_id,
       attendance_status: attendanceStatus,
-      first_name: user?.first_name ?? null,
-      last_name: user?.last_name ?? null,
-      email: user?.email ?? null,
+      first_name: user?.first_name ?? guest?.first_name ?? null,
+      last_name: user?.last_name ?? guest?.last_name ?? null,
+      email: user?.email ?? guest?.email ?? null,
     };
   });
 
@@ -163,19 +186,20 @@ function buildSessionFromRows(
   const sessionAttendees: ClassSession["session_attendees"] = [];
 
   for (const row of rows) {
-    if (!row.user_id) {
+    const profileKey = row.user_id ?? row.session_attendee_id ?? row.attendee_id;
+    if (!profileKey) {
       continue;
     }
 
     const user: UserProfile = {
-      id: row.user_id,
+      id: row.user_id ?? profileKey,
       first_name: row.first_name ?? null,
       last_name: row.last_name ?? null,
       email: row.email ?? null,
     };
 
     sessionAttendees.push({
-      id: row.session_attendee_id ?? row.attendee_id ?? `${sessionId}-${row.user_id}`,
+      id: row.session_attendee_id ?? row.attendee_id ?? `${sessionId}-${profileKey}`,
       class_session_id: sessionId,
       user_id: row.user_id,
       attendance_status: row.attendance_status,

@@ -15,7 +15,7 @@ export interface ClassInfo {
 export interface SessionAttendee {
   id: string;
   class_session_id: string;
-  user_id: string;
+  user_id: string | null;
   attendance_status: AttendanceStatus;
   users: UserProfile | UserProfile[] | null;
 }

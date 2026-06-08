@@ -63,7 +63,7 @@ export function SessionAttendanceSection({
             )}
             markAttendanceAction={markAttendanceAction}
             markingDisabled={markingDisabled}
-            showAttendanceCardLink={showAttendanceCardLink}
+            showAttendanceCardLink={showAttendanceCardLink && Boolean(attendee.user_id)}
           />
         ))}
       </div>

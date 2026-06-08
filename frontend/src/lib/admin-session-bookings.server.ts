@@ -23,6 +23,7 @@ import {
   getLondonTodayDateKey,
   londonLocalDateTimeToUtcIso,
 } from "@/lib/london-datetime";
+import { loadGuestBookingProfilesById } from "@/lib/guest-booking-session-attendee.server";
 import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -399,7 +400,8 @@ function buildAdminBookingPayload(bookingStatus: "booked" | "waitlisted") {
 
 interface SessionAttendeeQueryRow {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  guest_booking_id: string | null;
   booking_status: string | null;
   attendance_status: string | null;
   booked_at: string | null;
@@ -466,15 +468,28 @@ async function loadUsersByIds(userIds: string[]): Promise<Map<string, BookingUse
 function mapAttendeeRow(
   row: SessionAttendeeQueryRow,
   userById: Map<string, BookingUserRow>,
+  guestBookingById: Map<
+    string,
+    {
+      first_name: string;
+      last_name: string;
+      email: string;
+    }
+  >,
 ): SessionBookingAttendee {
-  const user = userById.get(row.user_id);
+  const user = row.user_id ? userById.get(row.user_id) : null;
+  const guest = row.guest_booking_id
+    ? guestBookingById.get(row.guest_booking_id)
+    : null;
+  const isGuest = Boolean(row.guest_booking_id);
 
   return {
     id: row.id,
     userId: row.user_id,
-    firstName: user?.first_name ?? null,
-    lastName: user?.last_name ?? null,
-    email: user?.email ?? null,
+    isGuest,
+    firstName: user?.first_name ?? guest?.first_name ?? null,
+    lastName: user?.last_name ?? guest?.last_name ?? null,
+    email: user?.email ?? guest?.email ?? null,
     bookingStatus: row.booking_status ?? "booked",
     attendanceStatus: row.attendance_status,
     bookedAt: row.booked_at,
@@ -546,7 +561,9 @@ export async function getAdminSessionBookingsPageData(
   const [{ data: attendeeRows, error: attendeesError }, counts] = await Promise.all([
     supabase
       .from("session_attendees")
-      .select("id, user_id, booking_status, attendance_status, booked_at")
+      .select(
+        "id, user_id, guest_booking_id, booking_status, attendance_status, booked_at",
+      )
       .eq("class_session_id", sessionId)
       .in("booking_status", ["booked", "waitlisted", "walk_in"]),
     getBookingCounts(sessionId),
@@ -557,10 +574,26 @@ export async function getAdminSessionBookingsPageData(
   }
 
   const attendeeList = (attendeeRows ?? []) as SessionAttendeeQueryRow[];
-  const userIds = Array.from(new Set(attendeeList.map((row) => row.user_id)));
-  const userById = await loadUsersByIds(userIds);
+  const userIds = Array.from(
+    new Set(
+      attendeeList
+        .map((row) => row.user_id)
+        .filter((userId): userId is string => Boolean(userId)),
+    ),
+  );
+  const guestBookingIds = Array.from(
+    new Set(
+      attendeeList
+        .map((row) => row.guest_booking_id)
+        .filter((guestBookingId): guestBookingId is string => Boolean(guestBookingId)),
+    ),
+  );
+  const [userById, guestBookingById] = await Promise.all([
+    loadUsersByIds(userIds),
+    loadGuestBookingProfilesById(guestBookingIds),
+  ]);
   const attendees = sortByAttendanceRegisterName(
-    attendeeList.map((row) => mapAttendeeRow(row, userById)),
+    attendeeList.map((row) => mapAttendeeRow(row, userById, guestBookingById)),
     (attendee) => ({
       firstName: attendee.firstName,
       lastName: attendee.lastName,

@@ -31,7 +31,8 @@ export function getTodayDateInputValue(from = new Date()) {
 
 export interface SessionBookingAttendee {
   id: string;
-  userId: string;
+  userId: string | null;
+  isGuest: boolean;
   firstName: string | null;
   lastName: string | null;
   email: string | null;

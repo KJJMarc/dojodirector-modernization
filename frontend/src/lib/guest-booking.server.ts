@@ -19,7 +19,9 @@ import {
   getGuestBookingAgreementPdfStoragePath,
 } from "@/lib/student-agreement-storage.shared";
 import { sendGuestBookingEmailsAfterBooking } from "@/lib/guest-booking-email.server";
+import { createSessionAttendeeForGuestBooking } from "@/lib/guest-booking-session-attendee.server";
 import { matchGuestBookingToLead } from "@/lib/lead-guest-booking-match.server";
+import { assertClassSessionHasSpaceForBooking } from "@/lib/session-waitlist.server";
 import { uploadGuestBookingAgreementPdf } from "@/lib/student-agreement-storage.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -254,7 +256,9 @@ async function loadClassSessionForGuestBooking(classSessionId: string) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("class_sessions")
-    .select("id, class_id, club_id, starts_at, ends_at, capacity, status, source, external_id")
+    .select(
+      "id, class_id, club_id, starts_at, ends_at, capacity, status, source, external_id",
+    )
     .eq("id", classSessionId)
     .maybeSingle();
 
@@ -292,6 +296,7 @@ async function loadClassSessionForGuestBooking(classSessionId: string) {
   return {
     classSessionId: data.id,
     clubId,
+    capacity: data.capacity,
     className: classRow?.name?.trim() || "Class",
     startsAt: data.starts_at,
     ...buildSessionDisplayLabels({
@@ -369,6 +374,12 @@ export async function submitGuestBooking(
   const agreementContent = await resolveGuestTrainingAgreementContent(clubId);
   const supabase = getSupabaseAdminClient();
 
+  await assertClassSessionHasSpaceForBooking(
+    submission.classSessionId,
+    session.capacity,
+    { skipExpiryProcessing: true },
+  );
+
   const { data: bookingRow, error: insertError } = await supabase
     .from("guest_bookings")
     .insert({
@@ -399,6 +410,17 @@ export async function submitGuestBooking(
 
   if (!bookingId) {
     throw new Error("Unable to save guest booking: missing booking id.");
+  }
+
+  try {
+    await createSessionAttendeeForGuestBooking({
+      guestBookingId: bookingId,
+      sessionId: submission.classSessionId,
+      bookedAt: acceptedAt,
+    });
+  } catch (registerError) {
+    await supabase.from("guest_bookings").delete().eq("id", bookingId);
+    throw registerError;
   }
 
   try {
