@@ -23,7 +23,7 @@ const inputClassName =
   "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
 
 const bulkButtonClassName =
-  "inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover sm:w-auto";
+  "inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover";
 
 export function PortalAccessManager({
   clubSlug,
@@ -105,7 +105,7 @@ export function PortalAccessManager({
         </div>
 
         <div className="space-y-3">
-          <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <button
               type="button"
               onClick={() => openBulkReview("uninvited")}
@@ -118,7 +118,7 @@ export function PortalAccessManager({
             </p>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <button
               type="button"
               onClick={() => openBulkReview("without_access")}
