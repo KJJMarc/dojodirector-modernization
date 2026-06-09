@@ -66,11 +66,7 @@ export function GuestBookingsTable({ clubSlug, bookings }: GuestBookingsTablePro
                 )}
               </td>
               <td className="w-[1%] whitespace-nowrap px-3 py-3">
-                <GuestBookingRowActions
-                  clubSlug={clubSlug}
-                  bookingId={booking.id}
-                  guestName={booking.guestName}
-                />
+                <GuestBookingRowActions clubSlug={clubSlug} bookingId={booking.id} />
               </td>
             </tr>
           ))}
