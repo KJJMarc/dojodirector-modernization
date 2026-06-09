@@ -8,7 +8,6 @@ import { StudentsList } from "@/components/admin/students-list";
 import { ProgrammeManagementUnavailableNotice } from "@/components/admin/programme-management-unavailable-notice";
 import { AppHeader } from "@/components/layout/app-header";
 import {
-  clubProgrammeAdminPath,
   clubProgrammeStudentAreasPath,
   formatProgrammeStudentsLabel,
   programmeStudentsNewAdminPath,
@@ -116,14 +115,6 @@ export default async function ProgrammeStudentsPage({
           >
             ← Back to Student Area
           </Link>
-          {programmesSchemaAvailable ? (
-            <Link
-              href={clubProgrammeAdminPath(club.slug, programme.slug)}
-              className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-            >
-              ← {programme.name} Settings
-            </Link>
-          ) : null}
         </AdminNavLinks>
         {programmesSchemaAvailable ? (
           <div className="flex flex-wrap gap-2">
