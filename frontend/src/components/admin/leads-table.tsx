@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LeadRowActions } from "@/components/admin/lead-row-actions";
 import {
   clubLeadDetailAdminPath,
   formatAdminLeadDate,
@@ -34,6 +35,7 @@ export function LeadsTable({ clubSlug, leads }: LeadsTableProps) {
             <th className="px-3 py-3 font-semibold">Submitted</th>
             <th className="px-3 py-3 font-semibold">Last Activity</th>
             <th className="px-3 py-3 font-semibold">Follow-up</th>
+            <th className="whitespace-nowrap px-3 py-3 font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-dojo-border">
@@ -67,6 +69,13 @@ export function LeadsTable({ clubSlug, leads }: LeadsTableProps) {
                 >
                   {formatLeadFollowUpStatusLabel(lead.followUpStatus)}
                 </span>
+              </td>
+              <td className="w-[1%] whitespace-nowrap px-3 py-3">
+                <LeadRowActions
+                  clubSlug={clubSlug}
+                  leadId={lead.id}
+                  leadName={lead.fullName}
+                />
               </td>
             </tr>
           ))}

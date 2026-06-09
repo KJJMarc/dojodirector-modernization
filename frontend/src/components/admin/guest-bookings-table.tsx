@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GuestBookingRowActions } from "@/components/admin/guest-booking-row-actions";
 import {
   formatAdminGuestBookingDateTime,
   guestBookingAgreementPdfHref,
@@ -33,6 +34,7 @@ export function GuestBookingsTable({ clubSlug, bookings }: GuestBookingsTablePro
             <th className="px-3 py-3 font-semibold">Phone</th>
             <th className="px-3 py-3 font-semibold">Status</th>
             <th className="px-3 py-3 font-semibold">Agreement</th>
+            <th className="whitespace-nowrap px-3 py-3 font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-dojo-border">
@@ -62,6 +64,14 @@ export function GuestBookingsTable({ clubSlug, bookings }: GuestBookingsTablePro
                 ) : (
                   <span className="text-dojo-muted">—</span>
                 )}
+              </td>
+              <td className="w-[1%] whitespace-nowrap px-3 py-3">
+                <GuestBookingRowActions
+                  clubSlug={clubSlug}
+                  bookingId={booking.id}
+                  guestName={booking.guestName}
+                  bookingStatus={booking.bookingStatus}
+                />
               </td>
             </tr>
           ))}

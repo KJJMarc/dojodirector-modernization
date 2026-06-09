@@ -168,3 +168,16 @@ export function revalidateStudentOfTheYearPaths(clubSlug: string) {
     "/student-of-the-year",
   ]);
 }
+
+export function revalidateGuestBookingsPaths(clubSlug: string, sessionId?: string) {
+  revalidateUniquePaths([
+    clubAdminPath(clubSlug, "guest-bookings"),
+    clubBookingPath(clubSlug),
+    "/book",
+  ]);
+
+  if (sessionId) {
+    revalidateManageBookingsPaths(clubSlug, sessionId);
+    revalidateSessionBookingPaths(clubSlug, sessionId);
+  }
+}

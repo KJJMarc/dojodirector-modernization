@@ -24,6 +24,7 @@ interface SupabaseErrorLike {
 
 let leadsTableAvailable: boolean | null = null;
 let leadTrackingColumnsAvailable: boolean | null = null;
+let leadArchivedColumnAvailable: boolean | null = null;
 
 export { LEADS_NOT_CONFIGURED_MESSAGE };
 
@@ -53,6 +54,15 @@ function isMissingLeadTrackingColumnsError(error: SupabaseErrorLike) {
       (message.includes("submitted_at") || message.includes("last_activity_at"))) ||
     (error.code === "PGRST204" &&
       (message.includes("submitted_at") || message.includes("last_activity_at")))
+  );
+}
+
+function isMissingLeadArchivedColumnError(error: SupabaseErrorLike) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return (
+    (error.code === "42703" && message.includes("archived_at")) ||
+    (error.code === "PGRST204" && message.includes("archived_at"))
   );
 }
 
@@ -98,6 +108,30 @@ async function checkLeadTrackingColumnsAvailable() {
 
   leadTrackingColumnsAvailable = !error;
   return leadTrackingColumnsAvailable;
+}
+
+async function checkLeadArchivedColumnAvailable() {
+  if (leadArchivedColumnAvailable !== null) {
+    return leadArchivedColumnAvailable;
+  }
+
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    leadArchivedColumnAvailable = false;
+    return false;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("leads").select("id, archived_at").limit(0);
+
+  if (error && isMissingLeadArchivedColumnError(error)) {
+    leadArchivedColumnAvailable = false;
+    return false;
+  }
+
+  leadArchivedColumnAvailable = !error;
+  return leadArchivedColumnAvailable;
 }
 
 interface LeadInsertRow {
@@ -378,13 +412,24 @@ export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadR
   }
 
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
+  const archivedColumnAvailable = await checkLeadArchivedColumnAvailable();
+  const trackingSelect =
+    "id, full_name, email, phone, programme_interest, experience_level, lead_source, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
+  const activeLeadSelect = archivedColumnAvailable
+    ? `${trackingSelect}, archived_at`
+    : trackingSelect;
+
+  let query = supabase
     .from("leads")
-    .select(
-      "id, full_name, email, phone, programme_interest, experience_level, lead_source, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at",
-    )
+    .select(activeLeadSelect)
     .eq("academy_id", academyId)
     .order("created_at", { ascending: false });
+
+  if (archivedColumnAvailable) {
+    query = query.is("archived_at", null);
+  }
+
+  const { data, error } = await query;
 
   let rows = (data ?? []) as LeadRecordRow[];
 
@@ -739,5 +784,69 @@ export async function deleteLead(input: {
 
   if (error) {
     throw new Error(`Failed to delete lead: ${error.message}`);
+  }
+}
+
+export async function archiveLead(input: {
+  academyId: string;
+  leadId: string;
+}): Promise<void> {
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    throw new Error(LEADS_NOT_CONFIGURED_MESSAGE);
+  }
+
+  const archivedColumnAvailable = await checkLeadArchivedColumnAvailable();
+
+  if (!archivedColumnAvailable) {
+    throw new Error(
+      "Lead archiving is not set up yet. Please run the database migration.",
+    );
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const trackingAvailable = await checkLeadTrackingColumnsAvailable();
+  const { data: existing, error: existingError } = await supabase
+    .from("leads")
+    .select("id, archived_at")
+    .eq("academy_id", input.academyId)
+    .eq("id", input.leadId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(`Failed to load lead: ${existingError.message}`);
+  }
+
+  if (!existing) {
+    throw new Error("Lead not found.");
+  }
+
+  if (existing.archived_at) {
+    return;
+  }
+
+  const updatePayload: {
+    archived_at: string;
+    updated_at?: string;
+    last_activity_at?: string;
+  } = {
+    archived_at: now,
+  };
+
+  if (trackingAvailable) {
+    updatePayload.updated_at = now;
+    updatePayload.last_activity_at = now;
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .update(updatePayload)
+    .eq("academy_id", input.academyId)
+    .eq("id", input.leadId);
+
+  if (error) {
+    throw new Error(`Failed to archive lead: ${error.message}`);
   }
 }

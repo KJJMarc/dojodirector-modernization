@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
-import { createAdminLead, deleteLead, updateLeadAdminRecord } from "@/lib/leads.server";
+import {
+  archiveLead,
+  createAdminLead,
+  deleteLead,
+  updateLeadAdminRecord,
+} from "@/lib/leads.server";
 import {
   clubLeadDetailAdminPath,
   clubLeadNewAdminPath,
@@ -68,6 +73,18 @@ export async function updateLeadAction(input: {
   revalidatePath(clubLeadsAdminPath(club.slug));
   revalidatePath(clubLeadsListAdminPath(club.slug));
   revalidatePath(clubLeadDetailAdminPath(club.slug, input.leadId));
+}
+
+export async function archiveLeadAction(input: { clubSlug: string; leadId: string }) {
+  const { club } = await requireAdminAccessForClubSlug(input.clubSlug);
+
+  await archiveLead({
+    academyId: club.id,
+    leadId: input.leadId,
+  });
+
+  revalidatePath(clubLeadsAdminPath(club.slug));
+  revalidatePath(clubLeadsListAdminPath(club.slug));
 }
 
 export async function deleteLeadAction(input: { clubSlug: string; leadId: string }) {
