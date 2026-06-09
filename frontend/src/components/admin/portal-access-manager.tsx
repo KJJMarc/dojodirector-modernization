@@ -7,21 +7,31 @@ import {
 } from "@/app/admin/[clubSlug]/messaging/portal-access/actions";
 import { PortalAccessEligibleReview } from "@/components/admin/portal-access-eligible-review";
 import { PortalAccessMemberDetails } from "@/components/admin/portal-access-member-details";
-import type { PortalAccessMemberSummary } from "@/lib/portal-access.shared";
+import {
+  PORTAL_ACCESS_BULK_MODE_COPY,
+  type PortalAccessBulkCounts,
+  type PortalAccessBulkMode,
+  type PortalAccessMemberSummary,
+} from "@/lib/portal-access.shared";
 
 interface PortalAccessManagerProps {
   clubSlug: string;
-  eligibleCount: number;
+  bulkCounts: PortalAccessBulkCounts;
 }
 
 const inputClassName =
   "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
 
+const bulkButtonClassName =
+  "inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover sm:w-auto";
+
 export function PortalAccessManager({
   clubSlug,
-  eligibleCount,
+  bulkCounts,
 }: PortalAccessManagerProps) {
-  const [bulkReviewOpen, setBulkReviewOpen] = useState(false);
+  const [bulkReviewMode, setBulkReviewMode] = useState<PortalAccessBulkMode | null>(
+    null,
+  );
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PortalAccessMemberSummary[]>([]);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
@@ -30,9 +40,9 @@ export function PortalAccessManager({
   const [isSearchPending, startSearchTransition] = useTransition();
   const [isIndividualPending, startIndividualTransition] = useTransition();
 
-  const eligibleCountLabel = `${eligibleCount} student${
-    eligibleCount === 1 ? "" : "s"
-  } without portal access`;
+  function openBulkReview(mode: PortalAccessBulkMode) {
+    setBulkReviewMode(mode);
+  }
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,23 +95,44 @@ export function PortalAccessManager({
 
   return (
     <div className="space-y-6">
-      <section className="space-y-2 rounded-xl border border-dojo-border bg-dojo-surface p-4">
+      <section className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-lg font-semibold text-dojo-white">Bulk portal setup</h2>
           <p className="mt-1 text-sm text-dojo-muted">
-            Send setup emails to active students who do not currently have portal access.
+            Send first-time invites to students who have never received a setup email, or
+            resend setup to students who still do not have working portal access.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setBulkReviewOpen(true)}
-          className="inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover sm:w-auto"
-        >
-          Email students without portal access
-        </button>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => openBulkReview("uninvited")}
+              className={bulkButtonClassName}
+            >
+              {PORTAL_ACCESS_BULK_MODE_COPY.uninvited.buttonLabel}
+            </button>
+            <p className="text-sm text-dojo-muted">
+              {PORTAL_ACCESS_BULK_MODE_COPY.uninvited.countLabel(bulkCounts.uninvited)}
+            </p>
+          </div>
 
-        <p className="text-sm text-dojo-muted">{eligibleCountLabel}</p>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => openBulkReview("without_access")}
+              className={bulkButtonClassName}
+            >
+              {PORTAL_ACCESS_BULK_MODE_COPY.without_access.buttonLabel}
+            </button>
+            <p className="text-sm text-dojo-muted">
+              {PORTAL_ACCESS_BULK_MODE_COPY.without_access.countLabel(
+                bulkCounts.withoutAccess,
+              )}
+            </p>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
@@ -175,8 +206,12 @@ export function PortalAccessManager({
 
       <PortalAccessEligibleReview
         clubSlug={clubSlug}
-        open={bulkReviewOpen}
-        onOpenChange={setBulkReviewOpen}
+        mode={bulkReviewMode}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkReviewMode(null);
+          }
+        }}
       />
     </div>
   );

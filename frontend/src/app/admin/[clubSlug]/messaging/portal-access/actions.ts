@@ -7,6 +7,7 @@ import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
 import {
   PORTAL_ACCESS_SEND_CONFIRMATION_TEXT,
   clubPortalAccessPath,
+  type PortalAccessBulkMode,
 } from "@/lib/portal-access.shared";
 import {
   listEligiblePortalAccessMembersForReview,
@@ -32,13 +33,20 @@ export async function searchPortalAccessMembersAction(
   return { members };
 }
 
-export async function loadEligiblePortalAccessMembersAction(clubSlug: string) {
+export async function loadEligiblePortalAccessMembersAction(
+  clubSlug: string,
+  mode: PortalAccessBulkMode,
+) {
   const club = await requireClubBySlug(clubSlug);
   await requireAdminAccessForClubSlug(clubSlug);
 
-  const members = await listEligiblePortalAccessMembersForReview(club.id);
+  if (mode !== "uninvited" && mode !== "without_access") {
+    throw new Error("Invalid portal access bulk mode.");
+  }
 
-  return { members, eligibleCount: members.length };
+  const members = await listEligiblePortalAccessMembersForReview(club.id, mode);
+
+  return { members, eligibleCount: members.length, mode };
 }
 
 export async function sendPortalAccessEmailAction(

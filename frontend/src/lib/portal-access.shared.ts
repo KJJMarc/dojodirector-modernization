@@ -33,7 +33,9 @@ export function isValidPortalSetupEmail(email: string | null | undefined) {
   return Boolean(trimmed && trimmed.includes("@"));
 }
 
-export function isBulkPortalSetupEligible(input: {
+export type PortalAccessBulkMode = "uninvited" | "without_access";
+
+export interface PortalAccessBulkEligibilityInput {
   profileEmail: string | null;
   membershipStatus: string | null;
   portalAuthStatus: string | null;
@@ -42,12 +44,10 @@ export function isBulkPortalSetupEligible(input: {
   instructorPortalInvitedAt?: string | null;
   membershipRole?: string | null;
   hasInstructorPortalMembershipAnywhere?: boolean;
-}) {
-  if (!canAdminSendPortalSetupEmail(input)) {
-    return false;
-  }
+}
 
-  const status = buildPortalSetupAdminStatus({
+function buildPortalSetupEligibilityStatus(input: PortalAccessBulkEligibilityInput) {
+  return buildPortalSetupAdminStatus({
     profileEmail: input.profileEmail,
     portalAuthStatus: input.portalAuthStatus,
     portalInvitedAt: input.portalInvitedAt,
@@ -58,9 +58,85 @@ export function isBulkPortalSetupEligible(input: {
     hasInstructorPortalMembershipAnywhere:
       input.hasInstructorPortalMembershipAnywhere ?? false,
   });
-
-  return status.canSendSetupEmail;
 }
+
+/** Active members who have never been sent a portal setup email. */
+export function isUninvitedPortalSetupEligible(
+  input: PortalAccessBulkEligibilityInput,
+) {
+  if (!canAdminSendPortalSetupEmail(input)) {
+    return false;
+  }
+
+  const status = buildPortalSetupEligibilityStatus(input);
+
+  return status.canSendSetupEmail && status.statusLabel === "Portal setup not sent";
+}
+
+/** Active members without working portal access, including previously invited. */
+export function isWithoutAccessPortalSetupEligible(
+  input: PortalAccessBulkEligibilityInput,
+) {
+  if (!canAdminSendPortalSetupEmail(input)) {
+    return false;
+  }
+
+  return buildPortalSetupEligibilityStatus(input).canSendSetupEmail;
+}
+
+/** @deprecated Use isWithoutAccessPortalSetupEligible */
+export function isBulkPortalSetupEligible(input: PortalAccessBulkEligibilityInput) {
+  return isWithoutAccessPortalSetupEligible(input);
+}
+
+export function isPortalAccessBulkEligible(
+  mode: PortalAccessBulkMode,
+  input: PortalAccessBulkEligibilityInput,
+) {
+  return mode === "uninvited"
+    ? isUninvitedPortalSetupEligible(input)
+    : isWithoutAccessPortalSetupEligible(input);
+}
+
+export const PORTAL_ACCESS_BULK_MODE_COPY: Record<
+  PortalAccessBulkMode,
+  {
+    buttonLabel: string;
+    countLabel: (count: number) => string;
+    title: string;
+    helper: string;
+    listNoun: string;
+    emptyMessage: string;
+    loadingMessage: string;
+    loadErrorMessage: string;
+  }
+> = {
+  uninvited: {
+    buttonLabel: "Email uninvited students",
+    countLabel: (count) =>
+      `${count} uninvited student${count === 1 ? "" : "s"}`,
+    title: "Email uninvited students",
+    helper:
+      "Review active students who have never been sent a portal setup email. Select who should receive their first invite.",
+    listNoun: "uninvited",
+    emptyMessage: "No uninvited active students at this academy right now.",
+    loadingMessage: "Loading uninvited students…",
+    loadErrorMessage: "Unable to load uninvited students.",
+  },
+  without_access: {
+    buttonLabel: "Resend setup to students without access",
+    countLabel: (count) =>
+      `${count} student${count === 1 ? "" : "s"} without portal access`,
+    title: "Resend setup to students without access",
+    helper:
+      "Review active students who still do not have working portal access, including those previously invited. Select who should receive another setup email.",
+    listNoun: "without portal access",
+    emptyMessage:
+      "No active students at this academy need a portal setup email right now.",
+    loadingMessage: "Loading students without portal access…",
+    loadErrorMessage: "Unable to load students without portal access.",
+  },
+};
 
 export function formatPortalAccessMembershipRole(role: string | null | undefined) {
   return formatMembershipInstructorRoleLabel(role);
@@ -93,7 +169,15 @@ export interface PortalAccessMemberSummary {
   /** ISO timestamp for sorting; null when never invited. */
   lastPortalInviteAt: string | null;
   canSendSetupEmail: boolean;
+  isUninvitedEligible: boolean;
+  isWithoutAccessEligible: boolean;
+  /** @deprecated Use isWithoutAccessEligible */
   isBulkEligible: boolean;
+}
+
+export interface PortalAccessBulkCounts {
+  uninvited: number;
+  withoutAccess: number;
 }
 
 export type PortalAccessEligibleSortKey = "name" | "email" | "role" | "last_invite";

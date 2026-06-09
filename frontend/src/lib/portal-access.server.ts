@@ -7,8 +7,11 @@ import {
   formatInstructorPortalStatusLabel,
   formatPortalAccessMembershipRole,
   formatStudentPortalStatusLabel,
-  isBulkPortalSetupEligible,
+  isUninvitedPortalSetupEligible,
+  isWithoutAccessPortalSetupEligible,
   isValidPortalSetupEmail,
+  type PortalAccessBulkCounts,
+  type PortalAccessBulkMode,
   type PortalAccessBulkSendSummary,
   type PortalAccessMemberSummary,
 } from "@/lib/portal-access.shared";
@@ -237,7 +240,7 @@ function buildPortalAccessMemberSummary(input: {
       input.profile.instructor_portal_invited_at,
     ),
     canSendSetupEmail: canSend,
-    isBulkEligible: isBulkPortalSetupEligible({
+    ...buildPortalAccessBulkEligibilityFlags({
       profileEmail: input.profile.email,
       membershipStatus: input.membership.status,
       portalAuthStatus: input.profile.portal_auth_status,
@@ -248,6 +251,26 @@ function buildPortalAccessMemberSummary(input: {
       hasInstructorPortalMembershipAnywhere:
         input.hasInstructorPortalMembershipAnywhere,
     }),
+  };
+}
+
+function buildPortalAccessBulkEligibilityFlags(input: {
+  profileEmail: string | null;
+  membershipStatus: string | null;
+  portalAuthStatus: string | null;
+  portalInvitedAt: string | null;
+  instructorPortalAuthStatus: string | null;
+  instructorPortalInvitedAt: string | null;
+  membershipRole: string | null;
+  hasInstructorPortalMembershipAnywhere: boolean;
+}) {
+  const isUninvitedEligible = isUninvitedPortalSetupEligible(input);
+  const isWithoutAccessEligible = isWithoutAccessPortalSetupEligible(input);
+
+  return {
+    isUninvitedEligible,
+    isWithoutAccessEligible,
+    isBulkEligible: isWithoutAccessEligible,
   };
 }
 
@@ -312,14 +335,55 @@ export async function searchPortalAccessMembers(
   return matches.sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
 
+export async function getPortalAccessBulkCounts(
+  clubId: string,
+): Promise<PortalAccessBulkCounts> {
+  const { memberships, profilesById, membershipByUserId, instructorElsewhereByUserId } =
+    await loadPortalAccessMemberContexts(clubId);
+
+  let uninvited = 0;
+  let withoutAccess = 0;
+
+  for (const membership of memberships) {
+    const profile = profilesById.get(membership.user_id);
+    const clubMembership = membershipByUserId.get(membership.user_id);
+
+    if (!profile || !clubMembership) {
+      continue;
+    }
+
+    const summary = buildPortalAccessMemberSummary({
+      profile,
+      membership: clubMembership,
+      hasInstructorPortalMembershipAnywhere: Boolean(
+        instructorElsewhereByUserId.get(membership.user_id),
+      ),
+    });
+
+    if (summary.isUninvitedEligible) {
+      uninvited += 1;
+    }
+
+    if (summary.isWithoutAccessEligible) {
+      withoutAccess += 1;
+    }
+  }
+
+  return { uninvited, withoutAccess };
+}
+
+/** @deprecated Use getPortalAccessBulkCounts */
 export async function countBulkEligiblePortalAccessMembers(
   clubId: string,
 ): Promise<number> {
-  const eligible = await listBulkEligiblePortalAccessMembers(clubId);
-  return eligible.length;
+  const counts = await getPortalAccessBulkCounts(clubId);
+  return counts.withoutAccess;
 }
 
-export async function listBulkEligiblePortalAccessMembers(clubId: string) {
+export async function listPortalAccessMembersForBulkReview(
+  clubId: string,
+  mode: PortalAccessBulkMode,
+) {
   const { memberships, profilesById, membershipByUserId, instructorElsewhereByUserId } =
     await loadPortalAccessMemberContexts(clubId);
 
@@ -344,7 +408,12 @@ export async function listBulkEligiblePortalAccessMembers(clubId: string) {
       ),
     });
 
-    if (!summary.isBulkEligible) {
+    const matchesMode =
+      mode === "uninvited"
+        ? summary.isUninvitedEligible
+        : summary.isWithoutAccessEligible;
+
+    if (!matchesMode) {
       continue;
     }
 
@@ -354,6 +423,11 @@ export async function listBulkEligiblePortalAccessMembers(clubId: string) {
   return eligible.sort((left, right) =>
     left.summary.fullName.localeCompare(right.summary.fullName),
   );
+}
+
+/** @deprecated Use listPortalAccessMembersForBulkReview */
+export async function listBulkEligiblePortalAccessMembers(clubId: string) {
+  return listPortalAccessMembersForBulkReview(clubId, "without_access");
 }
 
 export async function sendPortalAccessEmailToMember(input: {
@@ -397,8 +471,11 @@ export async function sendPortalAccessEmailToMember(input: {
   });
 }
 
-export async function listEligiblePortalAccessMembersForReview(clubId: string) {
-  const eligible = await listBulkEligiblePortalAccessMembers(clubId);
+export async function listEligiblePortalAccessMembersForReview(
+  clubId: string,
+  mode: PortalAccessBulkMode,
+) {
+  const eligible = await listPortalAccessMembersForBulkReview(clubId, mode);
 
   return eligible.map((row) => row.summary);
 }
@@ -428,7 +505,7 @@ async function sendPortalAccessEmailsToMembers(input: {
   for (let index = 0; index < input.members.length; index += 1) {
     const { summary: member, membership } = input.members[index];
 
-    if (!member.isBulkEligible || !isValidPortalSetupEmail(member.email)) {
+    if (!member.canSendSetupEmail || !isValidPortalSetupEmail(member.email)) {
       summary.skippedCount += 1;
       continue;
     }
@@ -487,7 +564,10 @@ export async function sendSelectedPortalAccessEmails(input: {
     throw new Error("Select at least one student to invite.");
   }
 
-  const eligible = await listBulkEligiblePortalAccessMembers(input.clubId);
+  const eligible = await listPortalAccessMembersForBulkReview(
+    input.clubId,
+    "without_access",
+  );
   const eligibleByUserId = new Map(
     eligible.map((row) => [row.summary.userId, row]),
   );

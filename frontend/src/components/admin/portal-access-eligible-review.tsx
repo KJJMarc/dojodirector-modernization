@@ -11,11 +11,13 @@ import {
 import { PortalAccessEligibleTable } from "@/components/admin/portal-access-eligible-table";
 import {
   DEFAULT_PORTAL_ACCESS_ELIGIBLE_SORT,
+  PORTAL_ACCESS_BULK_MODE_COPY,
   PORTAL_ACCESS_ELIGIBLE_PAGE_SIZE,
   PORTAL_ACCESS_SEND_CONFIRMATION_TEXT,
   filterPortalAccessEligibleMembers,
   paginatePortalAccessEligibleMembers,
   sortPortalAccessEligibleMembers,
+  type PortalAccessBulkMode,
   type PortalAccessBulkSendSummary,
   type PortalAccessEligibleSort,
   type PortalAccessMemberSummary,
@@ -23,7 +25,7 @@ import {
 
 interface PortalAccessEligibleReviewProps {
   clubSlug: string;
-  open: boolean;
+  mode: PortalAccessBulkMode | null;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -63,9 +65,11 @@ function SummaryBanner({ summary }: { summary: PortalAccessBulkSendSummary }) {
 
 export function PortalAccessEligibleReview({
   clubSlug,
-  open,
+  mode,
   onOpenChange,
 }: PortalAccessEligibleReviewProps) {
+  const open = mode !== null;
+  const modeCopy = mode ? PORTAL_ACCESS_BULK_MODE_COPY[mode] : null;
   const [eligibleMembers, setEligibleMembers] = useState<PortalAccessMemberSummary[]>(
     [],
   );
@@ -128,10 +132,11 @@ export function PortalAccessEligibleReview({
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((userId) => selectedIds.has(userId));
 
+  const listNoun = modeCopy?.listNoun ?? "eligible";
   const listCountLabel =
     filterQuery.trim() && filteredMembers.length !== eligibleMembers.length
-      ? `${filteredMembers.length} of ${eligibleMembers.length} without portal access`
-      : `${eligibleMembers.length} without portal access`;
+      ? `${filteredMembers.length} of ${eligibleMembers.length} ${listNoun}`
+      : `${eligibleMembers.length} ${listNoun}`;
 
   const closeReview = useCallback(() => {
     if (!isSendPending && !isInvitePending) {
@@ -155,7 +160,7 @@ export function PortalAccessEligibleReview({
   }, [closeReview, open]);
 
   useEffect(() => {
-    if (!open) {
+    if (!open || !mode) {
       return;
     }
 
@@ -170,7 +175,7 @@ export function PortalAccessEligibleReview({
 
     startLoadTransition(async () => {
       try {
-        const response = await loadEligiblePortalAccessMembersAction(clubSlug);
+        const response = await loadEligiblePortalAccessMembersAction(clubSlug, mode);
         setEligibleMembers(response.members);
         setSelectedIds(new Set());
       } catch (error) {
@@ -178,11 +183,11 @@ export function PortalAccessEligibleReview({
         setLoadError(
           error instanceof Error
             ? error.message
-            : "Unable to load students without portal access.",
+            : (modeCopy?.loadErrorMessage ?? "Unable to load eligible students."),
         );
       }
     });
-  }, [clubSlug, open]);
+  }, [clubSlug, mode, open, modeCopy?.loadErrorMessage]);
 
   function toggleMember(userId: string, checked: boolean) {
     setSelectedIds((current) => {
@@ -213,7 +218,11 @@ export function PortalAccessEligibleReview({
   }
 
   async function refreshEligibleMembers() {
-    const refreshed = await loadEligiblePortalAccessMembersAction(clubSlug);
+    if (!mode) {
+      return;
+    }
+
+    const refreshed = await loadEligiblePortalAccessMembersAction(clubSlug, mode);
     setEligibleMembers(refreshed.members);
     router.refresh();
   }
@@ -287,7 +296,7 @@ export function PortalAccessEligibleReview({
     });
   }
 
-  if (!open || typeof document === "undefined") {
+  if (!open || !mode || !modeCopy || typeof document === "undefined") {
     return null;
   }
 
@@ -306,11 +315,10 @@ export function PortalAccessEligibleReview({
               id="portal-access-bulk-review-title"
               className="break-words text-lg font-semibold text-dojo-white [overflow-wrap:anywhere]"
             >
-              Email students without portal access
+              {modeCopy.title}
             </h2>
             <p className="mt-1 break-words text-sm leading-relaxed text-dojo-muted [overflow-wrap:anywhere]">
-              Review active students who do not currently have portal access. Select who
-              should receive a setup email.
+              {modeCopy.helper}
             </p>
           </div>
           <button
@@ -325,7 +333,7 @@ export function PortalAccessEligibleReview({
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
           {isLoadPending ? (
-            <p className="text-sm text-dojo-muted">Loading students without portal access…</p>
+            <p className="text-sm text-dojo-muted">{modeCopy.loadingMessage}</p>
           ) : null}
 
           {loadError ? (
@@ -336,7 +344,7 @@ export function PortalAccessEligibleReview({
 
           {!isLoadPending && !loadError && eligibleMembers.length === 0 ? (
             <p className="text-sm text-dojo-muted">
-              No active students at this academy need a portal setup email right now.
+              {modeCopy.emptyMessage}
             </p>
           ) : null}
 

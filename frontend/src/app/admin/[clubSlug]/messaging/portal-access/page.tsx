@@ -7,7 +7,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { countBulkEligiblePortalAccessMembers } from "@/lib/portal-access.server";
+import { getPortalAccessBulkCounts } from "@/lib/portal-access.server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function PortalAccessPage({ params }: PortalAccessPageProps
   const club = await requireClubBySlug(params.clubSlug);
   await requireAdminAccessForClubSlug(params.clubSlug);
 
-  const eligibleCount = await countBulkEligiblePortalAccessMembers(club.id);
+  const bulkCounts = await getPortalAccessBulkCounts(club.id);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -43,7 +43,7 @@ export default async function PortalAccessPage({ params }: PortalAccessPageProps
         </Link>
       </AdminNavLinks>
 
-      <PortalAccessManager clubSlug={club.slug} eligibleCount={eligibleCount} />
+      <PortalAccessManager clubSlug={club.slug} bulkCounts={bulkCounts} />
     </main>
   );
 }
