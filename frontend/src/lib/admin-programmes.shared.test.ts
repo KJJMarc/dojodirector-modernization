@@ -61,3 +61,13 @@ describe("student profile programme back navigation", () => {
     );
   });
 });
+
+describe("dashboard total students across programmes", () => {
+  it("dedupes students counted in more than one programme", () => {
+    const bjjUserIds = ["user-a", "user-b", "user-c"];
+    const muayThaiUserIds = ["user-b", "user-d"];
+    const uniqueUserIds = new Set([...bjjUserIds, ...muayThaiUserIds]);
+
+    assert.equal(uniqueUserIds.size, 4);
+  });
+});

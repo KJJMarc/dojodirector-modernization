@@ -1458,6 +1458,34 @@ export async function countActiveProgrammeStudents(
   return userIds.length;
 }
 
+/** Unique active students across all admin-area programmes (e.g. BJJ + Muay Thai). */
+export async function countUniqueActiveProgrammeStudentsForClub(
+  clubId: string,
+): Promise<number> {
+  if (!(await isProgrammesSchemaAvailable())) {
+    return countActiveStudentMemberships(clubId);
+  }
+
+  const rows = await loadProgrammeRowsForClub(clubId, { adminAreaOnly: true });
+  const programmes = rows.map((row) => mapProgrammeRow(row, 0));
+  const uniqueUserIds = new Set<string>();
+
+  await Promise.all(
+    programmes.map(async (programme) => {
+      const userIds = await resolveProgrammeStudentAreaMemberUserIds(
+        clubId,
+        programme,
+      );
+
+      for (const userId of userIds) {
+        uniqueUserIds.add(userId);
+      }
+    }),
+  );
+
+  return uniqueUserIds.size;
+}
+
 async function assertProgrammeBelongsToClub(programmeId: string, clubId: string) {
   const supabase = getSupabaseAdminClient();
 
