@@ -415,21 +415,19 @@ export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadR
   const archivedColumnAvailable = await checkLeadArchivedColumnAvailable();
   const trackingSelect =
     "id, full_name, email, phone, programme_interest, experience_level, lead_source, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
-  const activeLeadSelect = archivedColumnAvailable
-    ? `${trackingSelect}, archived_at`
-    : trackingSelect;
 
-  let query = supabase
-    .from("leads")
-    .select(activeLeadSelect)
-    .eq("academy_id", academyId)
-    .order("created_at", { ascending: false });
-
-  if (archivedColumnAvailable) {
-    query = query.is("archived_at", null);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = archivedColumnAvailable
+    ? await supabase
+        .from("leads")
+        .select(trackingSelect)
+        .eq("academy_id", academyId)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false })
+    : await supabase
+        .from("leads")
+        .select(trackingSelect)
+        .eq("academy_id", academyId)
+        .order("created_at", { ascending: false });
 
   let rows = (data ?? []) as LeadRecordRow[];
 
@@ -810,7 +808,7 @@ export async function archiveLead(input: {
   const trackingAvailable = await checkLeadTrackingColumnsAvailable();
   const { data: existing, error: existingError } = await supabase
     .from("leads")
-    .select("id, archived_at")
+    .select("id")
     .eq("academy_id", input.academyId)
     .eq("id", input.leadId)
     .maybeSingle();
@@ -821,10 +819,6 @@ export async function archiveLead(input: {
 
   if (!existing) {
     throw new Error("Lead not found.");
-  }
-
-  if (existing.archived_at) {
-    return;
   }
 
   const updatePayload: {
@@ -840,11 +834,17 @@ export async function archiveLead(input: {
     updatePayload.last_activity_at = now;
   }
 
-  const { error } = await supabase
+  const { data: archivedRows, error } = await supabase
     .from("leads")
     .update(updatePayload)
     .eq("academy_id", input.academyId)
-    .eq("id", input.leadId);
+    .eq("id", input.leadId)
+    .is("archived_at", null)
+    .select("id");
+
+  if (!error && (archivedRows ?? []).length === 0) {
+    return;
+  }
 
   if (error) {
     throw new Error(`Failed to archive lead: ${error.message}`);
