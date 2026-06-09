@@ -29,6 +29,10 @@ import {
 import { isActiveStudentClubMembership } from "@/lib/admin-student-membership.shared";
 import type { BookingStudentOption } from "@/lib/admin-session-bookings.shared";
 import { getStudentFullName } from "@/lib/attendance";
+import {
+  matchesAdminStudentListStatusFilter,
+  type AdminStudentListStatusFilter,
+} from "@/lib/admin-students";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import type {
   AdminStudentProgrammeAccessSummary,
@@ -341,35 +345,52 @@ export async function resolveProgrammeStudentAreaMemberUserIds(
   return memberProfileIds;
 }
 
-/** Programme student-area scope for admin lists (includes paused/inactive club members). */
+/**
+ * Programme student-area scope for admin lists.
+ * Uses the same active programme membership scope as resolveProgrammeStudentAreaMemberUserIds,
+ * then applies the club membership status filter (default active — matches programme card counts).
+ */
 export async function resolveProgrammeStudentAreaAdminListUserIds(
   clubId: string,
   programme: Pick<AdminProgramme, "id" | "slug" | "programmeType">,
+  statusFilter: AdminStudentListStatusFilter = "active",
 ): Promise<string[]> {
   const membershipRows = await loadClubMembershipRows(clubId);
-  const studentRoleIds = membershipRows
-    .filter((membership) => membership.role === "student")
-    .map((membership) => membership.user_id);
+  let programmeScopeUserIds: string[];
 
   if (programme.id === LEGACY_BJJ_PROGRAMME_ID) {
-    const programmeMemberIds = await loadProgrammeMemberUserIdsForClub(clubId);
-    return Array.from(new Set([...studentRoleIds, ...programmeMemberIds]));
+    const activeStudentRoleIds = membershipRows
+      .filter(isActiveStudentClubMembership)
+      .map((membership) => membership.user_id);
+    const programmeMemberIds = await loadActiveProgrammeMemberUserIdsForClub(clubId);
+    programmeScopeUserIds = Array.from(
+      new Set([...activeStudentRoleIds, ...programmeMemberIds]),
+    );
+  } else {
+    programmeScopeUserIds = await loadActiveProgrammeMembershipUserIds(programme.id);
+
+    if (
+      programmeScopeUserIds.length === 0 &&
+      (await shouldUseMembershipStudentCountFallback(clubId, programme, 0))
+    ) {
+      programmeScopeUserIds = membershipRows
+        .filter((membership) => membership.role === "student")
+        .map((membership) => membership.user_id);
+    }
   }
 
-  const programmeMemberIds = await queryProgrammeMembershipUserIds(programme.id);
+  const programmeScopeSet = new Set(programmeScopeUserIds);
 
-  if (
-    programmeMemberIds.length === 0 &&
-    (await shouldUseMembershipStudentCountFallback(
-      clubId,
-      programme,
-      programmeMemberIds.length,
-    ))
-  ) {
-    return studentRoleIds;
-  }
-
-  return programmeMemberIds;
+  return Array.from(
+    new Set(
+      membershipRows
+        .filter((membership) => programmeScopeSet.has(membership.user_id))
+        .filter((membership) =>
+          matchesAdminStudentListStatusFilter(membership.status, statusFilter),
+        )
+        .map((membership) => membership.user_id),
+    ),
+  );
 }
 
 async function resolveProgrammeStudentCount(

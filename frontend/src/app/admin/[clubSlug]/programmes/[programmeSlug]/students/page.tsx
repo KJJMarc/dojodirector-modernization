@@ -90,7 +90,9 @@ export default async function ProgrammeStudentsPage({
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
   const pageTitle = formatProgrammeStudentsLabel(programme);
   const searchQuery = searchParams.q?.trim();
-  const statusFilter = parseAdminStudentStatusFilter(searchParams.status);
+  const statusFilter = searchParams.status
+    ? parseAdminStudentStatusFilter(searchParams.status)
+    : "active";
   const currentSort = parseAdminStudentSort(
     searchParams.sort,
     searchParams.dir,

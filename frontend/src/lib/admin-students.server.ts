@@ -90,6 +90,7 @@ async function loadScopedClubStudentRows(
     const userIds = await resolveProgrammeStudentAreaAdminListUserIds(
       clubId,
       programme,
+      statusFilter,
     );
 
     if (userIds.length === 0) {
