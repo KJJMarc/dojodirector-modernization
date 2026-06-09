@@ -7,6 +7,7 @@ import {
   computeLeadFollowUpStatus,
   parseLeadStatus,
   parseLeadSubmission,
+  type AdminArchivedLeadListRow,
   type AdminLeadDetail,
   type AdminLeadListRow,
   type AdminLeadsSummary,
@@ -236,6 +237,24 @@ interface LeadRecordRow {
   trial_attended_at?: string | null;
   joined_at?: string | null;
   last_activity_at?: string | null;
+  archived_at?: string | null;
+}
+
+function mapArchivedLeadListRow(row: LeadRecordRow): AdminArchivedLeadListRow {
+  const archivedAt = row.archived_at?.trim();
+
+  if (!archivedAt) {
+    throw new Error("Archived lead is missing archived_at.");
+  }
+
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    status: row.status as AdminArchivedLeadListRow["status"],
+    programmeInterest:
+      row.programme_interest as AdminArchivedLeadListRow["programmeInterest"],
+    archivedAt,
+  };
 }
 
 function resolveSubmittedAt(row: LeadRecordRow) {
@@ -433,13 +452,19 @@ export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadR
 
   if (error) {
     if (isMissingLeadTrackingColumnsError(error)) {
-      const { data: fallbackData, error: fallbackError } = await supabase
+      let fallbackQuery = supabase
         .from("leads")
         .select(
           "id, full_name, email, phone, programme_interest, experience_level, lead_source, status, created_at, updated_at",
         )
         .eq("academy_id", academyId)
         .order("created_at", { ascending: false });
+
+      if (archivedColumnAvailable) {
+        fallbackQuery = fallbackQuery.is("archived_at", null);
+      }
+
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
 
       if (fallbackError) {
         if (isMissingLeadsTableError(fallbackError)) {
@@ -487,6 +512,67 @@ export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadR
     leadsTableAvailable: true,
     leads,
     summary: buildAdminLeadsSummary(leads),
+  };
+}
+
+export interface AdminArchivedLeadsLoadResult {
+  leadsTableAvailable: boolean;
+  archivedLeadsAvailable: boolean;
+  leads: AdminArchivedLeadListRow[];
+}
+
+export async function loadAdminArchivedLeads(
+  academyId: string,
+): Promise<AdminArchivedLeadsLoadResult> {
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    return {
+      leadsTableAvailable: false,
+      archivedLeadsAvailable: false,
+      leads: [],
+    };
+  }
+
+  const archivedColumnAvailable = await checkLeadArchivedColumnAvailable();
+
+  if (!archivedColumnAvailable) {
+    return {
+      leadsTableAvailable: true,
+      archivedLeadsAvailable: false,
+      leads: [],
+    };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const archivedSelect =
+    "id, full_name, programme_interest, status, archived_at";
+
+  const { data, error } = await supabase
+    .from("leads")
+    .select(archivedSelect)
+    .eq("academy_id", academyId)
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false });
+
+  if (error) {
+    if (isMissingLeadArchivedColumnError(error) || isMissingLeadsTableError(error)) {
+      return {
+        leadsTableAvailable: !isMissingLeadsTableError(error),
+        archivedLeadsAvailable: false,
+        leads: [],
+      };
+    }
+
+    throw new Error(`Failed to load archived leads: ${error.message}`);
+  }
+
+  const leads = ((data ?? []) as LeadRecordRow[]).map(mapArchivedLeadListRow);
+
+  return {
+    leadsTableAvailable: true,
+    archivedLeadsAvailable: true,
+    leads,
   };
 }
 
@@ -848,5 +934,71 @@ export async function archiveLead(input: {
 
   if (error) {
     throw new Error(`Failed to archive lead: ${error.message}`);
+  }
+}
+
+export async function restoreLead(input: {
+  academyId: string;
+  leadId: string;
+}): Promise<void> {
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    throw new Error(LEADS_NOT_CONFIGURED_MESSAGE);
+  }
+
+  const archivedColumnAvailable = await checkLeadArchivedColumnAvailable();
+
+  if (!archivedColumnAvailable) {
+    throw new Error(
+      "Lead archiving is not set up yet. Please run the database migration.",
+    );
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const trackingAvailable = await checkLeadTrackingColumnsAvailable();
+  const { data: existing, error: existingError } = await supabase
+    .from("leads")
+    .select("id")
+    .eq("academy_id", input.academyId)
+    .eq("id", input.leadId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(`Failed to load lead: ${existingError.message}`);
+  }
+
+  if (!existing) {
+    throw new Error("Lead not found.");
+  }
+
+  const updatePayload: {
+    archived_at: null;
+    updated_at?: string;
+    last_activity_at?: string;
+  } = {
+    archived_at: null,
+  };
+
+  if (trackingAvailable) {
+    updatePayload.updated_at = now;
+    updatePayload.last_activity_at = now;
+  }
+
+  const { data: restoredRows, error } = await supabase
+    .from("leads")
+    .update(updatePayload)
+    .eq("academy_id", input.academyId)
+    .eq("id", input.leadId)
+    .not("archived_at", "is", null)
+    .select("id");
+
+  if (!error && (restoredRows ?? []).length === 0) {
+    return;
+  }
+
+  if (error) {
+    throw new Error(`Failed to restore lead: ${error.message}`);
   }
 }

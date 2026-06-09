@@ -76,6 +76,14 @@ export interface LeadSubmissionResult {
 
 export type LeadFollowUpStatus = "needs_follow_up" | "ok";
 
+export interface AdminArchivedLeadListRow {
+  id: string;
+  fullName: string;
+  status: LeadStatus;
+  programmeInterest: LeadProgrammeInterest;
+  archivedAt: string;
+}
+
 export interface AdminLeadListRow {
   id: string;
   fullName: string;
@@ -148,6 +156,10 @@ export function clubLeadsAdminPath(clubSlug: string) {
 
 export function clubLeadsListAdminPath(clubSlug: string) {
   return clubAdminPath(clubSlug, "leads/list");
+}
+
+export function clubLeadsArchivedAdminPath(clubSlug: string) {
+  return clubAdminPath(clubSlug, "leads/archived");
 }
 
 export function clubLeadNewAdminPath(clubSlug: string) {

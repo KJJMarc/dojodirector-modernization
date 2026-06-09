@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   clubLeadEmailSettingsAdminPath,
   clubLeadNewAdminPath,
+  clubLeadsArchivedAdminPath,
   clubLeadsListAdminPath,
 } from "@/lib/leads.shared";
 
@@ -26,6 +27,13 @@ export function LeadsAreaCards({ clubSlug }: LeadsAreaCardsProps) {
         <span className="text-base font-semibold text-dojo-white">Add Lead</span>
         <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
           Manually record a phone, walk-in or referral enquiry.
+        </span>
+      </Link>
+
+      <Link href={clubLeadsArchivedAdminPath(clubSlug)} className={actionCardClassName}>
+        <span className="text-base font-semibold text-dojo-white">Archived Leads</span>
+        <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
+          View archived leads and restore them if required.
         </span>
       </Link>
 

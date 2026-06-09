@@ -6,18 +6,31 @@ import {
   archiveLead,
   createAdminLead,
   deleteLead,
+  restoreLead,
   updateLeadAdminRecord,
 } from "@/lib/leads.server";
 import {
   clubLeadDetailAdminPath,
   clubLeadNewAdminPath,
   clubLeadsAdminPath,
+  clubLeadsArchivedAdminPath,
   clubLeadsListAdminPath,
   parseLeadExperienceLevel,
   parseLeadProgrammeInterest,
   parseLeadSource,
   parseLeadStatus,
 } from "@/lib/leads.shared";
+
+function revalidateLeadAdminPaths(clubSlug: string, leadId?: string) {
+  revalidatePath(clubLeadsAdminPath(clubSlug));
+  revalidatePath(clubLeadsListAdminPath(clubSlug));
+  revalidatePath(clubLeadsArchivedAdminPath(clubSlug));
+  revalidatePath(clubLeadNewAdminPath(clubSlug));
+
+  if (leadId) {
+    revalidatePath(clubLeadDetailAdminPath(clubSlug, leadId));
+  }
+}
 
 export async function createLeadAction(clubSlug: string, formData: FormData) {
   const { club } = await requireAdminAccessForClubSlug(clubSlug);
@@ -37,8 +50,7 @@ export async function createLeadAction(clubSlug: string, formData: FormData) {
     status: parseLeadStatus(String(formData.get("status") ?? "new")),
   });
 
-  revalidatePath(clubLeadsAdminPath(club.slug));
-  revalidatePath(clubLeadsListAdminPath(club.slug));
+  revalidateLeadAdminPaths(club.slug);
 
   return result;
 }
@@ -70,9 +82,7 @@ export async function updateLeadAction(input: {
     notes: input.notes,
   });
 
-  revalidatePath(clubLeadsAdminPath(club.slug));
-  revalidatePath(clubLeadsListAdminPath(club.slug));
-  revalidatePath(clubLeadDetailAdminPath(club.slug, input.leadId));
+  revalidateLeadAdminPaths(club.slug, input.leadId);
 }
 
 export async function archiveLeadAction(input: { clubSlug: string; leadId: string }) {
@@ -83,8 +93,18 @@ export async function archiveLeadAction(input: { clubSlug: string; leadId: strin
     leadId: input.leadId,
   });
 
-  revalidatePath(clubLeadsAdminPath(club.slug));
-  revalidatePath(clubLeadsListAdminPath(club.slug));
+  revalidateLeadAdminPaths(club.slug, input.leadId);
+}
+
+export async function restoreLeadAction(input: { clubSlug: string; leadId: string }) {
+  const { club } = await requireAdminAccessForClubSlug(input.clubSlug);
+
+  await restoreLead({
+    academyId: club.id,
+    leadId: input.leadId,
+  });
+
+  revalidateLeadAdminPaths(club.slug, input.leadId);
 }
 
 export async function deleteLeadAction(input: { clubSlug: string; leadId: string }) {
@@ -95,7 +115,5 @@ export async function deleteLeadAction(input: { clubSlug: string; leadId: string
     leadId: input.leadId,
   });
 
-  revalidatePath(clubLeadsAdminPath(club.slug));
-  revalidatePath(clubLeadsListAdminPath(club.slug));
-  revalidatePath(clubLeadNewAdminPath(club.slug));
+  revalidateLeadAdminPaths(club.slug, input.leadId);
 }
