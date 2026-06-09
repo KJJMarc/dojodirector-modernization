@@ -37,7 +37,7 @@ export function StudentPortalActions({
       ? { label: "Book a Class", href: `${basePath}/book`, openInNewTab: false }
       : null,
     uiConfig.showUpcomingBookings
-      ? { label: "Upcoming Bookings", href: `${basePath}/bookings`, openInNewTab: false }
+      ? { label: "Cancel Bookings", href: `${basePath}/bookings`, openInNewTab: false }
       : null,
     uiConfig.showMessages
       ? {
