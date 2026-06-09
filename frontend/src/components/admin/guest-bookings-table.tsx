@@ -70,7 +70,6 @@ export function GuestBookingsTable({ clubSlug, bookings }: GuestBookingsTablePro
                   clubSlug={clubSlug}
                   bookingId={booking.id}
                   guestName={booking.guestName}
-                  bookingStatus={booking.bookingStatus}
                 />
               </td>
             </tr>

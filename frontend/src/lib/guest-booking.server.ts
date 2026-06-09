@@ -19,10 +19,7 @@ import {
   getGuestBookingAgreementPdfStoragePath,
 } from "@/lib/student-agreement-storage.shared";
 import { sendGuestBookingEmailsAfterBooking } from "@/lib/guest-booking-email.server";
-import {
-  cancelGuestBookingRegisterEntry,
-  createSessionAttendeeForGuestBooking,
-} from "@/lib/guest-booking-session-attendee.server";
+import { createSessionAttendeeForGuestBooking } from "@/lib/guest-booking-session-attendee.server";
 import { matchGuestBookingToLead } from "@/lib/lead-guest-booking-match.server";
 import { assertClassSessionHasSpaceForBooking } from "@/lib/session-waitlist.server";
 import { uploadGuestBookingAgreementPdf } from "@/lib/student-agreement-storage.server";
@@ -551,69 +548,6 @@ export async function getGuestBookingAgreementPdfPath(
   }
 
   return data?.agreement_pdf_path?.trim() ?? null;
-}
-
-export async function cancelAdminGuestBooking(input: {
-  clubId: string;
-  bookingId: string;
-}): Promise<{ sessionId: string }> {
-  if (!(await isGuestBookingsTableAvailable())) {
-    throw new Error(GUEST_BOOKINGS_NOT_CONFIGURED_MESSAGE);
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data: booking, error } = await supabase
-    .from("guest_bookings")
-    .select("id, session_id, booking_status")
-    .eq("id", input.bookingId)
-    .eq("club_id", input.clubId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to load guest booking: ${error.message}`);
-  }
-
-  if (!booking) {
-    throw new Error("Guest booking not found.");
-  }
-
-  const sessionId = booking.session_id as string;
-
-  if (booking.booking_status === "cancelled") {
-    return { sessionId };
-  }
-
-  const { data: attendee, error: attendeeError } = await supabase
-    .from("session_attendees")
-    .select("id")
-    .eq("guest_booking_id", input.bookingId)
-    .maybeSingle();
-
-  if (attendeeError) {
-    throw new Error(`Failed to load guest register row: ${attendeeError.message}`);
-  }
-
-  if (attendee?.id) {
-    const result = await cancelGuestBookingRegisterEntry(attendee.id as string);
-
-    if (!result) {
-      throw new Error("Guest booking not found.");
-    }
-
-    return { sessionId: result.sessionId };
-  }
-
-  const { error: updateError } = await supabase
-    .from("guest_bookings")
-    .update({ booking_status: "cancelled" })
-    .eq("id", input.bookingId)
-    .eq("club_id", input.clubId);
-
-  if (updateError) {
-    throw new Error(`Failed to cancel guest booking: ${updateError.message}`);
-  }
-
-  return { sessionId };
 }
 
 export async function deleteAdminGuestBooking(input: {
