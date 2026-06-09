@@ -21,6 +21,7 @@ export function PortalAccessManager({
   clubSlug,
   eligibleCount,
 }: PortalAccessManagerProps) {
+  const [bulkReviewOpen, setBulkReviewOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PortalAccessMemberSummary[]>([]);
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
@@ -28,6 +29,10 @@ export function PortalAccessManager({
   const [individualError, setIndividualError] = useState<string | null>(null);
   const [isSearchPending, startSearchTransition] = useTransition();
   const [isIndividualPending, startIndividualTransition] = useTransition();
+
+  const eligibleCountLabel = `${eligibleCount} student${
+    eligibleCount === 1 ? "" : "s"
+  } without portal access`;
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,6 +85,25 @@ export function PortalAccessManager({
 
   return (
     <div className="space-y-6">
+      <section className="space-y-2 rounded-xl border border-dojo-border bg-dojo-surface p-4">
+        <div>
+          <h2 className="text-lg font-semibold text-dojo-white">Bulk portal setup</h2>
+          <p className="mt-1 text-sm text-dojo-muted">
+            Send setup emails to active students who do not currently have portal access.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setBulkReviewOpen(true)}
+          className="inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover sm:w-auto"
+        >
+          Email students without portal access
+        </button>
+
+        <p className="text-sm text-dojo-muted">{eligibleCountLabel}</p>
+      </section>
+
       <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-lg font-semibold text-dojo-white">Individual invite</h2>
@@ -149,7 +173,11 @@ export function PortalAccessManager({
         ) : null}
       </section>
 
-      <PortalAccessEligibleReview clubSlug={clubSlug} eligibleCount={eligibleCount} />
+      <PortalAccessEligibleReview
+        clubSlug={clubSlug}
+        open={bulkReviewOpen}
+        onOpenChange={setBulkReviewOpen}
+      />
     </div>
   );
 }

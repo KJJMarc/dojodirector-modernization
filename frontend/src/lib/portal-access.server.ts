@@ -242,6 +242,11 @@ function buildPortalAccessMemberSummary(input: {
       membershipStatus: input.membership.status,
       portalAuthStatus: input.profile.portal_auth_status,
       portalInvitedAt: input.profile.portal_invited_at,
+      instructorPortalAuthStatus: input.profile.instructor_portal_auth_status,
+      instructorPortalInvitedAt: input.profile.instructor_portal_invited_at,
+      membershipRole: input.membership.role,
+      hasInstructorPortalMembershipAnywhere:
+        input.hasInstructorPortalMembershipAnywhere,
     }),
   };
 }
@@ -310,32 +315,8 @@ export async function searchPortalAccessMembers(
 export async function countBulkEligiblePortalAccessMembers(
   clubId: string,
 ): Promise<number> {
-  const { memberships, profilesById, membershipByUserId } =
-    await loadPortalAccessMemberContexts(clubId);
-
-  let count = 0;
-
-  for (const membership of memberships) {
-    const profile = profilesById.get(membership.user_id);
-    const clubMembership = membershipByUserId.get(membership.user_id);
-
-    if (!profile || !clubMembership) {
-      continue;
-    }
-
-    if (
-      isBulkPortalSetupEligible({
-        profileEmail: profile.email,
-        membershipStatus: clubMembership.status,
-        portalAuthStatus: profile.portal_auth_status,
-        portalInvitedAt: profile.portal_invited_at,
-      })
-    ) {
-      count += 1;
-    }
-  }
-
-  return count;
+  const eligible = await listBulkEligiblePortalAccessMembers(clubId);
+  return eligible.length;
 }
 
 export async function listBulkEligiblePortalAccessMembers(clubId: string) {

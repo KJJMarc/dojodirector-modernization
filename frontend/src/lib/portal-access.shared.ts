@@ -1,7 +1,10 @@
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { formatMembershipInstructorRoleLabel } from "@/lib/instructor-portal-membership-sync.shared";
 import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
-import { canAdminSendPortalSetupEmail } from "@/lib/portal-setup.shared";
+import {
+  buildPortalSetupAdminStatus,
+  canAdminSendPortalSetupEmail,
+} from "@/lib/portal-setup.shared";
 import {
   formatPortalAuthStatusLabel,
   type PortalAuthStatus,
@@ -35,22 +38,28 @@ export function isBulkPortalSetupEligible(input: {
   membershipStatus: string | null;
   portalAuthStatus: string | null;
   portalInvitedAt: string | null;
+  instructorPortalAuthStatus?: string | null;
+  instructorPortalInvitedAt?: string | null;
+  membershipRole?: string | null;
+  hasInstructorPortalMembershipAnywhere?: boolean;
 }) {
   if (!canAdminSendPortalSetupEmail(input)) {
     return false;
   }
 
-  const portalStatus = normalizePortalAuthStatus(input.portalAuthStatus);
+  const status = buildPortalSetupAdminStatus({
+    profileEmail: input.profileEmail,
+    portalAuthStatus: input.portalAuthStatus,
+    portalInvitedAt: input.portalInvitedAt,
+    instructorPortalAuthStatus: input.instructorPortalAuthStatus ?? null,
+    instructorPortalInvitedAt: input.instructorPortalInvitedAt ?? null,
+    membershipRole: input.membershipRole ?? null,
+    hasSuperAdminMembership: false,
+    hasInstructorPortalMembershipAnywhere:
+      input.hasInstructorPortalMembershipAnywhere ?? false,
+  });
 
-  if (portalStatus === "active") {
-    return false;
-  }
-
-  if (portalStatus === "invited" || Boolean(input.portalInvitedAt?.trim())) {
-    return false;
-  }
-
-  return true;
+  return status.canSendSetupEmail;
 }
 
 export function formatPortalAccessMembershipRole(role: string | null | undefined) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   loadEligiblePortalAccessMembersAction,
@@ -22,17 +23,21 @@ import {
 
 interface PortalAccessEligibleReviewProps {
   clubSlug: string;
-  eligibleCount: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const inputClassName =
-  "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
+  "w-full min-w-0 rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
 
 const labelClassName =
   "text-[11px] font-medium uppercase tracking-wide text-dojo-muted";
 
-const actionCardClassName =
-  "flex w-full min-h-[88px] flex-col justify-center rounded-xl border border-dojo-border bg-dojo-elevated px-4 py-4 text-left transition hover:border-dojo-red/50 hover:bg-dojo-surface active:scale-[0.99]";
+const modalPanelClassName =
+  "flex max-h-[min(92vh,56rem)] w-full min-w-0 max-w-5xl flex-col overflow-hidden whitespace-normal rounded-xl border border-dojo-border bg-dojo-surface shadow-xl";
+
+const closeButtonClassName =
+  "inline-flex shrink-0 items-center justify-center rounded-md border border-dojo-border px-3 py-1.5 text-xs font-semibold text-dojo-muted transition hover:text-dojo-white";
 
 function SummaryBanner({ summary }: { summary: PortalAccessBulkSendSummary }) {
   return (
@@ -58,9 +63,9 @@ function SummaryBanner({ summary }: { summary: PortalAccessBulkSendSummary }) {
 
 export function PortalAccessEligibleReview({
   clubSlug,
-  eligibleCount,
+  open,
+  onOpenChange,
 }: PortalAccessEligibleReviewProps) {
-  const [reviewOpen, setReviewOpen] = useState(false);
   const [eligibleMembers, setEligibleMembers] = useState<PortalAccessMemberSummary[]>(
     [],
   );
@@ -125,8 +130,59 @@ export function PortalAccessEligibleReview({
 
   const listCountLabel =
     filterQuery.trim() && filteredMembers.length !== eligibleMembers.length
-      ? `${filteredMembers.length} of ${eligibleMembers.length} eligible`
-      : `${eligibleMembers.length} eligible`;
+      ? `${filteredMembers.length} of ${eligibleMembers.length} without portal access`
+      : `${eligibleMembers.length} without portal access`;
+
+  const closeReview = useCallback(() => {
+    if (!isSendPending && !isInvitePending) {
+      onOpenChange(false);
+    }
+  }, [isInvitePending, isSendPending, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeReview();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [closeReview, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setLoadError(null);
+    setSendMessage(null);
+    setSendError(null);
+    setRowInviteMessage(null);
+    setRowInviteError(null);
+    setSendSummary(null);
+    setFilterQuery("");
+    setPage(1);
+
+    startLoadTransition(async () => {
+      try {
+        const response = await loadEligiblePortalAccessMembersAction(clubSlug);
+        setEligibleMembers(response.members);
+        setSelectedIds(new Set());
+      } catch (error) {
+        setEligibleMembers([]);
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load students without portal access.",
+        );
+      }
+    });
+  }, [clubSlug, open]);
 
   function toggleMember(userId: string, checked: boolean) {
     setSelectedIds((current) => {
@@ -154,33 +210,6 @@ export function PortalAccessEligibleReview({
 
   function clearSelection() {
     setSelectedIds(new Set());
-  }
-
-  function openReview() {
-    setReviewOpen(true);
-    setLoadError(null);
-    setSendMessage(null);
-    setSendError(null);
-    setRowInviteMessage(null);
-    setRowInviteError(null);
-    setSendSummary(null);
-    setFilterQuery("");
-    setPage(1);
-
-    startLoadTransition(async () => {
-      try {
-        const response = await loadEligiblePortalAccessMembersAction(clubSlug);
-        setEligibleMembers(response.members);
-        setSelectedIds(new Set());
-      } catch (error) {
-        setEligibleMembers([]);
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Unable to load eligible students.",
-        );
-      }
-    });
   }
 
   async function refreshEligibleMembers() {
@@ -258,44 +287,45 @@ export function PortalAccessEligibleReview({
     });
   }
 
-  return (
-    <section className="space-y-3">
-      {!reviewOpen ? (
-        <button type="button" onClick={openReview} className={actionCardClassName}>
-          <span className="text-base font-semibold text-dojo-white">
-            Review uninvited students
-          </span>
-          <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
-            View eligible students without portal access, select who to invite, and send
-            portal setup emails in controlled batches.
-            {eligibleCount > 0
-              ? ` (${eligibleCount} eligible)`
-              : " (none eligible right now)"}
-          </span>
-        </button>
-      ) : (
-        <div className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-semibold text-dojo-white">
-                Review uninvited students
-              </h2>
-              <p className="mt-1 text-sm text-dojo-muted">
-                {eligibleCount} eligible student{eligibleCount === 1 ? "" : "s"} at this
-                academy. Select who should receive a portal setup email.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setReviewOpen(false)}
-              className="text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-            >
-              Close
-            </button>
-          </div>
+  if (!open || typeof document === "undefined") {
+    return null;
+  }
 
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-3 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="portal-access-bulk-review-title"
+      onClick={closeReview}
+    >
+      <div className={modalPanelClassName} onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-dojo-border px-4 py-4 sm:px-5">
+          <div className="min-w-0">
+            <h2
+              id="portal-access-bulk-review-title"
+              className="break-words text-lg font-semibold text-dojo-white [overflow-wrap:anywhere]"
+            >
+              Email students without portal access
+            </h2>
+            <p className="mt-1 break-words text-sm leading-relaxed text-dojo-muted [overflow-wrap:anywhere]">
+              Review active students who do not currently have portal access. Select who
+              should receive a setup email.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={closeReview}
+            disabled={isSendPending || isInvitePending}
+            className={closeButtonClassName}
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
           {isLoadPending ? (
-            <p className="text-sm text-dojo-muted">Loading eligible students…</p>
+            <p className="text-sm text-dojo-muted">Loading students without portal access…</p>
           ) : null}
 
           {loadError ? (
@@ -306,7 +336,7 @@ export function PortalAccessEligibleReview({
 
           {!isLoadPending && !loadError && eligibleMembers.length === 0 ? (
             <p className="text-sm text-dojo-muted">
-              No eligible students need a portal setup email right now.
+              No active students at this academy need a portal setup email right now.
             </p>
           ) : null}
 
@@ -369,7 +399,7 @@ export function PortalAccessEligibleReview({
                 <button
                   type="submit"
                   disabled={selectedCount === 0 || isSendPending}
-                  className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {isSendPending
                     ? "Sending…"
@@ -389,16 +419,18 @@ export function PortalAccessEligibleReview({
                 </p>
               ) : null}
 
-              <PortalAccessEligibleTable
-                members={pageMembers}
-                selectedIds={selectedIds}
-                sort={sort}
-                onSortChange={setSort}
-                onToggleMember={toggleMember}
-                onInviteMember={handleInviteMember}
-                invitingUserId={invitingUserId}
-                isInvitePending={isInvitePending}
-              />
+              <div className="min-w-0 overflow-x-auto">
+                <PortalAccessEligibleTable
+                  members={pageMembers}
+                  selectedIds={selectedIds}
+                  sort={sort}
+                  onSortChange={setSort}
+                  onToggleMember={toggleMember}
+                  onInviteMember={handleInviteMember}
+                  invitingUserId={invitingUserId}
+                  isInvitePending={isInvitePending}
+                />
+              </div>
 
               {sortedMembers.length > PORTAL_ACCESS_ELIGIBLE_PAGE_SIZE ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-dojo-muted">
@@ -453,7 +485,8 @@ export function PortalAccessEligibleReview({
             </>
           ) : null}
         </div>
-      )}
-    </section>
+      </div>
+    </div>,
+    document.body,
   );
 }
