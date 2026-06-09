@@ -312,3 +312,11 @@ export interface PortalAccessBulkSendSummary {
   failedCount: number;
   failures: Array<{ fullName: string; email: string | null; reason: string }>;
 }
+
+export type PortalAccessBulkSendActionResult =
+  | ({ ok: true } & PortalAccessBulkSendSummary & { selectedCount: number })
+  | { ok: false; error: string };
+
+export type PortalAccessSendActionResult =
+  | ({ ok: true; message: string; loginEmail: string })
+  | { ok: false; error: string };

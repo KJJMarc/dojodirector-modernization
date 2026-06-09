@@ -233,20 +233,28 @@ export function PortalAccessEligibleReview({
     setInvitingUserId(userId);
 
     startInviteTransition(async () => {
+      const result = await sendPortalAccessEmailAction(clubSlug, userId);
+
+      if (!result.ok) {
+        setRowInviteError(result.error);
+        setInvitingUserId(null);
+        return;
+      }
+
+      setRowInviteMessage(result.message);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(userId);
+        return next;
+      });
+
       try {
-        const result = await sendPortalAccessEmailAction(clubSlug, userId);
-        setRowInviteMessage(result.message);
-        setSelectedIds((current) => {
-          const next = new Set(current);
-          next.delete(userId);
-          return next;
-        });
         await refreshEligibleMembers();
       } catch (error) {
         setRowInviteError(
           error instanceof Error
             ? error.message
-            : "Unable to send portal access email.",
+            : "Invite sent, but the list could not be refreshed.",
         );
       } finally {
         setInvitingUserId(null);
@@ -265,32 +273,52 @@ export function PortalAccessEligibleReview({
       return;
     }
 
+    if (confirmation.trim() !== PORTAL_ACCESS_SEND_CONFIRMATION_TEXT) {
+      setSendError(
+        `Type ${PORTAL_ACCESS_SEND_CONFIRMATION_TEXT} to confirm sending portal access emails.`,
+      );
+      return;
+    }
+
+    if (!mode) {
+      setSendError("Unable to send portal access emails.");
+      return;
+    }
+
     startSendTransition(async () => {
+      const result = await sendSelectedPortalAccessEmailsAction(
+        clubSlug,
+        Array.from(selectedIds),
+        confirmation,
+        mode,
+      );
+
+      if (!result.ok) {
+        setSendError(result.error);
+        return;
+      }
+
+      setSendSummary({
+        sentCount: result.sentCount,
+        skippedCount: result.skippedCount,
+        failedCount: result.failedCount,
+        failures: result.failures,
+      });
+      setSendMessage(
+        `Finished sending to ${result.selectedCount} selected student${
+          result.selectedCount === 1 ? "" : "s"
+        }.`,
+      );
+      setConfirmation("");
+      setSelectedIds(new Set());
+
       try {
-        const result = await sendSelectedPortalAccessEmailsAction(
-          clubSlug,
-          Array.from(selectedIds),
-          confirmation,
-        );
-        setSendSummary({
-          sentCount: result.sentCount,
-          skippedCount: result.skippedCount,
-          failedCount: result.failedCount,
-          failures: result.failures,
-        });
-        setSendMessage(
-          `Finished sending to ${result.selectedCount} selected student${
-            result.selectedCount === 1 ? "" : "s"
-          }.`,
-        );
-        setConfirmation("");
-        setSelectedIds(new Set());
         await refreshEligibleMembers();
       } catch (error) {
         setSendError(
           error instanceof Error
             ? error.message
-            : "Unable to send portal access emails.",
+            : "Invites sent, but the list could not be refreshed.",
         );
       }
     });
@@ -406,7 +434,11 @@ export function PortalAccessEligibleReview({
 
                 <button
                   type="submit"
-                  disabled={selectedCount === 0 || isSendPending}
+                  disabled={
+                    selectedCount === 0 ||
+                    isSendPending ||
+                    confirmation.trim() !== PORTAL_ACCESS_SEND_CONFIRMATION_TEXT
+                  }
                   className="inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-dojo-red px-4 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {isSendPending

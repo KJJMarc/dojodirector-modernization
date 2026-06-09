@@ -8,6 +8,8 @@ import {
   PORTAL_ACCESS_SEND_CONFIRMATION_TEXT,
   clubPortalAccessPath,
   type PortalAccessBulkMode,
+  type PortalAccessBulkSendActionResult,
+  type PortalAccessSendActionResult,
 } from "@/lib/portal-access.shared";
 import {
   listEligiblePortalAccessMembersForReview,
@@ -19,6 +21,10 @@ import {
 function revalidatePortalAccessPaths(clubSlug: string) {
   revalidatePath(clubPortalAccessPath(clubSlug));
   revalidatePath(clubAdminPath(clubSlug, "messaging"));
+}
+
+function portalAccessActionError(message: string): { ok: false; error: string } {
+  return { ok: false, error: message };
 }
 
 export async function searchPortalAccessMembersAction(
@@ -52,53 +58,78 @@ export async function loadEligiblePortalAccessMembersAction(
 export async function sendPortalAccessEmailAction(
   clubSlug: string,
   userId: string,
-) {
-  const club = await requireClubBySlug(clubSlug);
-  await requireAdminAccessForClubSlug(clubSlug);
+): Promise<PortalAccessSendActionResult> {
+  try {
+    const club = await requireClubBySlug(clubSlug);
+    await requireAdminAccessForClubSlug(clubSlug);
 
-  const result = await sendPortalAccessEmailToMember({
-    clubId: club.id,
-    clubSlug: club.slug,
-    academyName: club.name,
-    userId,
-  });
+    const result = await sendPortalAccessEmailToMember({
+      clubId: club.id,
+      clubSlug: club.slug,
+      academyName: club.name,
+      userId,
+    });
 
-  revalidatePortalAccessPaths(clubSlug);
-  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
+    revalidatePortalAccessPaths(clubSlug);
+    revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
 
-  return result;
+    return {
+      ok: true,
+      message: result.message,
+      loginEmail: result.loginEmail,
+    };
+  } catch (error) {
+    return portalAccessActionError(
+      error instanceof Error
+        ? error.message
+        : "Unable to send portal access email.",
+    );
+  }
 }
 
 export async function sendSelectedPortalAccessEmailsAction(
   clubSlug: string,
   userIds: string[],
   confirmation: string,
-) {
-  const club = await requireClubBySlug(clubSlug);
-  await requireAdminAccessForClubSlug(clubSlug);
-
+  mode: PortalAccessBulkMode,
+): Promise<PortalAccessBulkSendActionResult> {
   if (confirmation.trim() !== PORTAL_ACCESS_SEND_CONFIRMATION_TEXT) {
-    throw new Error(
+    return portalAccessActionError(
       `Type ${PORTAL_ACCESS_SEND_CONFIRMATION_TEXT} to confirm sending portal access emails.`,
     );
   }
 
   if (!Array.isArray(userIds) || userIds.length === 0) {
-    throw new Error("Select at least one student to invite.");
+    return portalAccessActionError("Select at least one student to invite.");
   }
 
-  const summary = await sendSelectedPortalAccessEmails({
-    clubId: club.id,
-    clubSlug: club.slug,
-    academyName: club.name,
-    userIds,
-  });
-
-  revalidatePortalAccessPaths(clubSlug);
-
-  for (const userId of userIds) {
-    revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
+  if (mode !== "uninvited" && mode !== "without_access") {
+    return portalAccessActionError("Invalid portal access bulk mode.");
   }
 
-  return summary;
+  try {
+    const club = await requireClubBySlug(clubSlug);
+    await requireAdminAccessForClubSlug(clubSlug);
+
+    const summary = await sendSelectedPortalAccessEmails({
+      clubId: club.id,
+      clubSlug: club.slug,
+      academyName: club.name,
+      userIds,
+      mode,
+    });
+
+    revalidatePortalAccessPaths(clubSlug);
+
+    return {
+      ok: true,
+      ...summary,
+    };
+  } catch (error) {
+    return portalAccessActionError(
+      error instanceof Error
+        ? error.message
+        : "Unable to send portal access emails.",
+    );
+  }
 }

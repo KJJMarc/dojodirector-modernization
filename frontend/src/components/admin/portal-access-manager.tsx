@@ -80,16 +80,14 @@ export function PortalAccessManager({
     setIndividualError(null);
 
     startIndividualTransition(async () => {
-      try {
-        const result = await sendPortalAccessEmailAction(clubSlug, userId);
-        setIndividualMessage(result.message);
-      } catch (error) {
-        setIndividualError(
-          error instanceof Error
-            ? error.message
-            : "Unable to send portal access email.",
-        );
+      const result = await sendPortalAccessEmailAction(clubSlug, userId);
+
+      if (!result.ok) {
+        setIndividualError(result.error);
+        return;
       }
+
+      setIndividualMessage(result.message);
     });
   }
 

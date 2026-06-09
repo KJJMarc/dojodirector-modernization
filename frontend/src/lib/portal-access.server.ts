@@ -603,6 +603,7 @@ export async function sendSelectedPortalAccessEmails(input: {
   clubSlug: string;
   academyName: string;
   userIds: string[];
+  mode?: PortalAccessBulkMode;
 }): Promise<PortalAccessBulkSendSummary & { selectedCount: number }> {
   const uniqueUserIds = Array.from(
     new Set(input.userIds.map((userId) => userId.trim()).filter(Boolean)),
@@ -614,7 +615,7 @@ export async function sendSelectedPortalAccessEmails(input: {
 
   const eligible = await listPortalAccessMembersForBulkReview(
     input.clubId,
-    "without_access",
+    input.mode ?? "without_access",
   );
   const eligibleByUserId = new Map(
     eligible.map((row) => [row.summary.userId, row]),
