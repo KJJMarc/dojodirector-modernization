@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProgrammeStudentRowActions } from "@/components/admin/programme-student-row-actions";
 import { StudentMobileSort } from "@/components/admin/student-mobile-sort";
+import { buildStudentProfileAdminPath } from "@/lib/admin-programmes.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   AdminStudent,
@@ -75,11 +76,13 @@ function BeltLevelCell({
 function StudentActions({
   clubSlug,
   studentId,
+  programmeSlug,
   compact = false,
   showAttendanceCard = true,
 }: {
   clubSlug: string;
   studentId: string;
+  programmeSlug?: string;
   compact?: boolean;
   showAttendanceCard?: boolean;
 }) {
@@ -108,7 +111,7 @@ function StudentActions({
         </Link>
       ) : null}
       <Link
-        href={clubAdminPath(clubSlug, `students/${studentId}/profile`)}
+        href={buildStudentProfileAdminPath(clubSlug, studentId, { programmeSlug })}
         className={buttonClassName}
         title="Profile"
         aria-label="Profile"
@@ -319,6 +322,7 @@ export function StudentsList({
                         <StudentActions
                           clubSlug={clubSlug}
                           studentId={student.id}
+                          programmeSlug={programmeSlug}
                           compact
                           showAttendanceCard={showAttendanceCard}
                         />
@@ -389,6 +393,7 @@ export function StudentsList({
                     <StudentActions
                       clubSlug={clubSlug}
                       studentId={student.id}
+                      programmeSlug={programmeSlug}
                       showAttendanceCard={showAttendanceCard}
                     />
                   )}

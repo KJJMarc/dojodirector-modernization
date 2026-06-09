@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { removeStudentFromProgrammeAction } from "@/app/admin/[clubSlug]/programmes/[programmeSlug]/students/actions";
+import { buildStudentProfileAdminPath } from "@/lib/admin-programmes.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 
 interface ProgrammeStudentRowActionsProps {
@@ -79,7 +80,9 @@ export function ProgrammeStudentRowActions({
         </Link>
       ) : null}
       <Link
-        href={clubAdminPath(clubSlug, `students/${studentId}/profile`)}
+        href={buildStudentProfileAdminPath(clubSlug, studentId, {
+          programmeSlug,
+        })}
         className={buttonClassName}
         title="Profile"
         aria-label="Profile"

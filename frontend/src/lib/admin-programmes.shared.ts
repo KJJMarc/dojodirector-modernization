@@ -311,6 +311,30 @@ export function programmeStudentsNewAdminPath(
   return clubProgrammeAdminPath(clubSlug, programmeSlug, "students/new");
 }
 
+/** Query param preserving which programme student list opened the profile. */
+export const STUDENT_PROFILE_FROM_PROGRAMME_PARAM = "fromProgramme";
+
+export function formatStudentProfileBackLabel(programmeName: string) {
+  return `← Back to ${formatProgrammeStudentsLabel({ name: programmeName })}`;
+}
+
+export function buildStudentProfileAdminPath(
+  clubSlug: string,
+  userId: string,
+  options?: { programmeSlug?: string | null },
+) {
+  const path = clubAdminPath(clubSlug, `students/${userId}/profile`);
+  const programmeSlug = options?.programmeSlug?.trim();
+
+  if (!programmeSlug) {
+    return path;
+  }
+
+  const params = new URLSearchParams();
+  params.set(STUDENT_PROFILE_FROM_PROGRAMME_PARAM, programmeSlug);
+  return `${path}?${params.toString()}`;
+}
+
 export interface AddStudentProgrammeAccessOption {
   programmeType: StudentPortalAccessProgrammeType;
   label: string;

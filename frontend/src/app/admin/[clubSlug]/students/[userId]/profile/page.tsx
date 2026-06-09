@@ -7,7 +7,13 @@ import { StudentProfileView } from "@/components/admin/student-profile-view";
 import { AppHeader } from "@/components/layout/app-header";
 import { getAdminStudentProfilePageData } from "@/lib/admin-student-profile.server";
 import { MIGRATION_PORTAL_INVITE_FAILED_MESSAGE } from "@/lib/admin-migrate-kids-to-adult.shared";
-import { clubAdminPath } from "@/lib/clubs.shared";
+import {
+  clubBjjStudentsAdminPath,
+  formatStudentProfileBackLabel,
+  programmeStudentsAdminPath,
+  STUDENT_PROFILE_FROM_PROGRAMME_PARAM,
+} from "@/lib/admin-programmes.shared";
+import { requireClubProgrammeBySlug } from "@/lib/admin-programmes.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +24,7 @@ interface ClubStudentProfilePageProps {
     migrated?: string;
     portalInvite?: string;
     portalInviteFailed?: string;
+    fromProgramme?: string;
   };
 }
 
@@ -49,14 +56,35 @@ export default async function ClubStudentProfilePage({
     throw error;
   }
 
+  const fromProgrammeSlug =
+    searchParams[STUDENT_PROFILE_FROM_PROGRAMME_PARAM]?.trim() ||
+    searchParams.fromProgramme?.trim() ||
+    "";
+
+  let studentsListHref = clubBjjStudentsAdminPath(club.slug);
+  let studentsListBackLabel = formatStudentProfileBackLabel("BJJ");
+
+  if (fromProgrammeSlug) {
+    try {
+      const programme = await requireClubProgrammeBySlug(
+        club.id,
+        fromProgrammeSlug,
+      );
+      studentsListHref = programmeStudentsAdminPath(club.slug, programme.slug);
+      studentsListBackLabel = formatStudentProfileBackLabel(programme.name);
+    } catch {
+      // Keep BJJ default when programme context is invalid.
+    }
+  }
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-2 px-3 py-3 pb-20 sm:px-5">
       <AppHeader pageTitle="Student Profile" clubName={club.name} />
 
       <AdminNavLinks>
         <AdminBackLink clubSlug={club.slug} />
-        <Link href={clubAdminPath(club.slug, "students")} className={adminNavLinkClassName}>
-          ← Back to BJJ Students
+        <Link href={studentsListHref} className={adminNavLinkClassName}>
+          {studentsListBackLabel}
         </Link>
       </AdminNavLinks>
 
