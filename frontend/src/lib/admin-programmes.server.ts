@@ -3,6 +3,8 @@ import "server-only";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import {
   BJJ_PROGRAMME_SLUG,
+  buildAdminAreaProgrammeClassScope,
+  classBelongsToAdminAreaProgrammeScope,
   LEGACY_BJJ_PROGRAMME_ID,
   PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE,
   buildStudentBjjFeatureVisibility,
@@ -1456,6 +1458,60 @@ export async function countActiveProgrammeStudents(
   });
 
   return userIds.length;
+}
+
+interface AdminAreaClassRow {
+  id: string;
+  programme_id: string | null;
+  programme_type: string;
+  is_active: boolean | null;
+}
+
+async function loadAdminAreaProgrammeClassScope(
+  clubId: string,
+): Promise<ReturnType<typeof buildAdminAreaProgrammeClassScope>> {
+  if (!(await isProgrammesSchemaAvailable())) {
+    return { programmeIds: [], programmeTypes: ["bjj"] };
+  }
+
+  const rows = await loadProgrammeRowsForClub(clubId, { adminAreaOnly: true });
+
+  return buildAdminAreaProgrammeClassScope(
+    rows.map((row) => ({
+      id: row.id,
+      programmeType: row.programme_type,
+    })),
+  );
+}
+
+/** Active classes for all admin-area programmes (BJJ, Muay Thai, and future areas). */
+export async function loadActiveAdminAreaClassIdsForClub(
+  clubId: string,
+): Promise<Set<string>> {
+  const supabase = getSupabaseAdminClient();
+  const scope = await loadAdminAreaProgrammeClassScope(clubId);
+  const { data, error } = await supabase
+    .from("classes")
+    .select("id, programme_id, programme_type, is_active")
+    .eq("club_id", clubId);
+
+  if (error) {
+    throw new Error(`Failed to load classes: ${error.message}`);
+  }
+
+  const classIds = new Set<string>();
+
+  for (const row of (data ?? []) as AdminAreaClassRow[]) {
+    if (row.is_active === false) {
+      continue;
+    }
+
+    if (classBelongsToAdminAreaProgrammeScope(row, scope)) {
+      classIds.add(row.id);
+    }
+  }
+
+  return classIds;
 }
 
 /** Unique active students across all admin-area programmes (e.g. BJJ + Muay Thai). */

@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  buildAdminAreaProgrammeClassScope,
   buildStudentProfileAdminPath,
+  classBelongsToAdminAreaProgrammeScope,
   formatStudentProfileBackLabel,
   programmeStudentsAdminPath,
   STUDENT_PROFILE_FROM_PROGRAMME_PARAM,
@@ -69,5 +71,42 @@ describe("dashboard total students across programmes", () => {
     const uniqueUserIds = new Set([...bjjUserIds, ...muayThaiUserIds]);
 
     assert.equal(uniqueUserIds.size, 4);
+  });
+});
+
+describe("admin dashboard programme class scope", () => {
+  const scope = buildAdminAreaProgrammeClassScope([
+    { id: "bjj-programme-id", programmeType: "bjj" },
+    { id: "muay-thai-programme-id", programmeType: "muay_thai" },
+  ]);
+
+  it("includes classes linked by programme_id", () => {
+    assert.equal(
+      classBelongsToAdminAreaProgrammeScope(
+        { programme_id: "muay-thai-programme-id", programme_type: "muay_thai" },
+        scope,
+      ),
+      true,
+    );
+  });
+
+  it("includes legacy BJJ classes matched by programme_type", () => {
+    assert.equal(
+      classBelongsToAdminAreaProgrammeScope(
+        { programme_id: null, programme_type: "bjj" },
+        scope,
+      ),
+      true,
+    );
+  });
+
+  it("excludes classes outside admin-area programmes", () => {
+    assert.equal(
+      classBelongsToAdminAreaProgrammeScope(
+        { programme_id: null, programme_type: "strength_conditioning" },
+        scope,
+      ),
+      false,
+    );
   });
 });

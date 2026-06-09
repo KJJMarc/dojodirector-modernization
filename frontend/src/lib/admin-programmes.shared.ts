@@ -161,6 +161,50 @@ export const BJJ_PROGRAMME_SLUG = "bjj";
 
 export const LEGACY_BJJ_PROGRAMME_ID = "legacy-bjj-programme";
 
+export interface AdminAreaProgrammeClassScope {
+  programmeIds: string[];
+  programmeTypes: string[];
+}
+
+export function buildAdminAreaProgrammeClassScope(
+  programmes: ReadonlyArray<{ id: string; programmeType: string }>,
+): AdminAreaProgrammeClassScope {
+  const programmeIds: string[] = [];
+  const programmeTypes = new Set<string>();
+
+  for (const programme of programmes) {
+    if (programme.id !== LEGACY_BJJ_PROGRAMME_ID) {
+      programmeIds.push(programme.id);
+    }
+
+    programmeTypes.add(programme.programmeType);
+  }
+
+  return {
+    programmeIds,
+    programmeTypes: Array.from(programmeTypes),
+  };
+}
+
+export function classBelongsToAdminAreaProgrammeScope(
+  classRow: { programme_id?: string | null; programme_type?: string | null },
+  scope: AdminAreaProgrammeClassScope,
+): boolean {
+  const programmeId = classRow.programme_id?.trim();
+
+  if (programmeId && scope.programmeIds.includes(programmeId)) {
+    return true;
+  }
+
+  const programmeType = classRow.programme_type?.trim();
+
+  if (!programmeId && programmeType && scope.programmeTypes.includes(programmeType)) {
+    return true;
+  }
+
+  return false;
+}
+
 export const PROGRAMMES_MIGRATION_PATH =
   "supabase/migrations/20260601120000_programmes_architecture.sql";
 

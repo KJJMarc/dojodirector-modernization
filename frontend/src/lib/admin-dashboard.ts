@@ -1,8 +1,13 @@
 import "server-only";
 
-import { getTodayUtcRange } from "@/lib/attendance";
-import { countUniqueActiveProgrammeStudentsForClub } from "@/lib/admin-programmes.server";
+import { getLondonTodayRangeForAttendance } from "@/lib/attendance";
+import {
+  countUniqueActiveProgrammeStudentsForClub,
+  loadActiveAdminAreaClassIdsForClub,
+} from "@/lib/admin-programmes.server";
+import { countsAsAttendanceRegisterAttendee } from "@/lib/attendance-register-booking.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { fetchSessionAttendeesForScheduleCounts } from "@/lib/session-attendees.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface AdminDashboardStats {
@@ -28,12 +33,25 @@ export async function getAdminDashboardStats(
   clubId: string = ACTIVE_CLUB_ID,
 ): Promise<AdminDashboardStats> {
   const supabase = getSupabaseAdminClient();
-  const { startIso, endIso } = getTodayUtcRange();
+  const { startIso, endIso } = getLondonTodayRangeForAttendance();
+  const adminAreaClassIds = await loadActiveAdminAreaClassIdsForClub(clubId);
+  const classIdList = Array.from(adminAreaClassIds);
+  const studentsTotal = await countUniqueActiveProgrammeStudentsForClub(clubId);
+
+  if (classIdList.length === 0) {
+    return {
+      todaysSessions: 0,
+      bookedToday: 0,
+      presentToday: 0,
+      studentsTotal,
+    };
+  }
 
   const { data: todaysSessions, error: sessionsError } = await supabase
     .from("class_sessions")
     .select("id")
     .eq("club_id", clubId)
+    .in("class_id", classIdList)
     .gte("starts_at", startIso)
     .lt("starts_at", endIso)
     .neq("status", "cancelled");
@@ -51,12 +69,8 @@ export async function getAdminDashboardStats(
   let presentToday = 0;
 
   if (sessionIds.length > 0) {
-    const [bookedResult, presentResult] = await Promise.all([
-      supabase
-        .from("session_attendees")
-        .select("id", { count: "exact", head: true })
-        .in("class_session_id", sessionIds)
-        .eq("booking_status", "booked"),
+    const [attendeeRows, presentResult] = await Promise.all([
+      fetchSessionAttendeesForScheduleCounts(supabase, sessionIds),
       supabase
         .from("session_attendees")
         .select("id", { count: "exact", head: true })
@@ -64,10 +78,10 @@ export async function getAdminDashboardStats(
         .eq("attendance_status", "present"),
     ]);
 
-    if (bookedResult.error) {
-      throw new Error(
-        formatSupabaseError("Failed to count today's bookings", bookedResult.error),
-      );
+    for (const attendee of attendeeRows) {
+      if (countsAsAttendanceRegisterAttendee(attendee)) {
+        bookedToday += 1;
+      }
     }
 
     if (presentResult.error) {
@@ -76,11 +90,8 @@ export async function getAdminDashboardStats(
       );
     }
 
-    bookedToday = bookedResult.count ?? 0;
     presentToday = presentResult.count ?? 0;
   }
-
-  const studentsTotal = await countUniqueActiveProgrammeStudentsForClub(clubId);
 
   return {
     todaysSessions: todaysSessionsCount,
