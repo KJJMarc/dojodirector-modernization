@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { AuthLinkConfirmLanding } from "@/components/auth/auth-link-confirm-landing";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { DojoDirectorWordmark } from "@/components/layout/dojo-director-wordmark";
 import {
+  buildAuthConfirmRedirectPath,
   loginPathForPasswordResetContext,
   type PasswordResetLoginContext,
 } from "@/lib/password-reset.shared";
@@ -27,6 +28,7 @@ interface ResetPasswordPageProps {
     setup?: string;
     token_hash?: string;
     type?: string;
+    next?: string;
   };
 }
 
@@ -46,16 +48,37 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
       nextParams.set("context", context);
     }
 
-    const nextPath = nextParams.toString()
-      ? `/reset-password?${nextParams.toString()}`
-      : "/reset-password";
+    const nextPath =
+      searchParams.next?.trim() ||
+      (nextParams.toString()
+        ? `/reset-password?${nextParams.toString()}`
+        : "/reset-password");
+    const confirmPath = buildAuthConfirmRedirectPath(
+      searchParams.token_hash,
+      nextPath,
+    );
 
-    const params = new URLSearchParams();
-    params.set("token_hash", searchParams.token_hash);
-    params.set("type", searchParams.type);
-    params.set("next", nextPath);
-
-    redirect(`/auth/confirm?${params.toString()}`);
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-neutral-950 px-4 py-12">
+        <div className="w-full max-w-md rounded-xl border border-dojo-border bg-dojo-surface p-6 shadow-lg shadow-black/30 sm:p-8">
+          <DojoDirectorWordmark className="text-xs font-semibold uppercase tracking-[0.18em]" />
+          <h1 className="mt-3 text-2xl font-semibold text-dojo-white">
+            {isFirstTimeSetup ? "Set up your account" : "Reset password"}
+          </h1>
+          <div className="mt-6">
+            <AuthLinkConfirmLanding
+              confirmPath={confirmPath}
+              title={isFirstTimeSetup ? "Set up your account" : "Reset password"}
+              description="Tap the button below to open your secure link. This extra step keeps automated email scanners from invalidating your link before you use it."
+              buttonLabel={
+                isFirstTimeSetup ? "Continue to account setup" : "Continue to reset password"
+              }
+              loginPath={loginPath}
+            />
+          </div>
+        </div>
+      </main>
+    );
   }
 
   const supabase = await createSupabaseServerAuthClient();

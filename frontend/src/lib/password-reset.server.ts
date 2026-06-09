@@ -12,6 +12,7 @@ import {
   buildPasswordResetConfirmUrl,
   PASSWORD_RESET_REQUEST_SUCCESS_MESSAGE,
 } from "@/lib/password-reset.shared";
+import { resolveSiteOrigin } from "@/lib/site-origin.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const USER_PASSWORD_RESET_COLUMNS =
@@ -31,10 +32,6 @@ interface MembershipClubRow {
   role: string | null;
   status: string | null;
   clubs: { slug: string; name: string } | { slug: string; name: string }[] | null;
-}
-
-function resolveSiteOrigin() {
-  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 }
 
 function normalizeEmail(value: string) {
@@ -218,6 +215,9 @@ export async function requestPasswordResetEmail(
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email: authEmail,
+      options: {
+        redirectTo: `${siteOrigin}/reset-password`,
+      },
     });
 
     if (error) {

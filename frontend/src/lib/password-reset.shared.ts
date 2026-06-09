@@ -31,7 +31,24 @@ export function resetPasswordPath() {
   return "/reset-password";
 }
 
-/** Server-side confirm URL for custom Resend emails (uses hashed_token, not action_link). */
+/** Internal path consumed after the user clicks through the email landing page. */
+export function buildAuthConfirmRedirectPath(
+  hashedToken: string,
+  nextPath: string,
+) {
+  const params = new URLSearchParams({
+    token_hash: hashedToken,
+    type: "recovery",
+    next: nextPath,
+  });
+
+  return `/auth/confirm?${params.toString()}`;
+}
+
+/**
+ * Entry URL for custom Resend emails — lands on /reset-password with a click-through
+ * step so mailbox link scanners do not consume the one-time OTP via GET /auth/confirm.
+ */
 export function buildPasswordResetConfirmUrl(
   siteOrigin: string,
   hashedToken: string,
@@ -40,10 +57,13 @@ export function buildPasswordResetConfirmUrl(
   const params = new URLSearchParams({
     token_hash: hashedToken,
     type: "recovery",
-    next: nextPath,
   });
 
-  return `${siteOrigin.replace(/\/$/, "")}/auth/confirm?${params.toString()}`;
+  if (nextPath !== "/reset-password") {
+    params.set("next", nextPath);
+  }
+
+  return `${siteOrigin.replace(/\/$/, "")}/reset-password?${params.toString()}`;
 }
 
 export function loginPathForPasswordResetContext(

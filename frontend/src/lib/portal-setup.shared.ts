@@ -1,5 +1,4 @@
 import {
-  buildPasswordResetConfirmUrl,
   loginPathForPasswordResetContext,
   type PasswordResetLoginContext,
 } from "@/lib/password-reset.shared";
@@ -26,17 +25,22 @@ export function buildPortalSetupResetPath(context: PortalSetupLoginContext) {
   return `/reset-password?${params.toString()}`;
 }
 
-/** Confirm redirects straight to reset-password (same as password reset) so middleware refreshes the session. */
+/** Entry URL for portal setup emails — click-through landing on /setup-password first. */
 export function buildPortalSetupConfirmUrl(
   siteOrigin: string,
   hashedToken: string,
   context: PortalSetupLoginContext,
 ) {
-  return buildPasswordResetConfirmUrl(
-    siteOrigin,
-    hashedToken,
-    buildPortalSetupResetPath(context),
-  );
+  const nextPath = buildPortalSetupResetPath(context);
+  const params = new URLSearchParams({
+    token_hash: hashedToken,
+    type: "recovery",
+    next: nextPath,
+    setup: "1",
+    context,
+  });
+
+  return `${siteOrigin.replace(/\/$/, "")}/setup-password?${params.toString()}`;
 }
 
 export function loginPathForPortalSetupContext(

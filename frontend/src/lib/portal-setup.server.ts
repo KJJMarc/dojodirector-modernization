@@ -15,11 +15,13 @@ import { sendPortalSetupEmail } from "@/lib/portal-setup-email.server";
 import {
   buildPortalSetupAdminStatus,
   buildPortalSetupConfirmUrl,
+  buildPortalSetupResetPath,
   canAdminSendPortalSetupEmail,
   resolvePortalSetupLoginContext,
   type PortalSetupAdminStatus,
   type PortalSetupLoginContext,
 } from "@/lib/portal-setup.shared";
+import { resolveSiteOrigin } from "@/lib/site-origin.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const PORTAL_SETUP_USER_COLUMNS =
@@ -40,10 +42,6 @@ interface PortalSetupUserRow {
 interface MembershipRoleStatusRow {
   role: string | null;
   status: string | null;
-}
-
-function resolveSiteOrigin() {
-  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 }
 
 function logPortalSetupFailure(message: string) {
@@ -210,6 +208,38 @@ export async function sendPortalSetupEmailForMember(input: {
   });
 
   const supabase = getSupabaseAdminClient();
+  const siteOrigin = resolveSiteOrigin();
+  const setupLinkNextPath = buildPortalSetupResetPath(setupContext);
+
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email: authEmail,
+    options: {
+      redirectTo: `${siteOrigin}${setupLinkNextPath}`,
+    },
+  });
+
+  if (linkError) {
+    logPortalSetupFailure(linkError.message);
+    throw new Error("Unable to send portal setup email. Please try again.");
+  }
+
+  const hashedToken = linkData.properties?.hashed_token?.trim();
+
+  if (!hashedToken) {
+    logPortalSetupFailure("Setup token was not generated.");
+    throw new Error("Unable to send portal setup email. Please try again.");
+  }
+
+  const setupLink = buildPortalSetupConfirmUrl(siteOrigin, hashedToken, setupContext);
+
+  await sendPortalSetupEmail({
+    clubSlug: input.clubSlug,
+    academyName: input.academyName,
+    to: authEmail,
+    setupLink,
+  });
+
   const now = new Date().toISOString();
   const userUpdate: Record<string, string> = {
     auth_user_id: authUserId,
@@ -236,37 +266,11 @@ export async function sendPortalSetupEmailForMember(input: {
     .eq("id", input.userId);
 
   if (profileUpdateError) {
+    logPortalSetupFailure(profileUpdateError.message);
     throw new Error(
-      `Failed to update portal setup status: ${profileUpdateError.message}`,
+      "Portal setup email was sent, but invite status could not be saved. Please contact support.",
     );
   }
-
-  const siteOrigin = resolveSiteOrigin();
-  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-    type: "recovery",
-    email: authEmail,
-  });
-
-  if (linkError) {
-    logPortalSetupFailure(linkError.message);
-    throw new Error("Unable to send portal setup email. Please try again.");
-  }
-
-  const hashedToken = linkData.properties?.hashed_token?.trim();
-
-  if (!hashedToken) {
-    logPortalSetupFailure("Setup token was not generated.");
-    throw new Error("Unable to send portal setup email. Please try again.");
-  }
-
-  const setupLink = buildPortalSetupConfirmUrl(siteOrigin, hashedToken, setupContext);
-
-  await sendPortalSetupEmail({
-    clubSlug: input.clubSlug,
-    academyName: input.academyName,
-    to: authEmail,
-    setupLink,
-  });
 
   return {
     message: "Portal setup email sent.",
