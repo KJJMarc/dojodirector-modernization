@@ -1,7 +1,10 @@
 import "server-only";
 
 import { getStudentFullName } from "@/lib/attendance";
-import { loadClubMembershipRows } from "@/lib/admin-club-memberships.server";
+import {
+  loadClubMembershipRows,
+  type ClubMembershipRow,
+} from "@/lib/admin-club-memberships.server";
 import { isSuperAdminMembershipRole } from "@/lib/admin-auth.shared";
 import {
   formatInstructorPortalStatusLabel,
@@ -24,7 +27,9 @@ import {
   buildPortalSetupAdminStatus,
   canAdminSendPortalSetupEmail,
 } from "@/lib/portal-setup.shared";
+import { isStudentMembershipRole } from "@/lib/admin-student-membership.shared";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
+import { resolveActiveStudentPortalRecipientUserIdsAtClub } from "@/lib/student-portal-club.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const PORTAL_ACCESS_PROFILE_COLUMNS =
@@ -148,16 +153,59 @@ async function loadPortalAccessProfilesByIds(
   return profiles;
 }
 
-async function loadActiveClubMemberships(
+function pickPortalAccessMembershipForUser(
+  existing: ActiveClubMembershipRow | undefined,
+  candidate: ActiveClubMembershipRow,
+): ActiveClubMembershipRow {
+  if (!existing) {
+    return candidate;
+  }
+
+  if (
+    isStudentMembershipRole(candidate.role) &&
+    !isStudentMembershipRole(existing.role)
+  ) {
+    return candidate;
+  }
+
+  return existing;
+}
+
+/** Active members eligible for student portal access at this academy (all programmes). */
+async function loadPortalAccessEligibleMemberships(
   clubId: string,
 ): Promise<ActiveClubMembershipRow[]> {
   const membershipRows = await loadClubMembershipRows(clubId);
-
-  return membershipRows.filter(
-    (membership) =>
-      isActiveMembershipStatus(membership.status) &&
-      !isSuperAdminMembershipRole(membership.role),
+  const eligibleUserIds = await resolveActiveStudentPortalRecipientUserIdsAtClub(
+    clubId,
+    membershipRows,
   );
+
+  if (eligibleUserIds.size === 0) {
+    return [];
+  }
+
+  const membershipByUserId = new Map<string, ActiveClubMembershipRow>();
+
+  for (const membership of membershipRows as ClubMembershipRow[]) {
+    if (
+      !eligibleUserIds.has(membership.user_id) ||
+      !isActiveMembershipStatus(membership.status) ||
+      isSuperAdminMembershipRole(membership.role)
+    ) {
+      continue;
+    }
+
+    membershipByUserId.set(
+      membership.user_id,
+      pickPortalAccessMembershipForUser(
+        membershipByUserId.get(membership.user_id),
+        membership,
+      ),
+    );
+  }
+
+  return Array.from(membershipByUserId.values());
 }
 
 async function loadInstructorMembershipElsewhereByUserId(userIds: string[]) {
@@ -275,7 +323,7 @@ function buildPortalAccessBulkEligibilityFlags(input: {
 }
 
 async function loadPortalAccessMemberContexts(clubId: string) {
-  const memberships = await loadActiveClubMemberships(clubId);
+  const memberships = await loadPortalAccessEligibleMemberships(clubId);
   const userIds = Array.from(new Set(memberships.map((row) => row.user_id)));
   const [profilesById, instructorElsewhereByUserId] = await Promise.all([
     loadPortalAccessProfilesByIds(userIds),

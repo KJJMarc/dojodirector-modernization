@@ -60,7 +60,7 @@ function buildPortalSetupEligibilityStatus(input: PortalAccessBulkEligibilityInp
   });
 }
 
-/** Active members who have never been sent a portal setup email. */
+/** Active members who have never been sent a student portal setup email. */
 export function isUninvitedPortalSetupEligible(
   input: PortalAccessBulkEligibilityInput,
 ) {
@@ -70,7 +70,12 @@ export function isUninvitedPortalSetupEligible(
 
   const status = buildPortalSetupEligibilityStatus(input);
 
-  return status.canSendSetupEmail && status.statusLabel === "Portal setup not sent";
+  if (!status.canSendSetupEmail) {
+    return false;
+  }
+
+  // Match the Portal Status column in the bulk review table.
+  return normalizePortalAuthStatus(input.portalAuthStatus) === "not_invited";
 }
 
 /** Active members without working portal access, including previously invited. */

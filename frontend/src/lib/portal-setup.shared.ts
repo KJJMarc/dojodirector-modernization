@@ -152,7 +152,7 @@ export function buildPortalSetupAdminStatus(
     input.portalInvitedAt,
   );
   const instructorSent =
-    !instructorFacing ||
+    instructorFacing &&
     isPortalSetupSent(
       input.instructorPortalAuthStatus,
       input.instructorPortalInvitedAt,
