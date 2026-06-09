@@ -29,8 +29,7 @@ export const ensureClubRecurringFutureSessions = cache(
         .from("class_sessions")
         .select("id", { count: "exact", head: true })
         .eq("recurring_schedule_id", schedule.id)
-        .gte("starts_at", nowIso)
-        .neq("status", "cancelled");
+        .gte("starts_at", nowIso);
 
       return {
         scheduleId: schedule.id,

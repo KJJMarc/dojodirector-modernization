@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Merge duplicate class_sessions that share club_id + class_id + starts_at.
- * Prefers the session with attendance marked, then kids_timetable_seed, then oldest.
+ * When a cancelled session exists, keeps it (manual cancel) and removes scheduled duplicates.
+ * Otherwise prefers attendance marked, then kids_timetable_seed, then oldest.
  *
  * Usage:
  *   set -a && source frontend/.env.local && set +a
@@ -66,7 +67,6 @@ async function loadSessionsForClub(clubId) {
       "id, club_id, class_id, starts_at, ends_at, source, external_id, recurring_schedule_id, status, created_at, classes(name)",
     )
     .eq("club_id", clubId)
-    .neq("status", "cancelled")
     .order("starts_at", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -105,7 +105,38 @@ function sourceBonus(source) {
   return 10;
 }
 
+function cancelledCanonicalScore(session) {
+  return -new Date(session.created_at).getTime();
+}
+
 async function pickCanonicalSession(sessions) {
+  const cancelledSessions = sessions.filter((session) => session.status === "cancelled");
+
+  if (cancelledSessions.length > 0) {
+    const scored = [];
+
+    for (const session of cancelledSessions) {
+      const metrics = await scoreSession(session.id);
+      const className = Array.isArray(session.classes)
+        ? session.classes[0]?.name
+        : session.classes?.name;
+
+      scored.push({
+        session,
+        className,
+        metrics,
+        score:
+          metrics.recordCount * 1000 +
+          metrics.presentCount * 100 +
+          metrics.attendeeCount +
+          cancelledCanonicalScore(session),
+      });
+    }
+
+    scored.sort((left, right) => right.score - left.score);
+    return scored;
+  }
+
   const scored = [];
 
   for (const session of sessions) {

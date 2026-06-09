@@ -23,10 +23,6 @@ interface RecurringScheduleGenerationRow {
   is_active: boolean;
 }
 
-export function isLondonWallClockOverloadMissingError(message: string) {
-  return message.includes("london_wall_clock_to_timestamptz") && message.includes("does not exist");
-}
-
 async function loadRecurringScheduleForGeneration(
   scheduleId: string,
 ): Promise<RecurringScheduleGenerationRow | null> {
@@ -71,10 +67,6 @@ async function loadExistingSessionStartsAtKeys(
   const keys = new Set<string>();
 
   for (const row of data ?? []) {
-    if (row.status === "cancelled") {
-      continue;
-    }
-
     keys.add(new Date(row.starts_at as string).toISOString());
   }
 
@@ -155,19 +147,10 @@ export async function generateRecurringClassSessions(
   scheduleId: string,
   daysAhead: number = RECURRING_CLASS_SESSION_DAYS_AHEAD,
 ): Promise<number> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase.rpc("generate_recurring_class_sessions", {
-    p_schedule_id: scheduleId,
-    p_days_ahead: daysAhead,
-  });
-
-  if (!error) {
-    return data ?? 0;
+  try {
+    return await generateRecurringClassSessionsFallback(scheduleId, daysAhead);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Unable to generate recurring sessions: ${message}`);
   }
-
-  if (isLondonWallClockOverloadMissingError(error.message)) {
-    return generateRecurringClassSessionsFallback(scheduleId, daysAhead);
-  }
-
-  throw new Error(`Unable to generate recurring sessions: ${error.message}`);
 }
