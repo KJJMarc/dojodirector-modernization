@@ -24,10 +24,8 @@ import {
   KIDS_ADULT_MIGRATION_GRADE_AWARD_NOTE_PREFIX,
   type KidsToAdultMigrationEligibility,
 } from "@/lib/admin-migrate-kids-to-adult.shared";
-import {
-  getPortalUserByStudentId,
-  sendStudentPortalInvite,
-} from "@/lib/student-portal-auth.server";
+import { sendPortalSetupEmailForMember } from "@/lib/portal-setup.server";
+import { getPortalUserByStudentId } from "@/lib/student-portal-auth.server";
 import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -516,10 +514,24 @@ async function ensureAdultStudentPortalAccess(userId: string, adultClubId: strin
     return { portalInviteSent: false, portalInviteError: null };
   }
 
+  const adultClub = await getClubBySlug(KINGSTON_CLUB_SLUG);
+  const membership = await loadMembershipForClub(userId, adultClubId);
+
+  if (!adultClub) {
+    return {
+      portalInviteSent: false,
+      portalInviteError: "Adult academy not found.",
+    };
+  }
+
   try {
-    await sendStudentPortalInvite({
+    await sendPortalSetupEmailForMember({
       userId,
-      clubId: adultClubId,
+      clubSlug: adultClub.slug,
+      academyName: adultClub.name,
+      membershipRole: membership?.role ?? "student",
+      membershipStatus: membership?.status ?? "active",
+      profileEmail: portalUser.email,
     });
 
     return { portalInviteSent: true, portalInviteError: null };

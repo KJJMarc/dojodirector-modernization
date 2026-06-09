@@ -19,7 +19,6 @@ import {
 } from "@/lib/instructor-portal-auth.server";
 import { setProfileLoginPassword } from "@/lib/profile-login-access.server";
 import { sendPortalSetupEmailForMember } from "@/lib/portal-setup.server";
-import { sendStudentPortalInvite } from "@/lib/student-portal-auth.server";
 import { revalidatePath } from "next/cache";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
 import {
@@ -118,17 +117,7 @@ export async function sendPortalSetupEmailAction(clubSlug: string, userId: strin
 }
 
 export async function sendStudentPortalInviteAction(clubSlug: string, userId: string) {
-  const club = await requireClubBySlug(clubSlug);
-  await requireAdminAccessForClubSlug(clubSlug);
-
-  const result = await sendStudentPortalInvite({
-    userId,
-    clubId: club.id,
-  });
-
-  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
-
-  return result;
+  return sendPortalSetupEmailAction(clubSlug, userId);
 }
 
 export async function sendInstructorPortalInviteAction(clubSlug: string, userId: string) {

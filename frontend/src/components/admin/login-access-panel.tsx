@@ -79,12 +79,8 @@ export function LoginAccessPanel({
 
               startInviteTransition(async () => {
                 try {
-                  await sendStudentPortalInviteAction(clubSlug, userId);
-                  setInviteSuccessMessage(
-                    portalInviteSentAt
-                      ? "Portal invite resent."
-                      : "Portal invite sent.",
-                  );
+                  const result = await sendStudentPortalInviteAction(clubSlug, userId);
+                  setInviteSuccessMessage(result.message);
                 } catch (error) {
                   setInviteErrorMessage(
                     error instanceof Error
