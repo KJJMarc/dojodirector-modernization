@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { trackAcademyLeadConversion } from "@/lib/academy-pixel-tracking.client";
+import type { AcademyPublicPixelSettings } from "@/lib/academy-pixel-settings.shared";
 import { clubTrialEnquiryApiPath } from "@/lib/clubs.shared";
 import {
   LEAD_EXPERIENCE_LEVELS,
@@ -69,6 +71,7 @@ async function submitTrialEnquiry(
 
 interface TrialEnquiryFormProps {
   clubSlug: string;
+  pixelSettings?: AcademyPublicPixelSettings | null;
 }
 
 const inputClassName =
@@ -79,7 +82,7 @@ const labelClassName = "text-xs font-medium text-dojo-muted";
 const audienceCardClassName =
   "flex min-h-[52px] cursor-pointer items-center gap-3 rounded-lg border border-dojo-border bg-dojo-black px-4 py-3 text-sm font-medium text-dojo-white transition has-[:checked]:border-dojo-red/70 has-[:checked]:bg-dojo-red/10";
 
-export function TrialEnquiryForm({ clubSlug }: TrialEnquiryFormProps) {
+export function TrialEnquiryForm({ clubSlug, pixelSettings }: TrialEnquiryFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -110,7 +113,15 @@ export function TrialEnquiryForm({ clubSlug }: TrialEnquiryFormProps) {
 
         startTransition(async () => {
           try {
-            await submitTrialEnquiry(clubSlug, formData);
+            const result = await submitTrialEnquiry(clubSlug, formData);
+
+            if (pixelSettings) {
+              trackAcademyLeadConversion(pixelSettings, {
+                clubSlug,
+                leadId: result.leadId,
+              });
+            }
+
             setIsSubmitted(true);
           } catch (error) {
             setErrorMessage(formatTrialEnquirySubmitError(error));

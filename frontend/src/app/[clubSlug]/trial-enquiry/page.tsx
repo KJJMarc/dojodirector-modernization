@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { TrialEnquiryForm } from "@/components/leads/trial-enquiry-form";
 import { PublicSiteFooter } from "@/components/layout/public-site-footer";
 import { PublicAcademyPageHeader } from "@/components/public/public-academy-page-header";
+import { getPublicAcademyPixelSettingsByClubSlug } from "@/lib/academy-pixel-settings.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
 
@@ -24,6 +25,7 @@ export async function generateMetadata({
 
 export default async function TrialEnquiryPage({ params }: TrialEnquiryPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
+  const pixelSettings = await getPublicAcademyPixelSettingsByClubSlug(club.slug);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -39,7 +41,7 @@ export default async function TrialEnquiryPage({ params }: TrialEnquiryPageProps
           we&apos;ll help you find the right class.
         </p>
 
-        <TrialEnquiryForm clubSlug={club.slug} />
+        <TrialEnquiryForm clubSlug={club.slug} pixelSettings={pixelSettings} />
       </main>
 
       <PublicSiteFooter variant="academy" />
