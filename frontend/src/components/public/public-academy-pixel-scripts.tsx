@@ -1,6 +1,7 @@
 "use client";
 
 import Script from "next/script";
+import { PublicAcademyPixelEventReporter } from "@/components/public/public-academy-pixel-event-reporter";
 import type { AcademyPublicPixelSettings } from "@/lib/academy-pixel-settings.shared";
 
 interface PublicAcademyPixelScriptsProps {
@@ -15,6 +16,7 @@ export function PublicAcademyPixelScripts({
 
   return (
     <>
+      <PublicAcademyPixelEventReporter settings={settings} />
       {googleTagId ? (
         <>
           <Script

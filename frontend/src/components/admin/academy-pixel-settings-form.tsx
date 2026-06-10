@@ -7,7 +7,6 @@ import {
   GOOGLE_ADS_CONVERSION_LABEL_HELP,
   GOOGLE_TAG_ID_HELP,
   META_PIXEL_ID_HELP,
-  PIXEL_SETTINGS_TESTING_NOTES,
   type AcademyPixelSettingsFormState,
 } from "@/lib/academy-pixel-settings.shared";
 import { clubAcademyPagesAdminPath } from "@/lib/admin-academy-pages.shared";
@@ -174,20 +173,5 @@ export function AcademyPixelSettingsForm({ settings }: AcademyPixelSettingsFormP
         </Link>
       </div>
     </form>
-  );
-}
-
-export function AcademyPixelSettingsTestingNotes() {
-  return (
-    <section className="space-y-2 rounded-lg border border-dojo-border bg-dojo-elevated p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-dojo-muted">
-        How to verify tracking
-      </h3>
-      <ul className="list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-dojo-muted">
-        {PIXEL_SETTINGS_TESTING_NOTES.map((note) => (
-          <li key={note}>{note}</li>
-        ))}
-      </ul>
-    </section>
   );
 }
