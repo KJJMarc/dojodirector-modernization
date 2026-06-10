@@ -7,6 +7,7 @@ import {
   isNoShow,
   isNoShowTrackingEligibleStudentMembership,
   isPresentAttendanceStatus,
+  resolveNoShowTrackingStatus,
 } from "@/lib/admin-class-metrics.shared";
 import type {
   ClassPopularityRow,
@@ -630,7 +631,7 @@ export async function getAdminClassMetricsPageData(
         email: user?.email ?? null,
         totalNoShows: stats.total,
         recentNoShows: stats.recent,
-        isRepeatOffender: stats.total >= 2,
+        status: resolveNoShowTrackingStatus(stats.total),
         lastNoShowDate: stats.lastAt,
       };
     })

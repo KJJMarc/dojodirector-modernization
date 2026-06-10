@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  formatNoShowTrackingStatusLabel,
   hasNoShowEligibilityWindowPassed,
   isNoShow,
   isNoShowTrackingEligibleStudentMembership,
   NO_SHOW_REGISTER_GRACE_MS,
+  resolveNoShowTrackingStatus,
 } from "@/lib/admin-class-metrics.shared";
 
 const SESSION_START = "2026-06-05T18:00:00.000Z";
@@ -116,6 +118,31 @@ describe("isNoShow", () => {
         "2026-06-05T20:31:00.000Z",
       ),
       true,
+    );
+  });
+});
+
+describe("resolveNoShowTrackingStatus", () => {
+  it("labels 1 no-show as single", () => {
+    assert.equal(resolveNoShowTrackingStatus(1), "single");
+    assert.equal(formatNoShowTrackingStatusLabel("single"), "Single no-show");
+  });
+
+  it("labels 2-3 no-shows as multiple", () => {
+    assert.equal(resolveNoShowTrackingStatus(2), "multiple");
+    assert.equal(resolveNoShowTrackingStatus(3), "multiple");
+    assert.equal(
+      formatNoShowTrackingStatusLabel("multiple"),
+      "Multiple no-shows",
+    );
+  });
+
+  it("labels 4+ no-shows as frequent", () => {
+    assert.equal(resolveNoShowTrackingStatus(4), "frequent");
+    assert.equal(resolveNoShowTrackingStatus(12), "frequent");
+    assert.equal(
+      formatNoShowTrackingStatusLabel("frequent"),
+      "Frequent no-shows",
     );
   });
 });

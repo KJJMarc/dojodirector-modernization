@@ -117,13 +117,65 @@ export interface InstructorMetricRow {
   utilisationPercent: number | null;
 }
 
+export type NoShowTrackingStatus = "single" | "multiple" | "frequent";
+
+/** Shown in Class Data no-show tracking help text and tooltips. */
+export const NO_SHOW_TRACKING_DEFINITION =
+  "A no-show occurs when a student books a class but is not marked present after the attendance register completion window has passed.";
+
+/**
+ * Future improvement: derive status from no-show rate (no-shows ÷ total bookings
+ * over the last 90 days) so 2 no-shows from 50 bookings is treated differently
+ * from 2 no-shows from 2 bookings.
+ */
+export const NO_SHOW_TRACKING_STATUS_NOTE =
+  "Status is based on total no-shows in the reporting period. A no-show rate may be used in future.";
+
+export function resolveNoShowTrackingStatus(
+  totalNoShows: number,
+): NoShowTrackingStatus {
+  if (totalNoShows >= 4) {
+    return "frequent";
+  }
+
+  if (totalNoShows >= 2) {
+    return "multiple";
+  }
+
+  return "single";
+}
+
+export function formatNoShowTrackingStatusLabel(status: NoShowTrackingStatus) {
+  switch (status) {
+    case "single":
+      return "Single no-show";
+    case "multiple":
+      return "Multiple no-shows";
+    case "frequent":
+      return "Frequent no-shows";
+  }
+}
+
+export function noShowTrackingStatusBadgeClassName(status: NoShowTrackingStatus) {
+  const base = "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold";
+
+  switch (status) {
+    case "single":
+      return `${base} border border-dojo-border bg-dojo-elevated text-dojo-muted`;
+    case "multiple":
+      return `${base} bg-dojo-amber-500/15 text-dojo-amber-500`;
+    case "frequent":
+      return `${base} bg-dojo-red/20 text-dojo-red`;
+  }
+}
+
 export interface NoShowStudentRow {
   userId: string;
   studentName: string;
   email: string | null;
   totalNoShows: number;
   recentNoShows: number;
-  isRepeatOffender: boolean;
+  status: NoShowTrackingStatus;
   lastNoShowDate: string | null;
 }
 

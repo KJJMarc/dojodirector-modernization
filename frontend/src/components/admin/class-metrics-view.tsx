@@ -1,6 +1,15 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import type { AdminClassMetricsPageData } from "@/lib/admin-class-metrics.shared";
+import type {
+  AdminClassMetricsPageData,
+  NoShowTrackingStatus,
+} from "@/lib/admin-class-metrics.shared";
+import {
+  formatNoShowTrackingStatusLabel,
+  NO_SHOW_TRACKING_DEFINITION,
+  NO_SHOW_TRACKING_STATUS_NOTE,
+  noShowTrackingStatusBadgeClassName,
+} from "@/lib/admin-class-metrics.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { formatBookingDate } from "@/lib/booking";
 
@@ -60,6 +69,17 @@ function utilisationLabel(value: number | null) {
   return value === null ? "—" : `${value}%`;
 }
 
+function NoShowStatusBadge({ status }: { status: NoShowTrackingStatus }) {
+  return (
+    <span
+      className={noShowTrackingStatusBadgeClassName(status)}
+      title={`${formatNoShowTrackingStatusLabel(status)} — ${NO_SHOW_TRACKING_DEFINITION}`}
+    >
+      {formatNoShowTrackingStatusLabel(status)}
+    </span>
+  );
+}
+
 export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
   if (!data.hasSessionData) {
     return (
@@ -76,7 +96,9 @@ export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
         <SummaryCard label="Tracked class slots" value={data.trackedClassSlots} />
         <SummaryCard
           label="Frequent no-shows"
-          value={data.noShowStudents.filter((row) => row.isRepeatOffender).length}
+          value={
+            data.noShowStudents.filter((row) => row.status === "frequent").length
+          }
         />
       </div>
 
@@ -193,8 +215,14 @@ export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
 
       <MetricsSection
         title="No-show tracking"
-        description="Students who booked but were not marked present after the class ended and the register completion window passed."
+        description={`${NO_SHOW_TRACKING_DEFINITION} ${NO_SHOW_TRACKING_STATUS_NOTE}`}
       >
+        <p
+          className="text-xs leading-relaxed text-dojo-muted"
+          title={NO_SHOW_TRACKING_DEFINITION}
+        >
+          Status: 1 no-show = Single · 2–3 = Multiple · 4+ = Frequent
+        </p>
         {data.noShowStudents.length === 0 ? (
           <EmptyState message="No no-shows recorded in this period." />
         ) : (
@@ -239,13 +267,7 @@ export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
                         : "—"}
                     </td>
                     <td className="px-3 py-3">
-                      {row.isRepeatOffender ? (
-                        <span className="inline-flex rounded-full bg-dojo-red/20 px-2 py-0.5 text-xs font-semibold text-dojo-red">
-                          Frequent no-shows
-                        </span>
-                      ) : (
-                        <span className="text-xs text-dojo-muted">Single</span>
-                      )}
+                      <NoShowStatusBadge status={row.status} />
                     </td>
                   </tr>
                 ))}
