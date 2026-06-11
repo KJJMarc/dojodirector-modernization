@@ -1,5 +1,13 @@
 import { formatBookingDate } from "@/lib/booking";
-import { getLondonDateRangeIso, getLondonTodayDateKey, LONDON_TIMEZONE } from "@/lib/london-datetime";
+import type { AttendanceRegisterNavContext } from "@/lib/attendance-register-navigation.shared";
+import {
+  addLondonCalendarDays,
+  daysBetweenLondonDateKeys,
+  getLondonDateRangeIso,
+  getLondonTodayDateKey,
+  londonLocalDateTimeToUtcIso,
+  LONDON_TIMEZONE,
+} from "@/lib/london-datetime";
 import {
   ATTENDANCE_TIME_DISPLAY_FIX_VERSION,
   formatAttendanceSessionTimeRange,
@@ -37,6 +45,131 @@ export function getAttendanceScheduleDateRange(from = new Date()) {
   const { startIso, endIso } = getLondonDateRangeIso({ daysAhead: 56, from });
 
   return { startIso, endIso };
+}
+
+const ATTENDANCE_DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export type AttendanceScheduleViewMode = "default" | "date-filter";
+
+export interface AttendanceScheduleFilter {
+  mode: AttendanceScheduleViewMode;
+  dateKey?: string;
+  rangeStartKey?: string;
+  rangeEndKey?: string;
+  days?: number;
+}
+
+export function isValidAttendanceDateKey(value: string) {
+  if (!ATTENDANCE_DATE_KEY_PATTERN.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+export function parseAttendanceRegisterDateKey(
+  value: string | undefined,
+): string | undefined {
+  const normalized = value?.trim();
+
+  if (!normalized || !isValidAttendanceDateKey(normalized)) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+export function resolveAttendanceScheduleFilter(
+  context: Pick<AttendanceRegisterNavContext, "date" | "days"> | null | undefined,
+  from = new Date(),
+): AttendanceScheduleFilter {
+  const todayKey = getLondonTodayDateKey(from);
+  const dateKey = parseAttendanceRegisterDateKey(context?.date);
+  const days = context?.days;
+
+  if (!dateKey && !days) {
+    return { mode: "default" };
+  }
+
+  const rangeEndKey = dateKey ?? todayKey;
+
+  if (days && days > 1) {
+    const rangeStartKey = addLondonCalendarDays(rangeEndKey, -(days - 1));
+
+    return {
+      mode: "date-filter",
+      dateKey,
+      rangeStartKey,
+      rangeEndKey,
+      days,
+    };
+  }
+
+  return {
+    mode: "date-filter",
+    dateKey: rangeEndKey,
+    rangeStartKey: rangeEndKey,
+    rangeEndKey,
+    days: 1,
+  };
+}
+
+export function getAttendanceScheduleFilterDateRange(
+  filter: AttendanceScheduleFilter,
+  from = new Date(),
+) {
+  if (filter.mode === "default") {
+    return getAttendanceScheduleDateRange(from);
+  }
+
+  const startKey = filter.rangeStartKey ?? filter.dateKey ?? getLondonTodayDateKey(from);
+  const endKey = filter.rangeEndKey ?? filter.dateKey ?? startKey;
+  const rangeEndExclusiveKey = addLondonCalendarDays(endKey, 1);
+
+  return {
+    startIso: londonLocalDateTimeToUtcIso(startKey, "00:00"),
+    endIso: londonLocalDateTimeToUtcIso(rangeEndExclusiveKey, "00:00"),
+    startDateKey: startKey,
+    endDateKey: endKey,
+  };
+}
+
+export function formatAttendanceRegisterDateLabel(dateKey: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: LONDON_TIMEZONE,
+  }).format(new Date(`${dateKey}T12:00:00Z`));
+}
+
+export function formatAttendanceScheduleFilterHeading(filter: AttendanceScheduleFilter) {
+  if (filter.mode === "default") {
+    return null;
+  }
+
+  const startKey = filter.rangeStartKey ?? filter.dateKey;
+  const endKey = filter.rangeEndKey ?? filter.dateKey;
+
+  if (!startKey || !endKey) {
+    return null;
+  }
+
+  if (startKey === endKey) {
+    return `Showing sessions for ${formatAttendanceRegisterDateLabel(startKey)}`;
+  }
+
+  const dayCount = daysBetweenLondonDateKeys(startKey, endKey) + 1;
+
+  return `Showing sessions for the last ${dayCount} days (${formatAttendanceRegisterDateLabel(startKey)} – ${formatAttendanceRegisterDateLabel(endKey)})`;
 }
 
 export function formatAttendanceMonthLabel(startsAt: string, externalId?: string | null) {

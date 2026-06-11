@@ -27,7 +27,12 @@ interface AttendanceSessionPageProps {
   params: {
     sessionId: string;
   };
-  searchParams: { from?: string | string[]; club?: string | string[] };
+  searchParams: {
+    from?: string | string[];
+    club?: string | string[];
+    date?: string | string[];
+    days?: string | string[];
+  };
 }
 
 export default async function AttendanceSessionPage({
@@ -58,7 +63,7 @@ export default async function AttendanceSessionPage({
     clubId,
     programmeType,
   );
-  const markingDisabled = isCancelled || status === "completed";
+  const markingDisabled = isCancelled;
   const scheduleSession = {
     id: session.id,
     classId: session.class_id,
@@ -128,7 +133,7 @@ export default async function AttendanceSessionPage({
         <>
           {markingDisabled ? (
             <p className="rounded-xl border border-dojo-red/30 bg-dojo-red/10 px-4 py-3 text-sm text-dojo-red">
-              Attendance marking is disabled for {isCancelled ? "cancelled" : "completed"} sessions.
+              Attendance marking is disabled for cancelled sessions.
             </p>
           ) : null}
           <SessionAttendanceSection

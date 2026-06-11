@@ -21,11 +21,17 @@ export interface AttendanceRegisterNavContext {
   from: AttendanceRegisterNavFrom;
   clubSlug?: string;
   mode?: AttendanceSessionListMode;
+  /** London calendar date (YYYY-MM-DD) for register date search. */
+  date?: string;
+  /** Inclusive day count ending on `date` or today (2–31). */
+  days?: number;
 }
 
 export interface AttendanceRegisterSearchParams {
   from?: string | string[];
   club?: string | string[];
+  date?: string | string[];
+  days?: string | string[];
 }
 
 function normalizeSearchParam(value: string | string[] | undefined): string | undefined {
@@ -33,22 +39,53 @@ function normalizeSearchParam(value: string | string[] | undefined): string | un
   return normalized?.trim() || undefined;
 }
 
+const ATTENDANCE_REGISTER_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseAttendanceRegisterDateFilter(
+  searchParams: AttendanceRegisterSearchParams,
+): Pick<AttendanceRegisterNavContext, "date" | "days"> {
+  const rawDate = normalizeSearchParam(searchParams.date);
+  const date =
+    rawDate && ATTENDANCE_REGISTER_DATE_PATTERN.test(rawDate) ? rawDate : undefined;
+  const daysRaw = normalizeSearchParam(searchParams.days);
+  const parsedDays = daysRaw ? Number(daysRaw) : undefined;
+  const days =
+    parsedDays !== undefined &&
+    Number.isInteger(parsedDays) &&
+    parsedDays >= 2 &&
+    parsedDays <= 31
+      ? parsedDays
+      : undefined;
+
+  if (!date && !days) {
+    return {};
+  }
+
+  return {
+    ...(date ? { date } : {}),
+    ...(days ? { days } : {}),
+  };
+}
+
 export function parseAttendanceRegisterNavContext(
   searchParams: AttendanceRegisterSearchParams,
 ): AttendanceRegisterNavContext | null {
   const from = normalizeSearchParam(searchParams.from);
   const clubSlug = normalizeSearchParam(searchParams.club);
+  const dateFilter = parseAttendanceRegisterDateFilter(searchParams);
 
   if (from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal) {
-    return clubSlug ? { from, clubSlug } : { from };
+    return clubSlug
+      ? { from, clubSlug, ...dateFilter }
+      : { from, ...dateFilter };
   }
 
   if (from === ATTENDANCE_REGISTER_NAV_FROM.adminDashboard && clubSlug) {
-    return { from, clubSlug };
+    return { from, clubSlug, ...dateFilter };
   }
 
   if (from === ATTENDANCE_REGISTER_NAV_FROM.manageBookings && clubSlug) {
-    return { from, clubSlug };
+    return { from, clubSlug, ...dateFilter };
   }
 
   return null;
@@ -62,6 +99,14 @@ export function buildAttendanceRegisterNavQuery(
 
   if (context.clubSlug) {
     params.set("club", context.clubSlug);
+  }
+
+  if (context.date) {
+    params.set("date", context.date);
+  }
+
+  if (context.days) {
+    params.set("days", String(context.days));
   }
 
   return params;

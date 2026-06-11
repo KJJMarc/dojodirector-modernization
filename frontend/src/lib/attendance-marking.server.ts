@@ -89,10 +89,6 @@ export async function applySessionAttendeeAttendanceStatus(
     throw new Error("Attendance cannot be marked for a cancelled session.");
   }
 
-  if (classSession.status === "completed") {
-    throw new Error("Attendance cannot be marked for a completed session.");
-  }
-
   const { error } = await supabase
     .from("session_attendees")
     .update({ attendance_status: nextStatus })
