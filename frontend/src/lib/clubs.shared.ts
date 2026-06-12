@@ -1,5 +1,6 @@
 export const KINGSTON_CLUB_SLUG = "kingston-jiu-jitsu";
 export const KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG = "kingston-jiu-jitsu-kids";
+export const BAHAMAS_JIU_JITSU_CLUB_SLUG = "bahamas-jiu-jitsu";
 /** Kingston Jiu Jitsu Kids academy club id (grading + memberships). */
 export const KINGSTON_JIU_JITSU_KIDS_CLUB_ID =
   "0e81995e-7ed5-490d-8425-f23c87f34587";

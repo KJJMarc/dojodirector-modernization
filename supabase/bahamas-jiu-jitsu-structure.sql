@@ -1,0 +1,7 @@
+-- Bahamas Jiu Jitsu: copy adult BJJ academy structure from Kingston Jiu Jitsu.
+-- Prerequisite: Kingston Jiu Jitsu (slug kingston-jiu-jitsu) must exist.
+-- Safe to re-run (ON CONFLICT / NOT EXISTS guards throughout).
+--
+-- For production: paste and run the full contents of
+-- supabase/migrations/20260610120000_bahamas_jiu_jitsu_club.sql
+-- in the Supabase SQL Editor.
