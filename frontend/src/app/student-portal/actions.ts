@@ -4,14 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
-import { requireClubBySlug } from "@/lib/clubs.server";
-import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 import {
   hasAcceptedCurrentStudentAgreements,
   logStudentAgreementGate,
   recordStudentAgreementAcceptance,
 } from "@/lib/student-portal-agreements.server";
-import { resolveStudentPortalHomePath } from "@/lib/student-portal-club.server";
+import {
+  resolveStudentPortalAgreementClubForUser,
+  resolveStudentPortalHomePath,
+} from "@/lib/student-portal-club.server";
 import { promoteInvitedPortalAccessAfterPasswordSignIn } from "@/lib/portal-auth-activation.server";
 import {
   PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE,
@@ -106,8 +107,13 @@ export async function acceptStudentAgreementsAction(formData: FormData) {
   }
 
   const headerStore = await headers();
-  const kjjClub = await requireClubBySlug(KINGSTON_CLUB_SLUG);
-  const agreementContent = await resolveMemberPortalAgreementContent(kjjClub.id);
+  const agreementClub = await resolveStudentPortalAgreementClubForUser(profile.userId);
+
+  if (!agreementClub) {
+    throw new Error("You do not currently have access to this portal. Please contact your academy administrator.");
+  }
+
+  const agreementContent = await resolveMemberPortalAgreementContent(agreementClub.id);
 
   logStudentAgreementGate("acceptStudentAgreementsAction.submit", {
     authUserId: profile.authUserId,
@@ -120,6 +126,7 @@ export async function acceptStudentAgreementsAction(formData: FormData) {
 
   const saved = await recordStudentAgreementAcceptance({
     userId: profile.userId,
+    clubId: agreementClub.id,
     signedFullName,
     signatoryType: signatoryTypeRaw,
     participantName:
@@ -152,7 +159,7 @@ export async function acceptStudentAgreementsAction(formData: FormData) {
 
   revalidatePath(studentPortalEntryPath());
   revalidatePath(studentPortalAgreementsPath());
-  revalidatePath(studentPortalPath(KINGSTON_CLUB_SLUG, profile.userId), "layout");
+  revalidatePath(studentPortalPath(agreementClub.slug, profile.userId), "layout");
 
   if (!accepted) {
     throw new Error(

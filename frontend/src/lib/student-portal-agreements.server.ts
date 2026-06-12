@@ -4,6 +4,7 @@ import { cache } from "react";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { CLUB_AGREEMENT_TYPE_MEMBER_PORTAL } from "@/lib/club-agreement-templates.shared";
 import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
+import { resolveStudentPortalAgreementClubForUser } from "@/lib/student-portal-club.server";
 import { getSupabaseAuthSessionUser } from "@/lib/student-portal-auth.server";
 import { buildMembershipAgreementPdfBytes } from "@/lib/membership-agreement-pdf.server";
 import {
@@ -331,7 +332,22 @@ interface StudentAgreementGateSnapshot {
 const loadStudentAgreementGateSnapshot = cache(
   async (userId: string): Promise<StudentAgreementGateSnapshot> => {
     const authUser = await getSupabaseAuthSessionUser();
-    const requirement = await getCurrentMemberPortalAgreementRequirement();
+    const agreementClub = await resolveStudentPortalAgreementClubForUser(userId);
+
+    if (!agreementClub) {
+      const requirement = await getCurrentMemberPortalAgreementRequirement();
+
+      return {
+        accepted: false,
+        authUserId: authUser?.id ?? null,
+        requirement,
+        row: null,
+      };
+    }
+
+    const requirement = await getCurrentMemberPortalAgreementRequirement(
+      agreementClub.id,
+    );
     const row = await loadStudentAgreementRowForVersion({
       userId,
       version: requirement.version,
@@ -473,6 +489,7 @@ export async function getMembershipAgreementPdfPathForUser(
 
 export async function recordStudentAgreementAcceptance(input: {
   userId: string;
+  clubId?: string;
   signedFullName: string;
   signatoryType: SignatoryType;
   participantName?: string | null;
@@ -501,7 +518,15 @@ export async function recordStudentAgreementAcceptance(input: {
   }
 
   const agreementType = input.agreementType ?? MEMBERSHIP_AGREEMENT_TYPE;
-  const agreementContent = await resolveMemberPortalAgreementContent(ACTIVE_CLUB_ID);
+  const agreementClubId =
+    input.clubId ??
+    (await resolveStudentPortalAgreementClubForUser(input.userId))?.id;
+
+  if (!agreementClubId) {
+    throw new Error("Unable to determine which academy membership agreement applies.");
+  }
+
+  const agreementContent = await resolveMemberPortalAgreementContent(agreementClubId);
   const version = input.version ?? agreementContent.version;
   const acceptedAt = new Date().toISOString();
   const supabase = getSupabaseAdminClient();

@@ -4,10 +4,9 @@ import { useState, useTransition } from "react";
 import { acceptStudentAgreementsAction } from "@/app/student-portal/actions";
 import { MembershipAgreementDocument } from "@/components/student-portal/membership-agreement-document";
 import {
+  buildStudentPortalAgreementCheckboxLabels,
   MEMBERSHIP_AGREEMENT_SECTIONS,
   MEMBERSHIP_AGREEMENT_VERSION,
-  PARENT_GUARDIAN_CHECKBOX_LABELS,
-  PARTICIPANT_AGREEMENT_CHECKBOX_LABEL,
   SIGNATORY_TYPE_OPTIONS,
   SIGNATORY_TYPE_PARENT_GUARDIAN,
   SIGNATORY_TYPE_PARTICIPANT,
@@ -17,6 +16,7 @@ import {
 
 interface StudentPortalAgreementFormProps {
   studentName: string;
+  clubName: string;
   agreementVersion?: string;
   agreementSections?: MembershipAgreementSection[];
   agreementDisplayLabel?: string;
@@ -30,12 +30,14 @@ const labelClassName =
 
 export function StudentPortalAgreementForm({
   studentName,
+  clubName,
   agreementVersion = MEMBERSHIP_AGREEMENT_VERSION,
   agreementSections = MEMBERSHIP_AGREEMENT_SECTIONS,
   agreementDisplayLabel,
 }: StudentPortalAgreementFormProps) {
   const displayLabel =
     agreementDisplayLabel ?? `Membership Agreement v${agreementVersion}`;
+  const checkboxLabels = buildStudentPortalAgreementCheckboxLabels(clubName);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [signatoryType, setSignatoryType] = useState<SignatoryType>(
     SIGNATORY_TYPE_PARTICIPANT,
@@ -170,7 +172,7 @@ export function StudentPortalAgreementForm({
                   className="mt-1 h-4 w-4 rounded border-dojo-border"
                 />
                 <span className="text-sm text-dojo-white">
-                  {PARENT_GUARDIAN_CHECKBOX_LABELS.guardianConfirm}
+                  {checkboxLabels.guardianConfirm}
                 </span>
               </label>
 
@@ -182,7 +184,7 @@ export function StudentPortalAgreementForm({
                   className="mt-1 h-4 w-4 rounded border-dojo-border"
                 />
                 <span className="text-sm text-dojo-white">
-                  {PARENT_GUARDIAN_CHECKBOX_LABELS.consentTraining}
+                  {checkboxLabels.consentTraining}
                 </span>
               </label>
 
@@ -194,7 +196,7 @@ export function StudentPortalAgreementForm({
                   className="mt-1 h-4 w-4 rounded border-dojo-border"
                 />
                 <span className="text-sm text-dojo-white">
-                  {PARENT_GUARDIAN_CHECKBOX_LABELS.agreeAgreement}
+                  {checkboxLabels.agreeAgreement}
                 </span>
               </label>
             </div>
@@ -208,7 +210,7 @@ export function StudentPortalAgreementForm({
               className="mt-1 h-4 w-4 rounded border-dojo-border"
             />
             <span className="text-sm text-dojo-white">
-              {PARTICIPANT_AGREEMENT_CHECKBOX_LABEL}
+              {checkboxLabels.participant}
             </span>
           </label>
         )}

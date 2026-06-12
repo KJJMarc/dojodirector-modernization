@@ -12,10 +12,11 @@ import {
   isStudentMembershipRole,
 } from "@/lib/admin-student-membership.shared";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
+import type { ClubRow } from "@/lib/clubs.shared";
 import {
-  KINGSTON_CLUB_SLUG,
-  type ClubRow,
-} from "@/lib/clubs.shared";
+  resolveStudentPortalAgreementClubFromAccessibleClubs,
+  type StudentPortalAccessibleClubRef,
+} from "@/lib/student-portal-club.shared";
 import { getClubBySlug, requireClubBySlug } from "@/lib/clubs.server";
 import {
   studentPortalAgreementsPath,
@@ -438,34 +439,14 @@ export async function resolveStudentPortalHomePath(userId: string): Promise<stri
 export async function resolveLegacyStudentPortalRedirectPath(
   userId: string,
 ): Promise<string> {
-  const { accessibleClubs, requiresAcademySelection } =
-    await resolveStudentPortalClubContext(userId);
+  return resolveStudentPortalHomePath(userId);
+}
 
-  if (requiresAcademySelection) {
-    return studentPortalEntryPath();
-  }
-
-  if (accessibleClubs.length === 1 && accessibleClubs[0]) {
-    return studentPortalPath(accessibleClubs[0].slug, userId);
-  }
-
-  const kjjOnly =
-    accessibleClubs.length === 1 &&
-    accessibleClubs[0]?.slug === KINGSTON_CLUB_SLUG;
-
-  if (kjjOnly && accessibleClubs[0]) {
-    return studentPortalPath(accessibleClubs[0].slug, userId);
-  }
-
-  if (accessibleClubs.some((club) => club.slug === KINGSTON_CLUB_SLUG)) {
-    return studentPortalPath(KINGSTON_CLUB_SLUG, userId);
-  }
-
-  if (accessibleClubs[0]) {
-    return studentPortalPath(accessibleClubs[0].slug, userId);
-  }
-
-  return studentPortalEntryPath();
+export async function resolveStudentPortalAgreementClubForUser(
+  userId: string,
+): Promise<StudentPortalAccessibleClubRef | null> {
+  const accessibleClubs = await loadStudentPortalAccessibleClubs(userId);
+  return resolveStudentPortalAgreementClubFromAccessibleClubs(accessibleClubs);
 }
 
 export async function resolveStudentPortalClubId(

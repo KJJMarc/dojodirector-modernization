@@ -40,6 +40,19 @@ export const PARENT_GUARDIAN_CHECKBOX_LABELS = {
     "I have read and agree to the Kingston Jiu Jitsu Membership Agreement.",
 } as const;
 
+export function buildStudentPortalAgreementCheckboxLabels(clubName: string) {
+  const normalizedClubName = clubName.trim();
+
+  return {
+    participant:
+      `I have read and agree to the ${normalizedClubName} Membership Agreement.`,
+    guardianConfirm: PARENT_GUARDIAN_CHECKBOX_LABELS.guardianConfirm,
+    consentTraining: `I consent to the participant taking part in training and related activities provided by ${normalizedClubName}.`,
+    agreeAgreement:
+      `I have read and agree to the ${normalizedClubName} Membership Agreement.`,
+  };
+}
+
 /** @deprecated Use PARTICIPANT_AGREEMENT_CHECKBOX_LABEL */
 export const ADULT_AGREEMENT_CHECKBOX_LABEL = PARTICIPANT_AGREEMENT_CHECKBOX_LABEL;
 

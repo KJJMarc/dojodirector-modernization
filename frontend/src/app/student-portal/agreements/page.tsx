@@ -4,13 +4,15 @@ import { AppHeader } from "@/components/layout/app-header";
 import { StudentPortalAgreementForm } from "@/components/student-portal/student-portal-agreement-form";
 import { StudentPortalHomeLink } from "@/components/student-portal/student-portal-home-link";
 import { StudentPortalSignOutButton } from "@/components/student-portal/student-portal-sign-out-button";
-import { ACTIVE_CLUB_ID, ACTIVE_CLUB_NAME } from "@/lib/branding";
 import { toClientClubAgreementContent } from "@/lib/club-agreement-templates.shared";
 import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
 import {
   hasAcceptedCurrentStudentAgreements,
 } from "@/lib/student-portal-agreements.server";
-import { resolveStudentPortalHomePath } from "@/lib/student-portal-club.server";
+import {
+  resolveStudentPortalAgreementClubForUser,
+  resolveStudentPortalHomePath,
+} from "@/lib/student-portal-club.server";
 import { resolveStudentPortalSessionState } from "@/lib/student-portal-auth.server";
 import { STUDENT_PORTAL_NO_STUDENT_ACCESS_MESSAGE } from "@/lib/student-portal-auth.shared";
 import { StudentPortalAccessDenied } from "@/components/student-portal/student-portal-access-denied";
@@ -34,7 +36,7 @@ export default async function StudentPortalAgreementsPage() {
   if (session.status === "unlinked") {
     return (
       <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-        <AppHeader pageTitle="Membership Agreement" clubName={ACTIVE_CLUB_NAME} />
+        <AppHeader pageTitle="Membership Agreement" clubName={null} />
         <StudentPortalHomeLink />
         <StudentPortalUnlinkedProfile />
       </main>
@@ -44,7 +46,7 @@ export default async function StudentPortalAgreementsPage() {
   if (session.status === "membership_inactive") {
     return (
       <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-        <AppHeader pageTitle="Membership Agreement" clubName={ACTIVE_CLUB_NAME} />
+        <AppHeader pageTitle="Membership Agreement" clubName={null} />
         <StudentPortalHomeLink />
         <StudentPortalInactiveMembership membershipStatus={session.membershipStatus} />
       </main>
@@ -54,7 +56,7 @@ export default async function StudentPortalAgreementsPage() {
   if (session.status === "no_student_access") {
     return (
       <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-        <AppHeader pageTitle="Membership Agreement" clubName={ACTIVE_CLUB_NAME} />
+        <AppHeader pageTitle="Membership Agreement" clubName={null} />
         <StudentPortalHomeLink />
         <StudentPortalAccessDenied message={STUDENT_PORTAL_NO_STUDENT_ACCESS_MESSAGE} />
       </main>
@@ -72,13 +74,25 @@ export default async function StudentPortalAgreementsPage() {
     redirect(await resolveStudentPortalHomePath(profile.userId));
   }
 
+  const agreementClub = await resolveStudentPortalAgreementClubForUser(profile.userId);
+
+  if (!agreementClub) {
+    return (
+      <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+        <AppHeader pageTitle="Membership Agreement" clubName={null} />
+        <StudentPortalHomeLink />
+        <StudentPortalAccessDenied message={STUDENT_PORTAL_NO_STUDENT_ACCESS_MESSAGE} />
+      </main>
+    );
+  }
+
   const agreementContent = toClientClubAgreementContent(
-    await resolveMemberPortalAgreementContent(ACTIVE_CLUB_ID),
+    await resolveMemberPortalAgreementContent(agreementClub.id),
   );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Membership Agreement" clubName={ACTIVE_CLUB_NAME} />
+      <AppHeader pageTitle="Membership Agreement" clubName={agreementClub.name} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <StudentPortalHomeLink />
@@ -95,6 +109,7 @@ export default async function StudentPortalAgreementsPage() {
 
         <StudentPortalAgreementForm
           studentName={profile.fullName}
+          clubName={agreementClub.name}
           agreementVersion={agreementContent.version}
           agreementSections={agreementContent.sections}
           agreementDisplayLabel={agreementContent.displayLabel}
