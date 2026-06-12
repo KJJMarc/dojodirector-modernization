@@ -5,12 +5,13 @@ import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-n
 import { AddStudentForm } from "@/components/admin/add-student-form";
 import { AppHeader } from "@/components/layout/app-header";
 import {
-  buildAddStudentBookingAccessOptions,
-  buildAddStudentProgrammeMembershipOptions,
   formatProgrammeStudentsLabel,
   programmeStudentsAdminPath,
 } from "@/lib/admin-programmes.shared";
-import { requireClubProgrammeBySlug } from "@/lib/admin-programmes.server";
+import {
+  loadAddStudentProgrammeAccessOptions,
+  requireClubProgrammeBySlug,
+} from "@/lib/admin-programmes.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ export default async function ProgrammeAddStudentPage({
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
   const studentsPath = programmeStudentsAdminPath(club.slug, programme.slug);
   const pageTitle = formatProgrammeStudentsLabel(programme);
+  const { programmeMembershipOptions, bookingAccessOptions } =
+    await loadAddStudentProgrammeAccessOptions(club.id, programme.programmeType);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -65,12 +68,8 @@ export default async function ProgrammeAddStudentPage({
           clubSlug={club.slug}
           programmeSlug={programme.slug}
           cancelHref={studentsPath}
-          programmeMembershipOptions={buildAddStudentProgrammeMembershipOptions(
-            programme.programmeType,
-          )}
-          bookingAccessOptions={buildAddStudentBookingAccessOptions(
-            programme.programmeType,
-          )}
+          programmeMembershipOptions={programmeMembershipOptions}
+          bookingAccessOptions={bookingAccessOptions}
         />
       </section>
     </main>

@@ -5,8 +5,6 @@ import { revalidateStudentAdminPaths } from "@/lib/admin-revalidate.server";
 import { createAdminStudent } from "@/lib/admin-create-student.server";
 import type { CreateAdminStudentInput } from "@/lib/admin-create-student.shared";
 import {
-  buildAddStudentBookingAccessOptions,
-  buildAddStudentProgrammeMembershipOptions,
   clubProgrammeStudentAreasPath,
   parseBookingAccessProgrammeTypes,
   parseProgrammeMembershipTypes,

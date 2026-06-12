@@ -7,19 +7,24 @@ import {
   classBelongsToAdminAreaProgrammeScope,
   LEGACY_BJJ_PROGRAMME_ID,
   PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE,
+  buildAddStudentBookingAccessOptions,
+  buildAddStudentProgrammeMembershipOptions,
   buildStudentBjjFeatureVisibility,
   defaultProgrammeSettingsForType,
+  filterProgrammesForStudentAccessForms,
   formatProgrammeTypeOptionLabel,
   noBjjProgrammeFeatureVisibility,
   parseCreatableProgrammeTypeValue,
   programmeNameForType,
   programmeSlugForType,
   STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
+  type AddStudentProgrammeAccessOption,
   type AdminProgramme,
   type CreatableProgrammeTypeValue,
   type ProgrammeFeatureSettings,
   type ProgrammeTypeValue,
   type StudentBjjFeatureVisibility,
+  type StudentPortalAccessProgrammeType,
 } from "@/lib/admin-programmes.shared";
 import {
   countActiveStudentMemberships,
@@ -491,7 +496,10 @@ const STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST: ProgrammeTypeValue[] = [
   ...STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
 ];
 
-async function ensureStudentPortalAccessProgrammeRows(clubId: string) {
+async function ensureStudentPortalAccessProgrammeRows(
+  clubId: string,
+  programmeTypes: ProgrammeTypeValue[] = STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST,
+) {
   if (!(await isProgrammesSchemaAvailable())) {
     return;
   }
@@ -502,7 +510,7 @@ async function ensureStudentPortalAccessProgrammeRows(clubId: string) {
     existingRows.map((row) => [row.programme_type, row]),
   );
 
-  for (const programmeType of STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST) {
+  for (const programmeType of programmeTypes) {
     if (existingByType.has(programmeType)) {
       continue;
     }
@@ -728,7 +736,7 @@ export async function ensureBjjProgrammeMembershipBackfill(clubId: string): Prom
     return { backfillRan: false, programmeMembershipsCount: 0 };
   }
 
-  await ensureStudentPortalAccessProgrammeRows(clubId);
+  await ensureStudentPortalAccessProgrammeRows(clubId, ["bjj"]);
 
   return backfillProgrammeMembershipsForTypes(clubId, ["bjj"]);
 }
@@ -1744,45 +1752,155 @@ export async function ensureProgrammeMembership(input: {
   }
 }
 
-async function loadPortalAccessProgrammeItems(clubId: string) {
-  await ensureStudentPortalAccessProgrammeRows(clubId);
+interface PortalAccessProgrammeItem {
+  programmeId: string;
+  name: string;
+  programmeType: StudentPortalAccessProgrammeType;
+}
 
+interface PortalAccessProgrammeRow {
+  id: string;
+  name: string;
+  programme_type: ProgrammeTypeValue;
+  student_portal_access_enabled: boolean;
+  admin_area_enabled?: boolean;
+  created_at: string;
+}
+
+async function loadPortalAccessProgrammeRows(clubId: string): Promise<PortalAccessProgrammeRow[]> {
   const supabase = getSupabaseAdminClient();
-  const { data: programmeRows, error: programmesError } = await supabase
+
+  let { data, error } = await supabase
     .from("programmes")
-    .select("id, name, programme_type")
+    .select(
+      "id, name, programme_type, student_portal_access_enabled, admin_area_enabled, created_at",
+    )
     .eq("club_id", clubId)
     .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST)
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
-  if (programmesError) {
-    throw new Error(`Failed to load programmes: ${programmesError.message}`);
+  if (error && isMissingAdminAreaEnabledColumn(error)) {
+    ({ data, error } = await supabase
+      .from("programmes")
+      .select("id, name, programme_type, student_portal_access_enabled, created_at")
+      .eq("club_id", clubId)
+      .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }));
   }
 
-  const programmesByType = new Map(
-    ((programmeRows ?? []) as {
-      id: string;
-      name: string;
-      programme_type: ProgrammeTypeValue;
-    }[]).map((programme) => [programme.programme_type, programme]),
+  if (error) {
+    throw new Error(`Failed to load programmes: ${error.message}`);
+  }
+
+  return (data ?? []) as PortalAccessProgrammeRow[];
+}
+
+async function loadProgrammeIdsWithClassesAtClub(
+  clubId: string,
+  programmeIds: string[],
+): Promise<Set<string>> {
+  if (programmeIds.length === 0) {
+    return new Set();
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("classes")
+    .select("programme_id")
+    .eq("club_id", clubId)
+    .in("programme_id", programmeIds);
+
+  if (error) {
+    throw new Error(`Failed to load programme classes: ${error.message}`);
+  }
+
+  return new Set(
+    ((data ?? []) as { programme_id: string | null }[])
+      .map((row) => row.programme_id)
+      .filter((programmeId): programmeId is string => Boolean(programmeId)),
+  );
+}
+
+function mapPortalAccessProgrammeRow(
+  row: PortalAccessProgrammeRow,
+): PortalAccessProgrammeItem {
+  return {
+    programmeId: row.id,
+    name: row.name,
+    programmeType: row.programme_type as StudentPortalAccessProgrammeType,
+  };
+}
+
+function buildStudentAccessFormProgrammeCandidates(
+  rows: PortalAccessProgrammeRow[],
+  programmeIdsWithClasses: Set<string>,
+) {
+  return rows.map((row) => ({
+    programmeType: row.programme_type as StudentPortalAccessProgrammeType,
+    studentPortalAccessEnabled: row.student_portal_access_enabled,
+    adminAreaEnabled: row.admin_area_enabled ?? row.programme_type === "bjj",
+    hasClasses: programmeIdsWithClasses.has(row.id),
+    createdAtMs: Date.parse(row.created_at),
+  }));
+}
+
+/** All portal-access programme rows stored for the club (no auto-create). */
+export async function loadPortalAccessProgrammeItems(
+  clubId: string,
+): Promise<PortalAccessProgrammeItem[]> {
+  return (await loadPortalAccessProgrammeRows(clubId)).map(mapPortalAccessProgrammeRow);
+}
+
+/** Programmes the club actually operates — used for student access forms. */
+export async function loadOperationalPortalAccessProgrammeItems(
+  clubId: string,
+): Promise<PortalAccessProgrammeItem[]> {
+  const rows = await loadPortalAccessProgrammeRows(clubId);
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const programmeIdsWithClasses = await loadProgrammeIdsWithClassesAtClub(
+    clubId,
+    rows.map((row) => row.id),
+  );
+  const operationalTypes = new Set(
+    filterProgrammesForStudentAccessForms(
+      buildStudentAccessFormProgrammeCandidates(rows, programmeIdsWithClasses),
+    ),
   );
 
-  return STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST.flatMap((programmeType) => {
-    const programme = programmesByType.get(programmeType);
+  return rows
+    .filter((row) =>
+      operationalTypes.has(row.programme_type as StudentPortalAccessProgrammeType),
+    )
+    .map(mapPortalAccessProgrammeRow);
+}
 
-    if (!programme) {
-      return [];
-    }
+export async function loadAddStudentProgrammeAccessOptions(
+  clubId: string,
+  sourceProgrammeType: ProgrammeTypeValue,
+): Promise<{
+  programmeMembershipOptions: AddStudentProgrammeAccessOption[];
+  bookingAccessOptions: AddStudentProgrammeAccessOption[];
+}> {
+  const clubProgrammeTypes = (
+    await loadOperationalPortalAccessProgrammeItems(clubId)
+  ).map((programme) => programme.programmeType);
 
-    return [
-      {
-        programmeId: programme.id,
-        name: programme.name,
-        programmeType,
-      },
-    ];
-  });
+  return {
+    programmeMembershipOptions: buildAddStudentProgrammeMembershipOptions(
+      sourceProgrammeType,
+      clubProgrammeTypes,
+    ),
+    bookingAccessOptions: buildAddStudentBookingAccessOptions(
+      sourceProgrammeType,
+      clubProgrammeTypes,
+    ),
+  };
 }
 
 /** Active member enrolment in any student-portal-access programme at the club (role-agnostic). */
@@ -1936,7 +2054,7 @@ export async function setProgrammeBookingAccessForUser(input: {
     return;
   }
 
-  await ensureStudentPortalAccessProgrammeRows(input.clubId);
+  await ensureStudentPortalAccessProgrammeRows(input.clubId, input.programmeTypes);
 
   const supabase = getSupabaseAdminClient();
   const { data: programmes, error: programmesError } = await supabase
@@ -2007,20 +2125,9 @@ async function syncProgrammeBookingAccessForUser(input: {
   }
 
   const supabase = getSupabaseAdminClient();
-  await ensureStudentPortalAccessProgrammeRows(input.clubId);
-
-  const { data: accessProgrammes, error: programmesError } = await supabase
-    .from("programmes")
-    .select("id")
-    .eq("club_id", input.clubId)
-    .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST);
-
-  if (programmesError) {
-    throw new Error(`Failed to load club programmes: ${programmesError.message}`);
-  }
-
+  const accessProgrammes = await loadOperationalPortalAccessProgrammeItems(input.clubId);
   const accessProgrammeIds = new Set(
-    ((accessProgrammes ?? []) as { id: string }[]).map((row) => row.id),
+    accessProgrammes.map((programme) => programme.programmeId),
   );
   const selectedSet = new Set(input.programmeIds);
 
@@ -2081,7 +2188,7 @@ export async function ensureProgrammeMembershipForUser(input: {
     return;
   }
 
-  await ensureStudentPortalAccessProgrammeRows(input.clubId);
+  await ensureStudentPortalAccessProgrammeRows(input.clubId, input.programmeTypes);
 
   const supabase = getSupabaseAdminClient();
   const { data: programmes, error: programmesError } = await supabase
@@ -2128,7 +2235,7 @@ export async function loadStudentProgrammeBookingAccessForProfile(
     return { available: false, programmes: [] };
   }
 
-  const accessProgrammes = await loadPortalAccessProgrammeItems(clubId);
+  const accessProgrammes = await loadOperationalPortalAccessProgrammeItems(clubId);
 
   if (accessProgrammes.length === 0) {
     return { available: true, programmes: [] };
@@ -2191,7 +2298,7 @@ export async function loadStudentProgrammeMembershipForProfile(
     return { available: false, programmes: [] };
   }
 
-  const accessProgrammes = await loadPortalAccessProgrammeItems(clubId);
+  const accessProgrammes = await loadOperationalPortalAccessProgrammeItems(clubId);
 
   if (accessProgrammes.length === 0) {
     return { available: true, programmes: [] };
@@ -2237,23 +2344,10 @@ export async function updateStudentProgrammeBookingAccess(input: {
     throw new Error(PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE);
   }
 
-  const supabase = getSupabaseAdminClient();
   const selectedProgrammeIds = Array.from(new Set(input.programmeIds));
-
-  await ensureStudentPortalAccessProgrammeRows(input.clubId);
-
-  const { data: accessProgrammes, error: programmesError } = await supabase
-    .from("programmes")
-    .select("id")
-    .eq("club_id", input.clubId)
-    .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST);
-
-  if (programmesError) {
-    throw new Error(`Failed to load club programmes: ${programmesError.message}`);
-  }
-
+  const accessProgrammes = await loadOperationalPortalAccessProgrammeItems(input.clubId);
   const accessProgrammeIds = new Set(
-    ((accessProgrammes ?? []) as { id: string }[]).map((row) => row.id),
+    accessProgrammes.map((programme) => programme.programmeId),
   );
 
   for (const programmeId of selectedProgrammeIds) {
@@ -2280,21 +2374,9 @@ export async function updateStudentProgrammeMemberships(input: {
 
   const supabase = getSupabaseAdminClient();
   const selectedProgrammeIds = Array.from(new Set(input.programmeIds));
-
-  await ensureStudentPortalAccessProgrammeRows(input.clubId);
-
-  const { data: accessProgrammes, error: programmesError } = await supabase
-    .from("programmes")
-    .select("id")
-    .eq("club_id", input.clubId)
-    .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST);
-
-  if (programmesError) {
-    throw new Error(`Failed to load club programmes: ${programmesError.message}`);
-  }
-
+  const accessProgrammes = await loadOperationalPortalAccessProgrammeItems(input.clubId);
   const accessProgrammeIds = new Set(
-    ((accessProgrammes ?? []) as { id: string }[]).map((row) => row.id),
+    accessProgrammes.map((programme) => programme.programmeId),
   );
 
   for (const programmeId of selectedProgrammeIds) {

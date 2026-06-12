@@ -411,12 +411,54 @@ export function programmeBookingAccessLabel(
   return `${formatProgrammeTypeOptionLabel(programmeType)} Classes`;
 }
 
+/** Inputs for filtering which portal-access programmes appear on student access forms. */
+export interface StudentAccessFormProgrammeCandidate {
+  programmeType: StudentPortalAccessProgrammeType;
+  studentPortalAccessEnabled: boolean;
+  adminAreaEnabled: boolean;
+  hasClasses: boolean;
+  createdAtMs: number;
+}
+
+const STUDENT_ACCESS_FORM_BATCH_INSERT_WINDOW_MS = 60_000;
+
+/**
+ * Programmes shown on Add Student and profile access panels.
+ * Excludes later auto-created shadow rows while keeping batch-provisioned clubs (e.g. Kids) intact.
+ */
+export function filterProgrammesForStudentAccessForms(
+  programmes: readonly StudentAccessFormProgrammeCandidate[],
+): StudentPortalAccessProgrammeType[] {
+  const portalProgrammes = programmes.filter(
+    (programme) => programme.studentPortalAccessEnabled,
+  );
+
+  if (portalProgrammes.length === 0) {
+    return [];
+  }
+
+  const oldestCreatedAtMs = Math.min(
+    ...portalProgrammes.map((programme) => programme.createdAtMs),
+  );
+
+  return portalProgrammes
+    .filter(
+      (programme) =>
+        programme.adminAreaEnabled ||
+        programme.hasClasses ||
+        programme.createdAtMs - oldestCreatedAtMs <=
+          STUDENT_ACCESS_FORM_BATCH_INSERT_WINDOW_MS,
+    )
+    .map((programme) => programme.programmeType);
+}
+
 export function buildAddStudentProgrammeMembershipOptions(
   sourceProgrammeType: ProgrammeTypeValue,
+  clubProgrammeTypes: readonly StudentPortalAccessProgrammeType[],
 ): AddStudentProgrammeAccessOption[] {
   const source = normalizePortalAccessSourceProgrammeType(sourceProgrammeType);
 
-  return STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.map((programmeType) => ({
+  return clubProgrammeTypes.map((programmeType) => ({
     programmeType,
     label: programmeStudentAreaLabel(programmeType),
     defaultChecked: programmeType === source,
@@ -425,10 +467,11 @@ export function buildAddStudentProgrammeMembershipOptions(
 
 export function buildAddStudentBookingAccessOptions(
   sourceProgrammeType: ProgrammeTypeValue,
+  clubProgrammeTypes: readonly StudentPortalAccessProgrammeType[],
 ): AddStudentProgrammeAccessOption[] {
   const source = normalizePortalAccessSourceProgrammeType(sourceProgrammeType);
 
-  return STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.map((programmeType) => ({
+  return clubProgrammeTypes.map((programmeType) => ({
     programmeType,
     label: programmeBookingAccessLabel(programmeType),
     defaultChecked:
@@ -441,8 +484,12 @@ export function buildAddStudentBookingAccessOptions(
 /** @deprecated Use buildAddStudentProgrammeMembershipOptions */
 export function buildAddStudentProgrammeAccessOptions(
   sourceProgrammeType: ProgrammeTypeValue,
+  clubProgrammeTypes: readonly StudentPortalAccessProgrammeType[],
 ): AddStudentProgrammeAccessOption[] {
-  return buildAddStudentProgrammeMembershipOptions(sourceProgrammeType);
+  return buildAddStudentProgrammeMembershipOptions(
+    sourceProgrammeType,
+    clubProgrammeTypes,
+  );
 }
 
 function parsePortalAccessProgrammeTypes(

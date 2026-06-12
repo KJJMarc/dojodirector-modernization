@@ -4,10 +4,7 @@ import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { AddStudentForm } from "@/components/admin/add-student-form";
 import { AppHeader } from "@/components/layout/app-header";
-import {
-  buildAddStudentBookingAccessOptions,
-  buildAddStudentProgrammeMembershipOptions,
-} from "@/lib/admin-programmes.shared";
+import { loadAddStudentProgrammeAccessOptions } from "@/lib/admin-programmes.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -32,6 +29,8 @@ export default async function ClubAddStudentPage({
   params,
 }: ClubAddStudentPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
+  const { programmeMembershipOptions, bookingAccessOptions } =
+    await loadAddStudentProgrammeAccessOptions(club.id, "bjj");
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -57,8 +56,8 @@ export default async function ClubAddStudentPage({
 
         <AddStudentForm
           clubSlug={club.slug}
-          programmeMembershipOptions={buildAddStudentProgrammeMembershipOptions("bjj")}
-          bookingAccessOptions={buildAddStudentBookingAccessOptions("bjj")}
+          programmeMembershipOptions={programmeMembershipOptions}
+          bookingAccessOptions={bookingAccessOptions}
         />
       </section>
     </main>

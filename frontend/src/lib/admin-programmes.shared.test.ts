@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  buildAddStudentBookingAccessOptions,
+  buildAddStudentProgrammeMembershipOptions,
   buildAdminAreaProgrammeClassScope,
   buildStudentProfileAdminPath,
   classBelongsToAdminAreaProgrammeScope,
+  filterProgrammesForStudentAccessForms,
   formatStudentProfileBackLabel,
   programmeStudentsAdminPath,
+  STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
   STUDENT_PROFILE_FROM_PROGRAMME_PARAM,
 } from "@/lib/admin-programmes.shared";
 import { matchesAdminStudentListStatusFilter } from "@/lib/admin-students";
@@ -71,6 +75,150 @@ describe("dashboard total students across programmes", () => {
     const uniqueUserIds = new Set([...bjjUserIds, ...muayThaiUserIds]);
 
     assert.equal(uniqueUserIds.size, 4);
+  });
+});
+
+describe("add student programme access options", () => {
+  it("limits options to programmes configured for the club", () => {
+    const membershipOptions = buildAddStudentProgrammeMembershipOptions("bjj", ["bjj"]);
+    const bookingOptions = buildAddStudentBookingAccessOptions("bjj", ["bjj"]);
+
+    assert.equal(membershipOptions.length, 1);
+    assert.equal(membershipOptions[0]?.label, "Brazilian Jiu Jitsu Student");
+    assert.equal(membershipOptions[0]?.defaultChecked, true);
+    assert.equal(bookingOptions.length, 1);
+    assert.equal(bookingOptions[0]?.label, "Brazilian Jiu Jitsu Classes");
+    assert.equal(bookingOptions[0]?.defaultChecked, true);
+  });
+
+  it("never emits Muay Thai or Strength & Conditioning when only BJJ is configured", () => {
+    const membershipOptions = buildAddStudentProgrammeMembershipOptions("bjj", ["bjj"]);
+    const bookingOptions = buildAddStudentBookingAccessOptions("bjj", ["bjj"]);
+    const allOptions = [...membershipOptions, ...bookingOptions];
+
+    assert.equal(allOptions.length, 2);
+
+    for (const option of allOptions) {
+      assert.notEqual(option.programmeType, "muay_thai");
+      assert.notEqual(option.programmeType, "strength_conditioning");
+      assert.ok(!option.label.includes("Muay Thai"));
+      assert.ok(!option.label.includes("Strength & Conditioning"));
+    }
+  });
+
+  it("does not fall back to the global portal-access type list when club types are omitted", () => {
+    const membershipOptions = buildAddStudentProgrammeMembershipOptions("bjj", []);
+    const bookingOptions = buildAddStudentBookingAccessOptions("bjj", []);
+
+    assert.deepEqual(membershipOptions, []);
+    assert.deepEqual(bookingOptions, []);
+    assert.notEqual(membershipOptions.length, STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.length);
+  });
+
+  it("keeps all portal-access programmes for multi-programme clubs", () => {
+    const clubProgrammeTypes = ["bjj", "muay_thai", "strength_conditioning"] as const;
+    const membershipOptions = buildAddStudentProgrammeMembershipOptions(
+      "muay_thai",
+      clubProgrammeTypes,
+    );
+    const bookingOptions = buildAddStudentBookingAccessOptions(
+      "muay_thai",
+      clubProgrammeTypes,
+    );
+
+    assert.equal(membershipOptions.length, 3);
+    assert.equal(
+      membershipOptions.find((option) => option.programmeType === "muay_thai")?.defaultChecked,
+      true,
+    );
+    assert.equal(bookingOptions.length, 3);
+    assert.equal(
+      bookingOptions.find((option) => option.programmeType === "muay_thai")?.defaultChecked,
+      true,
+    );
+    assert.equal(
+      bookingOptions.find((option) => option.programmeType === "bjj")?.defaultChecked,
+      false,
+    );
+  });
+});
+
+describe("filterProgrammesForStudentAccessForms", () => {
+  it("excludes later-added shadow programmes when a club only operates BJJ", () => {
+    const programmeTypes = filterProgrammesForStudentAccessForms([
+      {
+        programmeType: "bjj",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: true,
+        hasClasses: true,
+        createdAtMs: 1_000,
+      },
+      {
+        programmeType: "muay_thai",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: false,
+        hasClasses: false,
+        createdAtMs: 9_000_000,
+      },
+      {
+        programmeType: "strength_conditioning",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: false,
+        hasClasses: false,
+        createdAtMs: 9_000_001,
+      },
+    ]);
+
+    assert.deepEqual(programmeTypes, ["bjj"]);
+  });
+
+  it("keeps batch-provisioned multi-programme clubs such as Kids", () => {
+    const programmeTypes = filterProgrammesForStudentAccessForms([
+      {
+        programmeType: "bjj",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: true,
+        hasClasses: true,
+        createdAtMs: 1_000,
+      },
+      {
+        programmeType: "muay_thai",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: false,
+        hasClasses: true,
+        createdAtMs: 1_001,
+      },
+      {
+        programmeType: "strength_conditioning",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: false,
+        hasClasses: false,
+        createdAtMs: 1_002,
+      },
+    ]);
+
+    assert.deepEqual(programmeTypes, ["bjj", "muay_thai", "strength_conditioning"]);
+  });
+
+  it("keeps admin-enabled programmes even when they were added after the club launched", () => {
+    const programmeTypes = filterProgrammesForStudentAccessForms([
+      {
+        programmeType: "bjj",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: true,
+        hasClasses: true,
+        createdAtMs: 1_000,
+      },
+      {
+        programmeType: "muay_thai",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: true,
+        hasClasses: false,
+        createdAtMs: 9_000_000,
+      },
+    ]);
+
+    assert.deepEqual(programmeTypes, ["bjj", "muay_thai"]);
   });
 });
 
