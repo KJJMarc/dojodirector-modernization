@@ -7,9 +7,9 @@ import {
   classBelongsToAdminAreaProgrammeScope,
   LEGACY_BJJ_PROGRAMME_ID,
   PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE,
-  buildAddStudentBookingAccessOptions,
-  buildAddStudentProgrammeMembershipOptions,
+  buildAddStudentProgrammeAccessOptionsFromRows,
   buildStudentBjjFeatureVisibility,
+  isStudentPortalAccessProgrammeType,
   defaultProgrammeSettingsForType,
   filterProgrammesForStudentAccessForms,
   formatProgrammeTypeOptionLabel,
@@ -1880,26 +1880,81 @@ export async function loadOperationalPortalAccessProgrammeItems(
     .map(mapPortalAccessProgrammeRow);
 }
 
+export interface AddStudentProgrammeLoadDebugRow {
+  id: string;
+  name: string;
+  slug: string;
+  programmeType: string;
+}
+
 export async function loadAddStudentProgrammeAccessOptions(
   clubId: string,
   sourceProgrammeType: ProgrammeTypeValue,
+  options?: { clubSlug?: string },
 ): Promise<{
   programmeMembershipOptions: AddStudentProgrammeAccessOption[];
   bookingAccessOptions: AddStudentProgrammeAccessOption[];
+  loadedProgrammes: AddStudentProgrammeLoadDebugRow[];
 }> {
-  const clubProgrammeTypes = (
-    await loadOperationalPortalAccessProgrammeItems(clubId)
-  ).map((programme) => programme.programmeType);
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("id, name, slug, programme_type")
+    .eq("club_id", clubId)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load club programmes: ${error.message}`);
+  }
+
+  const allRows = (data ?? []) as {
+    id: string;
+    name: string;
+    slug: string;
+    programme_type: string;
+  }[];
+
+  const portalProgrammeRows = allRows
+    .filter((row) => isStudentPortalAccessProgrammeType(row.programme_type))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      programmeType: row.programme_type,
+    }));
+
+  const debugPayload = {
+    clubId,
+    clubSlug: options?.clubSlug ?? null,
+    totalProgrammeRows: allRows.length,
+    portalProgrammeRows: portalProgrammeRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      programmeType: row.programmeType,
+    })),
+    allProgrammeRows: allRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      programmeType: row.programme_type,
+    })),
+  };
+
+  console.log(
+    "[AddStudent] programmes loaded from public.programmes",
+    JSON.stringify(debugPayload),
+  );
+
+  const built = buildAddStudentProgrammeAccessOptionsFromRows(
+    sourceProgrammeType,
+    portalProgrammeRows,
+  );
 
   return {
-    programmeMembershipOptions: buildAddStudentProgrammeMembershipOptions(
-      sourceProgrammeType,
-      clubProgrammeTypes,
-    ),
-    bookingAccessOptions: buildAddStudentBookingAccessOptions(
-      sourceProgrammeType,
-      clubProgrammeTypes,
-    ),
+    ...built,
+    loadedProgrammes: debugPayload.allProgrammeRows,
   };
 }
 

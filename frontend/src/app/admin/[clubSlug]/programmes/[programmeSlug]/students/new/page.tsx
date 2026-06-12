@@ -40,7 +40,9 @@ export default async function ProgrammeAddStudentPage({
   const studentsPath = programmeStudentsAdminPath(club.slug, programme.slug);
   const pageTitle = formatProgrammeStudentsLabel(programme);
   const { programmeMembershipOptions, bookingAccessOptions } =
-    await loadAddStudentProgrammeAccessOptions(club.id, programme.programmeType);
+    await loadAddStudentProgrammeAccessOptions(club.id, programme.programmeType, {
+      clubSlug: club.slug,
+    });
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">

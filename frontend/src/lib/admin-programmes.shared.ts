@@ -385,6 +385,20 @@ export interface AddStudentProgrammeAccessOption {
   defaultChecked: boolean;
 }
 
+/** Programme row from public.programmes used to build Add Student access options. */
+export interface AddStudentProgrammeRow {
+  id: string;
+  name: string;
+  slug: string;
+  programmeType: StudentPortalAccessProgrammeType;
+}
+
+export function isStudentPortalAccessProgrammeType(
+  value: string,
+): value is StudentPortalAccessProgrammeType {
+  return (STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES as readonly string[]).includes(value);
+}
+
 function normalizePortalAccessSourceProgrammeType(
   sourceProgrammeType: ProgrammeTypeValue,
 ): StudentPortalAccessProgrammeType {
@@ -484,6 +498,31 @@ export function buildAddStudentBookingAccessOptions(
         ? true
         : programmeType === source,
   }));
+}
+
+/** Build Add Student options from actual public.programmes rows (no default type list). */
+export function buildAddStudentProgrammeAccessOptionsFromRows(
+  sourceProgrammeType: ProgrammeTypeValue,
+  programmes: readonly AddStudentProgrammeRow[],
+): {
+  programmeMembershipOptions: AddStudentProgrammeAccessOption[];
+  bookingAccessOptions: AddStudentProgrammeAccessOption[];
+} {
+  const source = normalizePortalAccessSourceProgrammeType(sourceProgrammeType);
+
+  return {
+    programmeMembershipOptions: programmes.map((programme) => ({
+      programmeType: programme.programmeType,
+      label: `${programme.name} Student`,
+      defaultChecked: programme.programmeType === source,
+    })),
+    bookingAccessOptions: programmes.map((programme) => ({
+      programmeType: programme.programmeType,
+      label: `${programme.name} Classes`,
+      defaultChecked:
+        source === "bjj" ? true : programme.programmeType === source,
+    })),
+  };
 }
 
 /** @deprecated Use buildAddStudentProgrammeMembershipOptions */

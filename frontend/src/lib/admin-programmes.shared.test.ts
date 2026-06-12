@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   buildAddStudentBookingAccessOptions,
+  buildAddStudentProgrammeAccessOptionsFromRows,
   buildAddStudentProgrammeMembershipOptions,
   buildAdminAreaProgrammeClassScope,
   buildStudentProfileAdminPath,
@@ -139,6 +140,22 @@ describe("add student programme access options", () => {
     assert.deepEqual(membershipOptions, []);
     assert.deepEqual(bookingOptions, []);
     assert.notEqual(membershipOptions.length, STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES.length);
+  });
+
+  it("builds options from actual programme rows without default type fallback", () => {
+    const { programmeMembershipOptions, bookingAccessOptions } =
+      buildAddStudentProgrammeAccessOptionsFromRows("bjj", [
+        {
+          id: "bjj-programme-id",
+          name: "Brazilian Jiu Jitsu",
+          slug: "bjj",
+          programmeType: "bjj",
+        },
+      ]);
+
+    assert.equal(programmeMembershipOptions.length, 1);
+    assert.equal(programmeMembershipOptions[0]?.label, "Brazilian Jiu Jitsu Student");
+    assert.equal(bookingAccessOptions[0]?.label, "Brazilian Jiu Jitsu Classes");
   });
 
   it("keeps all portal-access programmes for multi-programme clubs", () => {
