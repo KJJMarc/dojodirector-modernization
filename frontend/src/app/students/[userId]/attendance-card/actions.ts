@@ -6,6 +6,7 @@ import {
   BJJ_ATTENDANCE_CARD_MANUAL_SOURCE,
 } from "@/lib/attendance-card-manual.shared";
 import { getStudentClubContextForAttendance } from "@/lib/attendance-card-manual.server";
+import { parseClubSlugFromForm } from "@/lib/clubs.shared";
 import {
   formatAttendanceDateKey,
   isFutureAttendanceDate,
@@ -151,8 +152,12 @@ export async function toggleManualAttendance(formData: FormData) {
   assertEditableAttendanceDate(input.year, input.month, input.day, input.mode);
   await assertStudentExists(input.userId);
 
+  const explicitClubSlug = parseClubSlugFromForm(formData);
+  const hasExplicitClubSlug = formData.has("clubSlug");
+
   const { clubId, clubSlug } = await getStudentClubContextForAttendance(
     input.userId,
+    hasExplicitClubSlug ? { explicitClubSlug } : undefined,
   );
 
   const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, input.userId);

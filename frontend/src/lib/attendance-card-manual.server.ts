@@ -1,6 +1,11 @@
 import "server-only";
 
+import { loadStudentBjjFeatureVisibility } from "@/lib/admin-programmes.server";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import {
+  resolveAttendanceCardClubFromCandidates,
+  type AttendanceCardClubCandidate,
+} from "@/lib/attendance-card-manual.shared";
 import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -13,6 +18,15 @@ export interface StudentClubContext {
   clubId: string;
   clubSlug: string;
 }
+
+export interface StudentClubContextForAttendanceOptions {
+  explicitClubSlug?: string | null;
+}
+
+const LEGACY_ATTENDANCE_CARD_CLUB_CONTEXT: StudentClubContext = {
+  clubId: ACTIVE_CLUB_ID,
+  clubSlug: KINGSTON_CLUB_SLUG,
+};
 
 export async function getClubSlugById(clubId: string): Promise<string> {
   const supabase = getSupabaseAdminClient();
@@ -30,8 +44,17 @@ export async function getClubSlugById(clubId: string): Promise<string> {
   return data?.slug ?? KINGSTON_CLUB_SLUG;
 }
 
+function readMembershipClubSlug(
+  clubs: MembershipClubRow["clubs"],
+): string | null {
+  const club = Array.isArray(clubs) ? (clubs[0] ?? null) : clubs;
+  const slug = club?.slug?.trim();
+  return slug ? slug : null;
+}
+
 export async function getStudentClubContextForAttendance(
   userId: string,
+  options?: StudentClubContextForAttendanceOptions,
 ): Promise<StudentClubContext> {
   const supabase = getSupabaseAdminClient();
 
@@ -46,18 +69,41 @@ export async function getStudentClubContextForAttendance(
   }
 
   const rows = (data ?? []) as MembershipClubRow[];
-  const preferred =
-    rows.find((row) => row.club_id === ACTIVE_CLUB_ID) ?? rows[0] ?? null;
+  const candidates: AttendanceCardClubCandidate[] = [];
 
-  if (!preferred?.club_id) {
-    return { clubId: ACTIVE_CLUB_ID, clubSlug: KINGSTON_CLUB_SLUG };
+  for (const row of rows) {
+    if (!row.club_id) {
+      continue;
+    }
+
+    const clubSlug = readMembershipClubSlug(row.clubs);
+    if (!clubSlug) {
+      continue;
+    }
+
+    const bjjFeatures = await loadStudentBjjFeatureVisibility(row.club_id, userId);
+    candidates.push({
+      clubId: row.club_id,
+      clubSlug,
+      showAttendanceCard: bjjFeatures.showAttendanceCard,
+    });
   }
 
-  const clubs = preferred.clubs;
-  const club = Array.isArray(clubs) ? (clubs[0] ?? null) : clubs;
+  const resolution = resolveAttendanceCardClubFromCandidates(candidates, {
+    explicitClubSlug: options?.explicitClubSlug,
+    legacyPreferredClubId: ACTIVE_CLUB_ID,
+  });
 
-  return {
-    clubId: preferred.club_id,
-    clubSlug: club?.slug ?? KINGSTON_CLUB_SLUG,
-  };
+  if (resolution.kind === "club") {
+    return {
+      clubId: resolution.clubId,
+      clubSlug: resolution.clubSlug,
+    };
+  }
+
+  if (resolution.kind === "explicit_not_eligible") {
+    throw new Error("Requested club is not eligible for attendance cards.");
+  }
+
+  return LEGACY_ATTENDANCE_CARD_CLUB_CONTEXT;
 }

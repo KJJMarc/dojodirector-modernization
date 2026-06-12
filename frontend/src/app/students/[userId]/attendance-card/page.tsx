@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 interface AttendanceCardPageProps {
   params: { userId: string };
-  searchParams: { year?: string };
+  searchParams: { year?: string; clubSlug?: string };
 }
 
 export default async function AttendanceCardPage({
@@ -27,8 +27,26 @@ export default async function AttendanceCardPage({
   searchParams,
 }: AttendanceCardPageProps) {
   const year = parseYearParam(searchParams.year);
+  const explicitClubSlug = searchParams.clubSlug?.trim() || undefined;
 
-  const { clubId } = await getStudentClubContextForAttendance(params.userId);
+  let clubId: string;
+  let clubSlug: string;
+
+  try {
+    ({ clubId, clubSlug } = await getStudentClubContextForAttendance(
+      params.userId,
+      { explicitClubSlug },
+    ));
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "Requested club is not eligible for attendance cards."
+    ) {
+      notFound();
+    }
+    throw error;
+  }
+
   const bjjFeatures = await loadStudentBjjFeatureVisibility(clubId, params.userId);
 
   if (!bjjFeatures.showAttendanceCard) {
@@ -45,8 +63,8 @@ export default async function AttendanceCardPage({
     throw error;
   }
 
-  const clubSlug = (await getClubSlugById(clubId)) ?? KINGSTON_CLUB_SLUG;
-  const club = await requireClubBySlug(clubSlug);
+  const resolvedClubSlug = (await getClubSlugById(clubId)) ?? KINGSTON_CLUB_SLUG;
+  const club = await requireClubBySlug(resolvedClubSlug);
 
   return (
     <main className="attendance-card-page mx-auto min-h-screen w-full max-w-6xl space-y-3 overflow-x-hidden px-3 py-3 pb-20 sm:px-5">
@@ -64,7 +82,11 @@ export default async function AttendanceCardPage({
         userId={params.userId}
       />
 
-      <AttendanceCardToolbar userId={params.userId} year={year} />
+      <AttendanceCardToolbar
+        userId={params.userId}
+        year={year}
+        clubSlug={clubSlug}
+      />
 
       <section
         className={`attendance-card-sheet ${attendanceCardSectionClassName} print:space-y-2 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black`}
@@ -82,6 +104,7 @@ export default async function AttendanceCardPage({
             rows={cardData.rows}
             year={year}
             userId={params.userId}
+            clubSlug={clubSlug}
             toggleAttendanceAction={toggleManualAttendance}
           />
         </AttendanceCardComposedBlock>

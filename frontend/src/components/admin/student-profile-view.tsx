@@ -189,7 +189,7 @@ export function StudentProfileView({
           {bjjFeatureVisibility.showAttendanceCard ? (
             <div className="flex flex-wrap gap-2">
               <ActionButton
-                href={`/students/${student.id}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
+                href={`/students/${student.id}/attendance-card?year=${ATTENDANCE_CARD_YEAR}&clubSlug=${encodeURIComponent(clubSlug)}`}
                 label="Attendance Card"
               />
             </div>

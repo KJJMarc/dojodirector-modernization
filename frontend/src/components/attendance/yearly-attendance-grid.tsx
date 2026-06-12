@@ -25,6 +25,7 @@ interface YearlyAttendanceGridProps {
   rows: YearlyGridRow[];
   year: number;
   userId: string;
+  clubSlug?: string;
   toggleAttendanceAction: (formData: FormData) => Promise<void>;
 }
 
@@ -51,6 +52,7 @@ export function YearlyAttendanceGrid({
   rows,
   year,
   userId,
+  clubSlug,
   toggleAttendanceAction,
 }: YearlyAttendanceGridProps) {
   const router = useRouter();
@@ -73,6 +75,9 @@ export function YearlyAttendanceGrid({
     formData.set("month", String(month));
     formData.set("day", String(day));
     formData.set("mode", cell === "X" ? "remove" : "add");
+    if (clubSlug) {
+      formData.set("clubSlug", clubSlug);
+    }
 
     startTransition(async () => {
       await toggleAttendanceAction(formData);

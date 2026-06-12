@@ -327,7 +327,7 @@ export function SessionBookingsManager({
                         <div className="flex flex-wrap items-center gap-2">
                           {showAttendanceCard && attendee.userId ? (
                             <Link
-                              href={`/students/${attendee.userId}/attendance-card`}
+                              href={`/students/${attendee.userId}/attendance-card?clubSlug=${encodeURIComponent(clubSlug)}`}
                               className="text-xs font-semibold text-dojo-muted transition hover:text-dojo-white"
                             >
                               Attendance Card

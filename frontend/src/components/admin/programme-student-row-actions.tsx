@@ -71,7 +71,7 @@ export function ProgrammeStudentRowActions({
     >
       {showAttendanceCard ? (
         <Link
-          href={`/students/${studentId}/attendance-card?year=${ATTENDANCE_CARD_YEAR}`}
+          href={`/students/${studentId}/attendance-card?year=${ATTENDANCE_CARD_YEAR}&clubSlug=${encodeURIComponent(clubSlug)}`}
           className={buttonClassName}
           title="Attendance Card"
           aria-label="Attendance Card"
