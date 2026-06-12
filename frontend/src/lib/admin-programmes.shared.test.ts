@@ -106,6 +106,32 @@ describe("add student programme access options", () => {
     }
   });
 
+  it("builds Muay Thai and Strength & Conditioning labels only from supplied programme types", () => {
+    const membershipOptions = buildAddStudentProgrammeMembershipOptions("bjj", [
+      "bjj",
+      "muay_thai",
+      "strength_conditioning",
+    ]);
+    const bookingOptions = buildAddStudentBookingAccessOptions("bjj", [
+      "bjj",
+      "muay_thai",
+      "strength_conditioning",
+    ]);
+
+    assert.ok(
+      membershipOptions.some((option) => option.label === "Muay Thai Student"),
+    );
+    assert.ok(
+      membershipOptions.some(
+        (option) => option.label === "Strength & Conditioning Student",
+      ),
+    );
+    assert.ok(bookingOptions.some((option) => option.label === "Muay Thai Classes"));
+    assert.ok(
+      bookingOptions.some((option) => option.label === "Strength & Conditioning Classes"),
+    );
+  });
+
   it("does not fall back to the global portal-access type list when club types are omitted", () => {
     const membershipOptions = buildAddStudentProgrammeMembershipOptions("bjj", []);
     const bookingOptions = buildAddStudentBookingAccessOptions("bjj", []);
@@ -166,6 +192,34 @@ describe("filterProgrammesForStudentAccessForms", () => {
         adminAreaEnabled: false,
         hasClasses: false,
         createdAtMs: 9_000_001,
+      },
+    ]);
+
+    assert.deepEqual(programmeTypes, ["bjj"]);
+  });
+
+  it("excludes shadow programmes even when they were auto-created shortly after BJJ", () => {
+    const programmeTypes = filterProgrammesForStudentAccessForms([
+      {
+        programmeType: "bjj",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: true,
+        hasClasses: true,
+        createdAtMs: 1_000,
+      },
+      {
+        programmeType: "muay_thai",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: false,
+        hasClasses: false,
+        createdAtMs: 5_000,
+      },
+      {
+        programmeType: "strength_conditioning",
+        studentPortalAccessEnabled: true,
+        adminAreaEnabled: false,
+        hasClasses: false,
+        createdAtMs: 5_001,
       },
     ]);
 

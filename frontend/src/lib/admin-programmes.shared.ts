@@ -420,11 +420,13 @@ export interface StudentAccessFormProgrammeCandidate {
   createdAtMs: number;
 }
 
-const STUDENT_ACCESS_FORM_BATCH_INSERT_WINDOW_MS = 60_000;
+/** Programmes inserted together share nearly identical created_at timestamps. */
+const STUDENT_ACCESS_FORM_BATCH_INSERT_SPREAD_MS = 1_000;
 
 /**
  * Programmes shown on Add Student and profile access panels.
- * Excludes later auto-created shadow rows while keeping batch-provisioned clubs (e.g. Kids) intact.
+ * Batch-provisioned clubs keep every portal-access programme; otherwise only
+ * admin-area programmes and programmes with classes are shown.
  */
 export function filterProgrammesForStudentAccessForms(
   programmes: readonly StudentAccessFormProgrammeCandidate[],
@@ -437,17 +439,20 @@ export function filterProgrammesForStudentAccessForms(
     return [];
   }
 
-  const oldestCreatedAtMs = Math.min(
-    ...portalProgrammes.map((programme) => programme.createdAtMs),
-  );
+  const createdAtTimes = portalProgrammes.map((programme) => programme.createdAtMs);
+  const createdAtSpread =
+    Math.max(...createdAtTimes) - Math.min(...createdAtTimes);
+
+  if (
+    portalProgrammes.length >= 2 &&
+    createdAtSpread <= STUDENT_ACCESS_FORM_BATCH_INSERT_SPREAD_MS
+  ) {
+    return portalProgrammes.map((programme) => programme.programmeType);
+  }
 
   return portalProgrammes
     .filter(
-      (programme) =>
-        programme.adminAreaEnabled ||
-        programme.hasClasses ||
-        programme.createdAtMs - oldestCreatedAtMs <=
-          STUDENT_ACCESS_FORM_BATCH_INSERT_WINDOW_MS,
+      (programme) => programme.adminAreaEnabled || programme.hasClasses,
     )
     .map((programme) => programme.programmeType);
 }
