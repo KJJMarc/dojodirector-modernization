@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_noStore as noStore } from "next/cache";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
 import {
   BJJ_PROGRAMME_SLUG,
@@ -7,8 +8,8 @@ import {
   classBelongsToAdminAreaProgrammeScope,
   LEGACY_BJJ_PROGRAMME_ID,
   PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE,
-  buildAddStudentProgrammeAccessOptionsFromRows,
   buildStudentBjjFeatureVisibility,
+  type AddStudentProgrammeRow,
   isStudentPortalAccessProgrammeType,
   defaultProgrammeSettingsForType,
   filterProgrammesForStudentAccessForms,
@@ -18,7 +19,6 @@ import {
   programmeNameForType,
   programmeSlugForType,
   STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
-  type AddStudentProgrammeAccessOption,
   type AdminProgramme,
   type CreatableProgrammeTypeValue,
   type ProgrammeFeatureSettings,
@@ -1770,7 +1770,7 @@ interface PortalAccessProgrammeRow {
 async function loadPortalAccessProgrammeRows(clubId: string): Promise<PortalAccessProgrammeRow[]> {
   const supabase = getSupabaseAdminClient();
 
-  let { data, error } = await supabase
+  const initialResult = await supabase
     .from("programmes")
     .select(
       "id, name, programme_type, student_portal_access_enabled, admin_area_enabled, created_at",
@@ -1780,21 +1780,27 @@ async function loadPortalAccessProgrammeRows(clubId: string): Promise<PortalAcce
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
-  if (error && isMissingAdminAreaEnabledColumn(error)) {
-    ({ data, error } = await supabase
+  if (initialResult.error && isMissingAdminAreaEnabledColumn(initialResult.error)) {
+    const fallbackResult = await supabase
       .from("programmes")
       .select("id, name, programme_type, student_portal_access_enabled, created_at")
       .eq("club_id", clubId)
       .in("programme_type", STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES_LIST)
       .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }));
+      .order("name", { ascending: true });
+
+    if (fallbackResult.error) {
+      throw new Error(`Failed to load programmes: ${fallbackResult.error.message}`);
+    }
+
+    return (fallbackResult.data ?? []) as PortalAccessProgrammeRow[];
   }
 
-  if (error) {
-    throw new Error(`Failed to load programmes: ${error.message}`);
+  if (initialResult.error) {
+    throw new Error(`Failed to load programmes: ${initialResult.error.message}`);
   }
 
-  return (data ?? []) as PortalAccessProgrammeRow[];
+  return (initialResult.data ?? []) as PortalAccessProgrammeRow[];
 }
 
 async function loadProgrammeIdsWithClassesAtClub(
@@ -1880,22 +1886,13 @@ export async function loadOperationalPortalAccessProgrammeItems(
     .map(mapPortalAccessProgrammeRow);
 }
 
-export interface AddStudentProgrammeLoadDebugRow {
-  id: string;
-  name: string;
-  slug: string;
-  programmeType: string;
-}
-
-export async function loadAddStudentProgrammeAccessOptions(
+/** Programme rows for Add Student — public.programmes only, no defaults or auto-create. */
+export async function loadClubProgrammesForAddStudent(
   clubId: string,
-  sourceProgrammeType: ProgrammeTypeValue,
   options?: { clubSlug?: string },
-): Promise<{
-  programmeMembershipOptions: AddStudentProgrammeAccessOption[];
-  bookingAccessOptions: AddStudentProgrammeAccessOption[];
-  loadedProgrammes: AddStudentProgrammeLoadDebugRow[];
-}> {
+): Promise<AddStudentProgrammeRow[]> {
+  noStore();
+
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("programmes")
@@ -1908,54 +1905,31 @@ export async function loadAddStudentProgrammeAccessOptions(
     throw new Error(`Failed to load club programmes: ${error.message}`);
   }
 
-  const allRows = (data ?? []) as {
+  const programmes = ((data ?? []) as {
     id: string;
     name: string;
     slug: string;
     programme_type: string;
-  }[];
-
-  const portalProgrammeRows = allRows
+  }[])
     .filter((row) => isStudentPortalAccessProgrammeType(row.programme_type))
     .map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.slug,
-      programmeType: row.programme_type,
+      programmeType: row.programme_type as StudentPortalAccessProgrammeType,
     }));
-
-  const debugPayload = {
-    clubId,
-    clubSlug: options?.clubSlug ?? null,
-    totalProgrammeRows: allRows.length,
-    portalProgrammeRows: portalProgrammeRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      programmeType: row.programmeType,
-    })),
-    allProgrammeRows: allRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      programmeType: row.programme_type,
-    })),
-  };
 
   console.log(
     "[AddStudent] programmes loaded from public.programmes",
-    JSON.stringify(debugPayload),
+    JSON.stringify({
+      clubId,
+      clubSlug: options?.clubSlug ?? null,
+      programmeTypes: programmes.map((programme) => programme.programmeType),
+      programmes,
+    }),
   );
 
-  const built = buildAddStudentProgrammeAccessOptionsFromRows(
-    sourceProgrammeType,
-    portalProgrammeRows,
-  );
-
-  return {
-    ...built,
-    loadedProgrammes: debugPayload.allProgrammeRows,
-  };
+  return programmes;
 }
 
 /** Active member enrolment in any student-portal-access programme at the club (role-agnostic). */

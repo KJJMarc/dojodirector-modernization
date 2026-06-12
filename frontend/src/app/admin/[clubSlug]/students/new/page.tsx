@@ -4,11 +4,12 @@ import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { AddStudentForm } from "@/components/admin/add-student-form";
 import { AppHeader } from "@/components/layout/app-header";
-import { loadAddStudentProgrammeAccessOptions } from "@/lib/admin-programmes.server";
+import { loadClubProgrammesForAddStudent } from "@/lib/admin-programmes.server";
 import { BAHAMAS_JIU_JITSU_CLUB_SLUG, clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface ClubAddStudentPageProps {
   params: { clubSlug: string };
@@ -29,10 +30,9 @@ export default async function ClubAddStudentPage({
   params,
 }: ClubAddStudentPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const { programmeMembershipOptions, bookingAccessOptions, loadedProgrammes } =
-    await loadAddStudentProgrammeAccessOptions(club.id, "bjj", {
-      clubSlug: club.slug,
-    });
+  const programmes = await loadClubProgrammesForAddStudent(club.id, {
+    clubSlug: club.slug,
+  });
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -57,29 +57,17 @@ export default async function ClubAddStudentPage({
         </div>
 
         {club.slug === BAHAMAS_JIU_JITSU_CLUB_SLUG ? (
-          <pre
-            className="overflow-x-auto rounded-md border border-dojo-border bg-dojo-black p-3 text-xs text-dojo-muted"
+          <p
+            className="text-xs text-dojo-muted"
             data-testid="bahamas-add-student-programme-debug"
           >
-            {JSON.stringify(
-              {
-                clubId: club.id,
-                clubSlug: club.slug,
-                loadedProgrammes,
-                programmeMembershipOptions,
-                bookingAccessOptions,
-              },
-              null,
-              2,
-            )}
-          </pre>
+            Loaded programmes:{" "}
+            {programmes.map((programme) => programme.programmeType).join(", ") ||
+              "(none)"}
+          </p>
         ) : null}
 
-        <AddStudentForm
-          clubSlug={club.slug}
-          programmeMembershipOptions={programmeMembershipOptions}
-          bookingAccessOptions={bookingAccessOptions}
-        />
+        <AddStudentForm clubSlug={club.slug} programmes={programmes} />
       </section>
     </main>
   );

@@ -9,7 +9,7 @@ import {
   programmeStudentsAdminPath,
 } from "@/lib/admin-programmes.shared";
 import {
-  loadAddStudentProgrammeAccessOptions,
+  loadClubProgrammesForAddStudent,
   requireClubProgrammeBySlug,
 } from "@/lib/admin-programmes.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
@@ -39,10 +39,9 @@ export default async function ProgrammeAddStudentPage({
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
   const studentsPath = programmeStudentsAdminPath(club.slug, programme.slug);
   const pageTitle = formatProgrammeStudentsLabel(programme);
-  const { programmeMembershipOptions, bookingAccessOptions } =
-    await loadAddStudentProgrammeAccessOptions(club.id, programme.programmeType, {
-      clubSlug: club.slug,
-    });
+  const programmes = await loadClubProgrammesForAddStudent(club.id, {
+    clubSlug: club.slug,
+  });
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -68,10 +67,10 @@ export default async function ProgrammeAddStudentPage({
 
         <AddStudentForm
           clubSlug={club.slug}
+          programmes={programmes}
+          sourceProgrammeType={programme.programmeType}
           programmeSlug={programme.slug}
           cancelHref={studentsPath}
-          programmeMembershipOptions={programmeMembershipOptions}
-          bookingAccessOptions={bookingAccessOptions}
         />
       </section>
     </main>

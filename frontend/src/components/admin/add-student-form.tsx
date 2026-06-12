@@ -8,28 +8,44 @@ import {
   MEMBERSHIP_ROLE_OPTIONS,
   MEMBERSHIP_STATUS_OPTIONS,
 } from "@/lib/admin-create-student.shared";
-import type {
-  AddStudentProgrammeAccessOption,
-  StudentPortalAccessProgrammeType,
+import type { ProgrammeTypeValue } from "@/lib/admin-programmes.shared";
+import {
+  buildAddStudentProgrammeAccessOptionsFromRows,
+  type AddStudentProgrammeAccessOption,
+  type AddStudentProgrammeRow,
+  type StudentPortalAccessProgrammeType,
 } from "@/lib/admin-programmes.shared";
 
 interface AddStudentFormProps {
   clubSlug: string;
+  programmes: AddStudentProgrammeRow[];
+  sourceProgrammeType?: ProgrammeTypeValue;
   programmeSlug?: string;
   cancelHref?: string;
-  programmeMembershipOptions: AddStudentProgrammeAccessOption[];
-  bookingAccessOptions: AddStudentProgrammeAccessOption[];
 }
 
 export function AddStudentForm({
   clubSlug,
+  programmes,
+  sourceProgrammeType = "bjj",
   programmeSlug,
   cancelHref,
-  programmeMembershipOptions,
-  bookingAccessOptions,
 }: AddStudentFormProps) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { programmeMembershipOptions, bookingAccessOptions } = useMemo(
+    () =>
+      programmes.length > 0
+        ? buildAddStudentProgrammeAccessOptionsFromRows(
+            sourceProgrammeType,
+            programmes,
+          )
+        : {
+            programmeMembershipOptions: [],
+            bookingAccessOptions: [],
+          },
+    [programmes, sourceProgrammeType],
+  );
   const defaultSelectedMembership = useMemo(
     () =>
       new Set(
@@ -286,33 +302,42 @@ export function AddStudentForm({
         </div>
       </div>
 
-      {renderCheckboxFieldset({
-        legend: "Programme Student Areas",
-        description: "Choose which programme student lists include this student.",
-        options: programmeMembershipOptions,
-        selected: selectedMembership,
-        onToggle: (programmeType, checked) =>
-          setSelectedMembership((current) =>
-            toggleSelection(current, programmeType, checked),
-          ),
-      })}
+      {programmes.length === 0 ? (
+        <p className="text-sm text-dojo-muted">
+          No programmes are configured for this club yet.
+        </p>
+      ) : (
+        <>
+          {renderCheckboxFieldset({
+            legend: "Programme Student Areas",
+            description:
+              "Choose which programme student lists include this student.",
+            options: programmeMembershipOptions,
+            selected: selectedMembership,
+            onToggle: (programmeType, checked) =>
+              setSelectedMembership((current) =>
+                toggleSelection(current, programmeType, checked),
+              ),
+          })}
 
-      {renderCheckboxFieldset({
-        legend: "Booking Access",
-        description:
-          "Choose which programme classes this student can book through the student portal.",
-        options: bookingAccessOptions,
-        selected: selectedBooking,
-        onToggle: (programmeType, checked) =>
-          setSelectedBooking((current) =>
-            toggleSelection(current, programmeType, checked),
-          ),
-      })}
+          {renderCheckboxFieldset({
+            legend: "Booking Access",
+            description:
+              "Choose which programme classes this student can book through the student portal.",
+            options: bookingAccessOptions,
+            selected: selectedBooking,
+            onToggle: (programmeType, checked) =>
+              setSelectedBooking((current) =>
+                toggleSelection(current, programmeType, checked),
+              ),
+          })}
+        </>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || programmes.length === 0}
           className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Adding…" : "Add Student"}
