@@ -4,6 +4,7 @@ import { cache } from "react";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { CLUB_AGREEMENT_TYPE_MEMBER_PORTAL } from "@/lib/club-agreement-templates.shared";
 import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
+import { getClubById } from "@/lib/clubs.server";
 import { resolveStudentPortalAgreementClubForUser } from "@/lib/student-portal-club.server";
 import { getSupabaseAuthSessionUser } from "@/lib/student-portal-auth.server";
 import { buildMembershipAgreementPdfBytes } from "@/lib/membership-agreement-pdf.server";
@@ -527,6 +528,7 @@ export async function recordStudentAgreementAcceptance(input: {
   }
 
   const agreementContent = await resolveMemberPortalAgreementContent(agreementClubId);
+  const agreementClub = await getClubById(agreementClubId);
   const version = input.version ?? agreementContent.version;
   const acceptedAt = new Date().toISOString();
   const supabase = getSupabaseAdminClient();
@@ -618,6 +620,7 @@ export async function recordStudentAgreementAcceptance(input: {
         agreementRecordId,
         signedFullName,
         acceptedAt,
+        academyName: agreementClub?.name?.trim() ?? "Kingston Jiu Jitsu",
         version,
         documentTitle: agreementContent.pdfDocumentTitle,
         sections: agreementContent.sections,

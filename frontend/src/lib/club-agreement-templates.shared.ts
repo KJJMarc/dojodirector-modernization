@@ -80,6 +80,56 @@ export function formatClubAgreementDisplayLabel(title: string, version: string) 
   return `${title} v${version}`;
 }
 
+const DEFAULT_AGREEMENT_CLUB_NAME = "Kingston Jiu Jitsu";
+
+/** Uppercase banner shown at the top of generated agreement PDFs. */
+export function formatAgreementPdfBannerText(clubName: string): string {
+  return clubName.trim().toUpperCase();
+}
+
+/** Build the subtitle/title line shown under the PDF banner. */
+export function formatAgreementPdfDocumentTitle(
+  clubName: string,
+  agreementTitle: string,
+): string {
+  const normalizedClubName = clubName.trim();
+  const normalizedTitle = agreementTitle.trim();
+
+  if (!normalizedClubName) {
+    return normalizedTitle;
+  }
+
+  if (normalizedTitle.toLowerCase().startsWith(normalizedClubName.toLowerCase())) {
+    return normalizedTitle;
+  }
+
+  return `${normalizedClubName} ${normalizedTitle}`;
+}
+
+export function shouldSkipAgreementPdfHeaderParagraph(
+  paragraph: string,
+  academyBanner: string,
+): boolean {
+  const normalizedParagraph = paragraph.trim();
+
+  if (!normalizedParagraph) {
+    return false;
+  }
+
+  if (
+    normalizedParagraph === academyBanner ||
+    normalizedParagraph === formatAgreementPdfBannerText(DEFAULT_AGREEMENT_CLUB_NAME)
+  ) {
+    return true;
+  }
+
+  return (
+    normalizedParagraph === "MEMBERSHIP AGREEMENT" ||
+    normalizedParagraph === "TRAINING AGREEMENT" ||
+    normalizedParagraph.startsWith("Version ")
+  );
+}
+
 export function serializeAgreementSectionsToBody(
   sections: MembershipAgreementSection[],
 ): string {
@@ -126,7 +176,9 @@ export function parseAgreementBodyToSections(body: string): MembershipAgreementS
   });
 }
 
-export function getDefaultMemberPortalAgreementContent(): ResolvedClubAgreementContent {
+export function getDefaultMemberPortalAgreementContent(
+  clubName: string = DEFAULT_AGREEMENT_CLUB_NAME,
+): ResolvedClubAgreementContent {
   return {
     agreementType: CLUB_AGREEMENT_TYPE_MEMBER_PORTAL,
     title: DEFAULT_MEMBER_PORTAL_AGREEMENT_TITLE,
@@ -136,13 +188,18 @@ export function getDefaultMemberPortalAgreementContent(): ResolvedClubAgreementC
       DEFAULT_MEMBER_PORTAL_AGREEMENT_TITLE,
       MEMBERSHIP_AGREEMENT_VERSION,
     ),
-    pdfDocumentTitle: "Kingston Jiu Jitsu Membership Agreement",
+    pdfDocumentTitle: formatAgreementPdfDocumentTitle(
+      clubName,
+      DEFAULT_MEMBER_PORTAL_AGREEMENT_TITLE,
+    ),
     isCustomTemplate: false,
     updatedAt: null,
   };
 }
 
-export function getDefaultGuestTrainingAgreementContent(): ResolvedClubAgreementContent {
+export function getDefaultGuestTrainingAgreementContent(
+  clubName: string = DEFAULT_AGREEMENT_CLUB_NAME,
+): ResolvedClubAgreementContent {
   return {
     agreementType: CLUB_AGREEMENT_TYPE_GUEST_TRAINING,
     title: DEFAULT_GUEST_TRAINING_AGREEMENT_TITLE,
@@ -152,13 +209,17 @@ export function getDefaultGuestTrainingAgreementContent(): ResolvedClubAgreement
       DEFAULT_GUEST_TRAINING_AGREEMENT_TITLE,
       GUEST_TRAINING_AGREEMENT_VERSION,
     ),
-    pdfDocumentTitle: "Kingston Jiu Jitsu Training Agreement",
+    pdfDocumentTitle: formatAgreementPdfDocumentTitle(
+      clubName,
+      DEFAULT_GUEST_TRAINING_AGREEMENT_TITLE,
+    ),
     isCustomTemplate: false,
     updatedAt: null,
   };
 }
 
 export function resolveAgreementContentFromTemplate(input: {
+  clubName: string;
   agreementType: ClubAgreementType;
   title: string;
   version: string;
@@ -168,14 +229,14 @@ export function resolveAgreementContentFromTemplate(input: {
   const parsedSections = parseAgreementBodyToSections(input.body);
   const fallback =
     input.agreementType === CLUB_AGREEMENT_TYPE_MEMBER_PORTAL
-      ? getDefaultMemberPortalAgreementContent()
-      : getDefaultGuestTrainingAgreementContent();
+      ? getDefaultMemberPortalAgreementContent(input.clubName)
+      : getDefaultGuestTrainingAgreementContent(input.clubName);
   const sections =
     parsedSections.length > 0 ? parsedSections : fallback.sections;
-  const pdfDocumentTitle =
-    input.agreementType === CLUB_AGREEMENT_TYPE_MEMBER_PORTAL
-      ? `Kingston Jiu Jitsu ${input.title}`
-      : `Kingston Jiu Jitsu ${input.title}`;
+  const pdfDocumentTitle = formatAgreementPdfDocumentTitle(
+    input.clubName,
+    input.title,
+  );
 
   return {
     agreementType: input.agreementType,

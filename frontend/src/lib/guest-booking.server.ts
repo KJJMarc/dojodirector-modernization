@@ -8,6 +8,7 @@ import {
   resolveSessionLocationFromRow,
 } from "@/lib/class-session-schedule";
 import { resolveGuestTrainingAgreementContent } from "@/lib/club-agreement-templates.server";
+import { getClubById } from "@/lib/clubs.server";
 import {
   type AdminGuestBookingRow,
   type GuestBookingResult,
@@ -320,11 +321,13 @@ async function generateGuestBookingAgreementPdf(input: {
   userAgent: string | null;
 }) {
   const agreementContent = await resolveGuestTrainingAgreementContent(input.clubId);
+  const club = await getClubById(input.clubId);
 
   const pdfBytes = await buildMembershipAgreementPdfBytes({
     agreementRecordId: input.bookingId,
     signedFullName: input.signedFullName,
     acceptedAt: input.acceptedAt,
+    academyName: club?.name?.trim() ?? "Kingston Jiu Jitsu",
     version: agreementContent.version,
     documentTitle: agreementContent.pdfDocumentTitle,
     sections: agreementContent.sections,

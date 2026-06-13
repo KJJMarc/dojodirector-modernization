@@ -10,6 +10,7 @@ import {
   serializeAgreementSectionsToBody,
   type ResolvedClubAgreementContent,
 } from "@/lib/club-agreement-templates.shared";
+import { getClubById } from "@/lib/clubs.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type SupabaseErrorLike = { code?: string; message?: string } | null;
@@ -147,14 +148,16 @@ async function loadActiveTemplateRow(
 function resolveFromRow(
   row: ClubAgreementTemplateRow | null,
   agreementType: ClubAgreementType,
+  clubName: string,
 ): ResolvedClubAgreementContent {
   if (!row || !row.is_active) {
     return agreementType === CLUB_AGREEMENT_TYPE_MEMBER_PORTAL
-      ? getDefaultMemberPortalAgreementContent()
-      : getDefaultGuestTrainingAgreementContent();
+      ? getDefaultMemberPortalAgreementContent(clubName)
+      : getDefaultGuestTrainingAgreementContent(clubName);
   }
 
   return resolveAgreementContentFromTemplate({
+    clubName,
     agreementType,
     title: row.title,
     version: row.version,
@@ -163,24 +166,36 @@ function resolveFromRow(
   });
 }
 
+async function requireClubNameForAgreement(clubId: string): Promise<string> {
+  const club = await getClubById(clubId);
+
+  if (!club?.name?.trim()) {
+    throw new Error("Academy not found for agreement content.");
+  }
+
+  return club.name.trim();
+}
+
 export async function resolveMemberPortalAgreementContent(
   clubId: string,
 ): Promise<ResolvedClubAgreementContent> {
+  const clubName = await requireClubNameForAgreement(clubId);
   const row = await loadActiveTemplateRow(
     clubId,
     CLUB_AGREEMENT_TYPE_MEMBER_PORTAL,
   );
-  return resolveFromRow(row, CLUB_AGREEMENT_TYPE_MEMBER_PORTAL);
+  return resolveFromRow(row, CLUB_AGREEMENT_TYPE_MEMBER_PORTAL, clubName);
 }
 
 export async function resolveGuestTrainingAgreementContent(
   clubId: string,
 ): Promise<ResolvedClubAgreementContent> {
+  const clubName = await requireClubNameForAgreement(clubId);
   const row = await loadActiveTemplateRow(
     clubId,
     CLUB_AGREEMENT_TYPE_GUEST_TRAINING,
   );
-  return resolveFromRow(row, CLUB_AGREEMENT_TYPE_GUEST_TRAINING);
+  return resolveFromRow(row, CLUB_AGREEMENT_TYPE_GUEST_TRAINING, clubName);
 }
 
 export async function getActiveMemberPortalAgreementVersion(
@@ -256,10 +271,11 @@ export async function loadClubAgreementTemplateForEdit(
     };
   }
 
+  const clubName = await requireClubNameForAgreement(clubId);
   const defaults =
     agreementType === CLUB_AGREEMENT_TYPE_MEMBER_PORTAL
-      ? getDefaultMemberPortalAgreementContent()
-      : getDefaultGuestTrainingAgreementContent();
+      ? getDefaultMemberPortalAgreementContent(clubName)
+      : getDefaultGuestTrainingAgreementContent(clubName);
 
   return {
     templatesTableAvailable,

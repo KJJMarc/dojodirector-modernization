@@ -72,6 +72,31 @@ export async function requireClubBySlug(slug: string): Promise<ClubRow> {
   return club;
 }
 
+export async function getClubById(clubId: string): Promise<ClubRow | null> {
+  const normalizedId = clubId.trim();
+
+  if (!normalizedId) {
+    return null;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("clubs")
+    .select("id, name, slug, is_active")
+    .eq("id", normalizedId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load club: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapClubRow(data as ClubQueryRow);
+}
+
 export async function getClubSlugById(clubId: string): Promise<string | null> {
   const normalizedId = clubId.trim();
 
