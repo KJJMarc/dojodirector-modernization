@@ -120,8 +120,10 @@ export function TrialEnquiryForm({
           try {
             const result = await submitTrialEnquiry(clubSlug, formData);
 
+            // Lead conversion pixels fire here only — after the API confirms the lead
+            // was saved. Not on page load, validation errors, or failed requests.
             if (pixelSettings) {
-              trackAcademyLeadConversion(pixelSettings, {
+              void trackAcademyLeadConversion(pixelSettings, {
                 clubSlug,
                 leadId: result.leadId,
               });

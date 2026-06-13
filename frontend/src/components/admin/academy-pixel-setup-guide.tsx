@@ -44,6 +44,17 @@ export function AcademyPixelSetupGuide() {
 
         <section className={guideSectionClassName}>
           <h4 className={guideTitleClassName}>
+            {PIXEL_TRACKING_SETUP_GUIDE.googleAdsConversionAction.title}
+          </h4>
+          <ol className={guideListClassName}>
+            {PIXEL_TRACKING_SETUP_GUIDE.googleAdsConversionAction.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
+
+        <section className={guideSectionClassName}>
+          <h4 className={guideTitleClassName}>
             {PIXEL_TRACKING_SETUP_GUIDE.metaVerification.title}
           </h4>
           <ol className={guideListClassName}>

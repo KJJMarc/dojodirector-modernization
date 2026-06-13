@@ -2,14 +2,18 @@ import "server-only";
 
 import {
   buildAcademyPublicPixelSettings,
+  isGoogleAdsTagId,
   isValidGoogleTagId,
   isValidMetaPixelId,
   normalizeGoogleAdsConversionLabel,
   normalizeGoogleTagId,
   normalizeMetaPixelId,
+  readKingstonGoogleAdsTrialEnquiryConversionLabelFromEnv,
+  resolveGoogleAdsConversionLabelForClub,
   type AcademyPixelSettingsFormState,
   type AcademyPublicPixelSettings,
 } from "@/lib/academy-pixel-settings.shared";
+import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 import { getClubBySlug, requireClubBySlug } from "@/lib/clubs.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -64,6 +68,7 @@ export async function loadAcademyPixelSettingsForEdit(
 
 export async function updateAcademyPixelSettings(input: {
   clubId: string;
+  clubSlug: string;
   metaPixelEnabled: boolean;
   metaPixelId: string;
   googleTrackingEnabled: boolean;
@@ -83,6 +88,22 @@ export async function updateAcademyPixelSettings(input: {
   if (input.googleTrackingEnabled && !isValidGoogleTagId(googleTagId)) {
     throw new Error(
       "Enter a valid Google tag ID (e.g. G-XXXXXXXX, AW-XXXXXXXX, or GT-XXXXXXXX).",
+    );
+  }
+
+  const envConversionLabel =
+    input.clubSlug === KINGSTON_CLUB_SLUG
+      ? readKingstonGoogleAdsTrialEnquiryConversionLabelFromEnv()
+      : null;
+
+  if (
+    input.googleTrackingEnabled &&
+    isGoogleAdsTagId(googleTagId) &&
+    !googleAdsConversionLabel &&
+    !envConversionLabel
+  ) {
+    throw new Error(
+      "Enter the Google Ads conversion label for trial enquiry leads when using an AW- tag ID.",
     );
   }
 
@@ -131,6 +152,11 @@ export async function getPublicAcademyPixelSettingsByClubSlug(
   }
 
   const row = data as ClubPixelSettingsRow;
+  const googleAdsConversionLabel = resolveGoogleAdsConversionLabelForClub({
+    clubSlug: row.slug,
+    databaseLabel: row.google_ads_conversion_label,
+    envLabel: readKingstonGoogleAdsTrialEnquiryConversionLabelFromEnv(),
+  });
 
   return buildAcademyPublicPixelSettings({
     clubSlug: row.slug,
@@ -138,6 +164,6 @@ export async function getPublicAcademyPixelSettingsByClubSlug(
     metaPixelId: row.meta_pixel_id,
     googleTrackingEnabled: row.google_tracking_enabled ?? false,
     googleTagId: row.google_tag_id,
-    googleAdsConversionLabel: row.google_ads_conversion_label,
+    googleAdsConversionLabel,
   });
 }

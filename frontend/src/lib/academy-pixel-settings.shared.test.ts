@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  buildAcademyLeadConversionEventPlan,
   buildAcademyPublicPixelSettings,
   buildGoogleAdsConversionSendTo,
+  isGoogleAdsTagId,
   isValidGoogleTagId,
   isValidMetaPixelId,
+  resolveGoogleAdsConversionLabelForClub,
 } from "@/lib/academy-pixel-settings.shared";
+import { KINGSTON_CLUB_SLUG } from "@/lib/clubs.shared";
 
 describe("academy pixel ID validation", () => {
   it("accepts numeric Meta Pixel IDs", () => {
@@ -19,6 +23,81 @@ describe("academy pixel ID validation", () => {
     assert.equal(isValidGoogleTagId("AW-123456789"), true);
     assert.equal(isValidGoogleTagId("GT-ABCDEF"), true);
     assert.equal(isValidGoogleTagId("UA-123456-1"), false);
+    assert.equal(isGoogleAdsTagId("AW-123456789"), true);
+    assert.equal(isGoogleAdsTagId("G-ABC123XYZ"), false);
+  });
+});
+
+describe("resolveGoogleAdsConversionLabelForClub", () => {
+  it("prefers the database label over the env fallback", () => {
+    assert.equal(
+      resolveGoogleAdsConversionLabelForClub({
+        clubSlug: KINGSTON_CLUB_SLUG,
+        databaseLabel: "db_label",
+        envLabel: "env_label",
+      }),
+      "db_label",
+    );
+  });
+
+  it("uses the Kingston env fallback when the database label is empty", () => {
+    assert.equal(
+      resolveGoogleAdsConversionLabelForClub({
+        clubSlug: KINGSTON_CLUB_SLUG,
+        databaseLabel: null,
+        envLabel: "env_label",
+      }),
+      "env_label",
+    );
+  });
+
+  it("does not apply the env fallback to other academies", () => {
+    assert.equal(
+      resolveGoogleAdsConversionLabelForClub({
+        clubSlug: "bahamas-jiu-jitsu",
+        databaseLabel: null,
+        envLabel: "env_label",
+      }),
+      null,
+    );
+  });
+});
+
+describe("buildAcademyLeadConversionEventPlan", () => {
+  it("fires GA4 generate_lead only for G- tags", () => {
+    const settings = buildAcademyPublicPixelSettings({
+      clubSlug: "kingston-jiu-jitsu",
+      metaPixelEnabled: false,
+      metaPixelId: null,
+      googleTrackingEnabled: true,
+      googleTagId: "G-TEST123",
+      googleAdsConversionLabel: null,
+    });
+
+    assert.deepEqual(buildAcademyLeadConversionEventPlan(settings!), {
+      metaLead: false,
+      googleAdsConversion: false,
+      googleGenerateLead: true,
+      googleAdsConversionSendTo: null,
+    });
+  });
+
+  it("fires conversion and generate_lead for AW- tags with an env fallback label", () => {
+    const settings = buildAcademyPublicPixelSettings({
+      clubSlug: KINGSTON_CLUB_SLUG,
+      metaPixelEnabled: false,
+      metaPixelId: null,
+      googleTrackingEnabled: true,
+      googleTagId: "AW-846017609",
+      googleAdsConversionLabel: "trial_lead_label",
+    });
+
+    assert.deepEqual(buildAcademyLeadConversionEventPlan(settings!), {
+      metaLead: false,
+      googleAdsConversion: true,
+      googleGenerateLead: true,
+      googleAdsConversionSendTo: "AW-846017609/trial_lead_label",
+    });
   });
 });
 

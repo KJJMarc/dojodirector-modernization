@@ -18,6 +18,7 @@ export async function saveAcademyPixelSettingsAction(formData: FormData) {
 
   await updateAcademyPixelSettings({
     clubId: club.id,
+    clubSlug: club.slug,
     metaPixelEnabled: formData.get("metaPixelEnabled") === "on",
     metaPixelId: String(formData.get("metaPixelId") ?? ""),
     googleTrackingEnabled: formData.get("googleTrackingEnabled") === "on",

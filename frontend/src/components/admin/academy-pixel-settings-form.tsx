@@ -124,7 +124,7 @@ export function AcademyPixelSettingsForm({ settings }: AcademyPixelSettingsFormP
 
         <div className="space-y-1.5">
           <label htmlFor="googleAdsConversionLabel" className={labelClassName}>
-            Google Ads conversion label (optional)
+            Google Ads conversion label
           </label>
           <input
             id="googleAdsConversionLabel"

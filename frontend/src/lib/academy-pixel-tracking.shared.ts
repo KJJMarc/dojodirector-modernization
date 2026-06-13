@@ -58,10 +58,22 @@ export const PIXEL_TRACKING_SETUP_GUIDE = {
   googleTagId: {
     title: "How to find your Google Tag ID",
     steps: [
-      "In Google Analytics 4, go to Admin → Data streams and open your web stream.",
-      "Copy the Measurement ID (format G-XXXXXXXX).",
-      "For Google Ads conversions, use the conversion tag ID (format AW-XXXXXXXX) from Tools → Conversions.",
+      "For Google Ads lead campaigns, use the Google tag ID from Tools → Conversions → your conversion action (format AW-XXXXXXXX).",
+      "For GA4 reporting only, use Admin → Data streams → Measurement ID (format G-XXXXXXXX).",
       "Paste the ID into the Google tag ID field above and save.",
+    ],
+  },
+  googleAdsConversionAction: {
+    title: "How to create a Google Ads trial enquiry conversion action",
+    steps: [
+      "Sign in to Google Ads and open Goals → Conversions → Summary.",
+      "Click + New conversion action, then choose Website.",
+      "Select category Lead and goal type Submit lead form (or Contact).",
+      "Name the action clearly, e.g. Trial Enquiry - Kingston Jiu Jitsu.",
+      "Choose Use Google tag, then create the conversion action.",
+      "Open the new conversion action and copy the Conversion label (the part after the slash in send_to).",
+      "In Dojo Director Pixel Settings, enter the AW-XXXXXXXX tag ID and conversion label, then save.",
+      "In your Leads campaign, set this conversion action as the primary optimisation goal.",
     ],
   },
   metaVerification: {
@@ -74,12 +86,16 @@ export const PIXEL_TRACKING_SETUP_GUIDE = {
     ],
   },
   googleVerification: {
-    title: "How to verify Google using Tag Assistant",
+    title: "How to verify Google lead conversions before launching ads",
     steps: [
       "Install Google Tag Assistant (Legacy or Companion) in Chrome.",
-      "Open a public academy page (or use Test Tracking below).",
-      "Confirm your Google tag ID loads and records a page view.",
-      "Submit a test trial enquiry and check for generate_lead or conversion events.",
+      "Open the academy trial enquiry page, e.g. /kingston-jiu-jitsu/trial-enquiry.",
+      "Confirm the AW- or G- tag loads (page_view only — no lead events yet).",
+      "Submit a test trial enquiry with valid details and wait for the thank-you message.",
+      "In Tag Assistant, confirm a single conversion event (AW- tags) and/or generate_lead event.",
+      "In Google Ads → Goals → Conversions, check the trial enquiry action shows a recorded conversion (may take up to 24 hours).",
+      "Refresh the thank-you page or use the back button — lead events must not fire again for the same submission.",
+      "Use Test Tracking on this page to confirm Dojo Director status shows a recent Lead/Conversion event.",
     ],
   },
 } as const;

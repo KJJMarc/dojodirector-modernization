@@ -1,5 +1,6 @@
 import {
   academyLeadTrackingDedupeKey,
+  buildAcademyLeadConversionEventPlan,
   type AcademyPublicPixelSettings,
 } from "@/lib/academy-pixel-settings.shared";
 import {
@@ -37,7 +38,77 @@ export function reportAcademyPixelTrackingEvent(
   });
 }
 
-export function trackAcademyLeadConversion(
+function waitForClientTrackingFunction(
+  getFn: () => boolean,
+  maxAttempts = 40,
+  intervalMs = 250,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (getFn()) {
+      resolve(true);
+      return;
+    }
+
+    let attempts = 0;
+    const intervalId = window.setInterval(() => {
+      attempts += 1;
+
+      if (getFn()) {
+        window.clearInterval(intervalId);
+        resolve(true);
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        window.clearInterval(intervalId);
+        resolve(false);
+      }
+    }, intervalMs);
+  });
+}
+
+/**
+ * Fires the Google Ads trial enquiry conversion event via gtag.
+ * Requires send_to in the form AW-XXXXXXXX/conversion_label.
+ */
+export function fireGoogleAdsTrialEnquiryConversion(
+  sendTo: string,
+  clubSlug: string,
+): boolean {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") {
+    return false;
+  }
+
+  window.gtag("event", "conversion", {
+    send_to: sendTo,
+  });
+  reportAcademyPixelTrackingEvent(clubSlug, "google", "conversion");
+  return true;
+}
+
+/** Fires the GA4/Google Ads generate_lead event via gtag. */
+export function fireGoogleGenerateLeadEvent(clubSlug: string): boolean {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") {
+    return false;
+  }
+
+  window.gtag("event", "generate_lead");
+  reportAcademyPixelTrackingEvent(clubSlug, "google", "generate_lead");
+  return true;
+}
+
+/**
+ * Fires Meta Lead and Google lead conversion events after a successful trial enquiry.
+ *
+ * Called only from `TrialEnquiryForm` once the `/api/[clubSlug]/trial-enquiry` POST
+ * returns `{ ok: true, leadId }`. Never called on page load, validation errors, or
+ * failed API requests.
+ *
+ * Duplicate prevention: sessionStorage key `dojo_pixel_lead_{clubSlug}_{leadId}` is set
+ * only after events are successfully sent, so refresh/back on the thank-you state does
+ * not re-fire for the same lead submission.
+ */
+export async function trackAcademyLeadConversion(
   settings: AcademyPublicPixelSettings,
   options: { clubSlug: string; leadId: string },
 ) {
@@ -51,22 +122,45 @@ export function trackAcademyLeadConversion(
     return;
   }
 
-  sessionStorage.setItem(dedupeKey, "1");
+  const plan = buildAcademyLeadConversionEventPlan(settings);
+  let firedAny = false;
 
-  if (settings.metaPixelEnabled && settings.metaPixelId && typeof window.fbq === "function") {
-    window.fbq("track", "Lead");
-    reportAcademyPixelTrackingEvent(settings.clubSlug, "meta", "Lead");
+  if (plan.metaLead) {
+    const metaReady = await waitForClientTrackingFunction(
+      () => typeof window.fbq === "function",
+    );
+
+    if (metaReady) {
+      window.fbq!("track", "Lead");
+      reportAcademyPixelTrackingEvent(settings.clubSlug, "meta", "Lead");
+      firedAny = true;
+    }
   }
 
-  if (settings.googleTrackingEnabled && typeof window.gtag === "function") {
-    if (settings.googleAdsConversionSendTo) {
-      window.gtag("event", "conversion", {
-        send_to: settings.googleAdsConversionSendTo,
-      });
-      reportAcademyPixelTrackingEvent(settings.clubSlug, "google", "conversion");
-    }
+  if (plan.googleGenerateLead || plan.googleAdsConversion) {
+    const googleReady = await waitForClientTrackingFunction(
+      () => typeof window.gtag === "function",
+    );
 
-    window.gtag("event", "generate_lead");
-    reportAcademyPixelTrackingEvent(settings.clubSlug, "google", "generate_lead");
+    if (googleReady) {
+      // Google Ads (AW-XXXXXXXX): dedicated conversion action for campaign optimisation.
+      if (plan.googleAdsConversion && plan.googleAdsConversionSendTo) {
+        fireGoogleAdsTrialEnquiryConversion(
+          plan.googleAdsConversionSendTo,
+          settings.clubSlug,
+        );
+      }
+
+      // GA4 (G-XXXXXXXX) and Google Ads: recommended lead event for reporting.
+      if (plan.googleGenerateLead) {
+        fireGoogleGenerateLeadEvent(settings.clubSlug);
+      }
+
+      firedAny = true;
+    }
+  }
+
+  if (firedAny) {
+    sessionStorage.setItem(dedupeKey, "1");
   }
 }
