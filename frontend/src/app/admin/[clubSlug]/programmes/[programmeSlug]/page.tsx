@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { ProgrammeManagementUnavailableNotice } from "@/components/admin/programme-management-unavailable-notice";
+import { ProgrammeDeleteSection } from "@/components/admin/programme-delete-section";
 import { ProgrammeSettingsForm } from "@/components/admin/programme-settings-form";
 import { AppHeader } from "@/components/layout/app-header";
 import {
@@ -12,11 +13,12 @@ import {
 } from "@/lib/admin-programmes.shared";
 import {
   getProgrammesSchemaAvailable,
+  loadProgrammeDeleteEligibility,
   requireClubProgrammeBySlug,
 } from "@/lib/admin-programmes.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
-import { updateProgrammeSettingsAction } from "./actions";
+import { deleteProgrammeAction, updateProgrammeSettingsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,11 @@ export default async function ProgrammeSettingsPage({
   }
 
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
+  const deleteEligibility = await loadProgrammeDeleteEligibility(
+    club.id,
+    programme.id,
+    programme.programmeType,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -103,6 +110,13 @@ export default async function ProgrammeSettingsPage({
           action={updateProgrammeSettingsAction}
         />
       </section>
+
+      <ProgrammeDeleteSection
+        clubSlug={club.slug}
+        programme={programme}
+        eligibility={deleteEligibility}
+        action={deleteProgrammeAction}
+      />
     </main>
   );
 }

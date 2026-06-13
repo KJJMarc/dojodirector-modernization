@@ -6,6 +6,7 @@ import {
   buildAddStudentProgrammeAccessOptionsFromRows,
   buildAddStudentProgrammeMembershipOptions,
   buildAdminAreaProgrammeClassScope,
+  buildProgrammeDeleteEligibility,
   buildStudentProfileAdminPath,
   classBelongsToAdminAreaProgrammeScope,
   defaultProgrammeSettingsForCreateTemplate,
@@ -15,6 +16,7 @@ import {
   isProgrammeSlugTakenInClub,
   parseProgrammeCreateFormData,
   programmeStudentsAdminPath,
+  validateProgrammeDeleteConfirmation,
   validateProgrammeSlug,
   STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
   STUDENT_PROFILE_FROM_PROGRAMME_PARAM,
@@ -458,6 +460,98 @@ describe("club-scoped programme slug uniqueness", () => {
         ignoreSlug: "bjj",
       }),
       true,
+    );
+  });
+});
+
+describe("programme delete eligibility", () => {
+  const emptyCounts = {
+    programmeMemberships: 0,
+    programmeBookingAccess: 0,
+    classes: 0,
+    classSessions: 0,
+    beltSystems: 0,
+  };
+
+  it("allows delete when all link counts are zero", () => {
+    const eligibility = buildProgrammeDeleteEligibility(emptyCounts, "custom");
+
+    assert.equal(eligibility.canDelete, true);
+    assert.deepEqual(eligibility.blockedReasons, []);
+  });
+
+  it("blocks delete when programme memberships exist", () => {
+    const eligibility = buildProgrammeDeleteEligibility(
+      { ...emptyCounts, programmeMemberships: 2 },
+      "custom",
+    );
+
+    assert.equal(eligibility.canDelete, false);
+    assert.match(eligibility.blockedReasons[0], /2 students are enrolled/);
+  });
+
+  it("blocks delete when booking access, classes, sessions, or belt systems exist", () => {
+    assert.equal(
+      buildProgrammeDeleteEligibility(
+        { ...emptyCounts, programmeBookingAccess: 1 },
+        "custom",
+      ).canDelete,
+      false,
+    );
+    assert.equal(
+      buildProgrammeDeleteEligibility({ ...emptyCounts, classes: 3 }, "custom")
+        .canDelete,
+      false,
+    );
+    assert.equal(
+      buildProgrammeDeleteEligibility(
+        { ...emptyCounts, classSessions: 5 },
+        "custom",
+      ).canDelete,
+      false,
+    );
+    assert.equal(
+      buildProgrammeDeleteEligibility(
+        { ...emptyCounts, beltSystems: 1 },
+        "custom",
+      ).canDelete,
+      false,
+    );
+  });
+
+  it("adds BJJ-specific guidance when linked data blocks delete", () => {
+    const eligibility = buildProgrammeDeleteEligibility(
+      { ...emptyCounts, classes: 1 },
+      "bjj",
+    );
+
+    assert.equal(eligibility.canDelete, false);
+    assert.ok(
+      eligibility.blockedReasons.some((reason) =>
+        reason.includes("BJJ programmes cannot be deleted"),
+      ),
+    );
+  });
+});
+
+describe("programme delete confirmation", () => {
+  it("accepts an exact programme name match", () => {
+    assert.doesNotThrow(() =>
+      validateProgrammeDeleteConfirmation("Competition BJJ", "Competition BJJ"),
+    );
+  });
+
+  it("trims whitespace before comparing confirmation text", () => {
+    assert.doesNotThrow(() =>
+      validateProgrammeDeleteConfirmation("  Competition BJJ  ", "Competition BJJ"),
+    );
+  });
+
+  it("rejects a mismatched confirmation name", () => {
+    assert.throws(
+      () =>
+        validateProgrammeDeleteConfirmation("Wrong Name", "Competition BJJ"),
+      /Type the programme name "Competition BJJ"/,
     );
   });
 });

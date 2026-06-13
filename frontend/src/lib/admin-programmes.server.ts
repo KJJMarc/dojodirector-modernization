@@ -19,13 +19,16 @@ import {
   programmeNameForType,
   programmeSlugForType,
   programmeTypeEnablesAdminArea,
+  validateProgrammeDeleteConfirmation,
   validateProgrammeName,
   validateProgrammeSlug,
+  buildProgrammeDeleteEligibility,
+  type ProgrammeDeleteEligibility,
+  type ProgrammeTypeValue,
   STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
   type AdminProgramme,
   type CreatableProgrammeTypeValue,
   type ProgrammeFeatureSettings,
-  type ProgrammeTypeValue,
   type StudentBjjFeatureVisibility,
   type StudentPortalAccessProgrammeType,
 } from "@/lib/admin-programmes.shared";
@@ -1454,6 +1457,225 @@ export async function updateAdminProgrammeSettings(
   );
 
   return mapProgrammeRow(data as ProgrammeRow, studentCount);
+}
+
+function isMissingBeltSystemsTable(error: { message?: string; code?: string } | null) {
+  if (!error) {
+    return false;
+  }
+
+  const message = error.message?.toLowerCase() ?? "";
+
+  if (
+    message.includes("belt_systems") &&
+    (message.includes("schema cache") ||
+      message.includes("does not exist") ||
+      message.includes("could not find the table"))
+  ) {
+    return true;
+  }
+
+  if (error.code === "PGRST205" || error.code === "42P01") {
+    return true;
+  }
+
+  return false;
+}
+
+let beltSystemsSchemaAvailable: boolean | null = null;
+
+async function isBeltSystemsSchemaAvailable() {
+  if (beltSystemsSchemaAvailable !== null) {
+    return beltSystemsSchemaAvailable;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("belt_systems").select("id").limit(1);
+  beltSystemsSchemaAvailable = !isMissingBeltSystemsTable(error);
+  return beltSystemsSchemaAvailable;
+}
+
+async function loadProgrammeLinkedClassIds(
+  clubId: string,
+  programmeId: string,
+  programmeType: ProgrammeTypeValue,
+): Promise<string[]> {
+  const supabase = getSupabaseAdminClient();
+  const classIds = new Set<string>();
+
+  const { data: linkedClasses, error: linkedClassesError } = await supabase
+    .from("classes")
+    .select("id")
+    .eq("club_id", clubId)
+    .eq("programme_id", programmeId);
+
+  if (linkedClassesError) {
+    throw new Error(`Failed to load programme classes: ${linkedClassesError.message}`);
+  }
+
+  for (const row of (linkedClasses ?? []) as { id: string }[]) {
+    classIds.add(row.id);
+  }
+
+  if (programmeType === "bjj" || programmeType === "muay_thai" || programmeType === "strength_conditioning") {
+    const { data: legacyClasses, error: legacyClassesError } = await supabase
+      .from("classes")
+      .select("id")
+      .eq("club_id", clubId)
+      .is("programme_id", null)
+      .eq("programme_type", programmeType);
+
+    if (legacyClassesError) {
+      throw new Error(`Failed to load legacy programme classes: ${legacyClassesError.message}`);
+    }
+
+    for (const row of (legacyClasses ?? []) as { id: string }[]) {
+      classIds.add(row.id);
+    }
+  }
+
+  return Array.from(classIds);
+}
+
+async function countProgrammeClassSessions(classIds: string[]) {
+  if (classIds.length === 0) {
+    return 0;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { count, error } = await supabase
+    .from("class_sessions")
+    .select("id", { count: "exact", head: true })
+    .in("class_id", classIds);
+
+  if (error) {
+    throw new Error(`Failed to count programme class sessions: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
+export async function loadProgrammeDeleteEligibility(
+  clubId: string,
+  programmeId: string,
+  programmeType: ProgrammeTypeValue,
+): Promise<ProgrammeDeleteEligibility> {
+  await assertProgrammesSchemaAvailable();
+
+  const supabase = getSupabaseAdminClient();
+  const classIds = await loadProgrammeLinkedClassIds(
+    clubId,
+    programmeId,
+    programmeType,
+  );
+
+  const [
+    programmeMembershipsResult,
+    programmeBookingAccessResult,
+    beltSystemsResult,
+    classSessionsCount,
+  ] = await Promise.all([
+    supabase
+      .from("programme_memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("programme_id", programmeId),
+    isProgrammeBookingAccessSchemaAvailable().then(async (available) => {
+      if (!available) {
+        return { count: 0, error: null };
+      }
+
+      return supabase
+        .from("programme_booking_access")
+        .select("id", { count: "exact", head: true })
+        .eq("programme_id", programmeId);
+    }),
+    isBeltSystemsSchemaAvailable().then(async (available) => {
+      if (!available) {
+        return { count: 0, error: null };
+      }
+
+      return supabase
+        .from("belt_systems")
+        .select("id", { count: "exact", head: true })
+        .eq("club_id", clubId)
+        .eq("programme_id", programmeId);
+    }),
+    countProgrammeClassSessions(classIds),
+  ]);
+
+  if (programmeMembershipsResult.error) {
+    throw new Error(
+      `Failed to count programme memberships: ${programmeMembershipsResult.error.message}`,
+    );
+  }
+
+  if (programmeBookingAccessResult.error) {
+    throw new Error(
+      `Failed to count programme booking access: ${programmeBookingAccessResult.error.message}`,
+    );
+  }
+
+  if (beltSystemsResult.error) {
+    throw new Error(
+      `Failed to count programme belt systems: ${beltSystemsResult.error.message}`,
+    );
+  }
+
+  return buildProgrammeDeleteEligibility(
+    {
+      programmeMemberships: programmeMembershipsResult.count ?? 0,
+      programmeBookingAccess: programmeBookingAccessResult.count ?? 0,
+      classes: classIds.length,
+      classSessions: classSessionsCount,
+      beltSystems: beltSystemsResult.count ?? 0,
+    },
+    programmeType,
+  );
+}
+
+export interface DeleteAdminProgrammeInput {
+  clubId: string;
+  programmeSlug: string;
+  confirmationName: string;
+}
+
+export async function deleteAdminProgramme(
+  input: DeleteAdminProgrammeInput,
+): Promise<void> {
+  await assertProgrammesSchemaAvailable();
+
+  const programme = await requireClubProgrammeBySlug(
+    input.clubId,
+    input.programmeSlug,
+  );
+
+  validateProgrammeDeleteConfirmation(input.confirmationName, programme.name);
+
+  const eligibility = await loadProgrammeDeleteEligibility(
+    input.clubId,
+    programme.id,
+    programme.programmeType,
+  );
+
+  if (!eligibility.canDelete) {
+    throw new Error(eligibility.blockedReasons.join(" "));
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programmes")
+    .delete()
+    .eq("id", programme.id)
+    .eq("club_id", input.clubId)
+    .select("id");
+
+  if (error) {
+    throw new Error(`Failed to delete programme: ${error.message}`);
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Programme not found.");
+  }
 }
 
 export async function countActiveProgrammeStudents(

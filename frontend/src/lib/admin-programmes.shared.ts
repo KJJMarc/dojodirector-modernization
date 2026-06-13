@@ -727,3 +727,126 @@ export function parseProgrammeCreateFormData(
 
   return { name, slug, settings, adminAreaEnabled };
 }
+
+export interface ProgrammeDeleteLinkCounts {
+  programmeMemberships: number;
+  programmeBookingAccess: number;
+  classes: number;
+  classSessions: number;
+  beltSystems: number;
+}
+
+export interface ProgrammeDeleteEligibility {
+  canDelete: boolean;
+  blockedReasons: string[];
+  linkCounts: ProgrammeDeleteLinkCounts;
+}
+
+export const STANDARD_PROGRAMME_TYPES_FOR_DELETE = [
+  "bjj",
+  "muay_thai",
+  "strength_conditioning",
+] as const satisfies readonly ProgrammeTypeValue[];
+
+export function isStandardProgrammeTypeForDelete(
+  programmeType: ProgrammeTypeValue,
+): boolean {
+  return (STANDARD_PROGRAMME_TYPES_FOR_DELETE as readonly string[]).includes(
+    programmeType,
+  );
+}
+
+function formatProgrammeDeleteCountReason(
+  count: number,
+  singular: string,
+  plural: string,
+  suffix: string,
+) {
+  const noun = count === 1 ? singular : plural;
+  return `${count} ${noun} ${suffix}.`;
+}
+
+export function buildProgrammeDeleteEligibility(
+  linkCounts: ProgrammeDeleteLinkCounts,
+  programmeType: ProgrammeTypeValue,
+): ProgrammeDeleteEligibility {
+  const blockedReasons: string[] = [];
+
+  if (linkCounts.programmeMemberships > 0) {
+    blockedReasons.push(
+      formatProgrammeDeleteCountReason(
+        linkCounts.programmeMemberships,
+        "student is",
+        "students are",
+        "enrolled in this programme",
+      ),
+    );
+  }
+
+  if (linkCounts.programmeBookingAccess > 0) {
+    blockedReasons.push(
+      formatProgrammeDeleteCountReason(
+        linkCounts.programmeBookingAccess,
+        "student has",
+        "students have",
+        "portal booking access for this programme",
+      ),
+    );
+  }
+
+  if (linkCounts.classes > 0) {
+    blockedReasons.push(
+      formatProgrammeDeleteCountReason(
+        linkCounts.classes,
+        "class template is",
+        "class templates are",
+        "linked to this programme",
+      ),
+    );
+  }
+
+  if (linkCounts.classSessions > 0) {
+    blockedReasons.push(
+      formatProgrammeDeleteCountReason(
+        linkCounts.classSessions,
+        "scheduled class session is",
+        "scheduled class sessions are",
+        "linked to this programme",
+      ),
+    );
+  }
+
+  if (linkCounts.beltSystems > 0) {
+    blockedReasons.push(
+      formatProgrammeDeleteCountReason(
+        linkCounts.beltSystems,
+        "belt system is",
+        "belt systems are",
+        "linked to this programme",
+      ),
+    );
+  }
+
+  if (programmeType === "bjj" && blockedReasons.length > 0) {
+    blockedReasons.push(
+      "BJJ programmes cannot be deleted while they have linked academy data.",
+    );
+  }
+
+  return {
+    canDelete: blockedReasons.length === 0,
+    blockedReasons,
+    linkCounts,
+  };
+}
+
+export function validateProgrammeDeleteConfirmation(
+  typedName: string,
+  programmeName: string,
+) {
+  if (typedName.trim() !== programmeName.trim()) {
+    throw new Error(
+      `Type the programme name "${programmeName}" to confirm deletion.`,
+    );
+  }
+}
