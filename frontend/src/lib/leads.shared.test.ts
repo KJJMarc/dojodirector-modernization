@@ -6,8 +6,10 @@ import {
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
 } from "@/lib/clubs.shared";
 import {
+  buildTrialEnquiryProgrammeInterests,
   resolveTrialLeadAcademySlug,
   resolveTrialLeadAcademySlugForClub,
+  TRIAL_ENQUIRY_PROGRAMME_INTERESTS,
 } from "@/lib/leads.shared";
 
 test("resolveTrialLeadAcademySlug routes Kingston adult enquiries to Kingston", () => {
@@ -60,4 +62,44 @@ test("resolveTrialLeadAcademySlugForClub does not route Bahamas enquiries to Kin
     assert.notEqual(targetSlug, KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG);
     assert.equal(targetSlug, BAHAMAS_JIU_JITSU_CLUB_SLUG);
   }
+});
+
+test("buildTrialEnquiryProgrammeInterests shows BJJ and Not sure for Bahamas", () => {
+  assert.deepEqual(buildTrialEnquiryProgrammeInterests(["bjj"]), ["bjj", "not_sure"]);
+});
+
+test("buildTrialEnquiryProgrammeInterests excludes Muay Thai and S&C for Bahamas", () => {
+  const interests = buildTrialEnquiryProgrammeInterests(["bjj"]);
+
+  assert.ok(!interests.includes("muay_thai"));
+  assert.ok(!interests.includes("strength_conditioning"));
+});
+
+test("buildTrialEnquiryProgrammeInterests keeps Kingston programme options unchanged", () => {
+  assert.deepEqual(
+    buildTrialEnquiryProgrammeInterests([
+      "bjj",
+      "muay_thai",
+      "strength_conditioning",
+    ]),
+    [...TRIAL_ENQUIRY_PROGRAMME_INTERESTS],
+  );
+});
+
+test("buildTrialEnquiryProgrammeInterests keeps KJJ Kids programme options unchanged", () => {
+  assert.deepEqual(
+    buildTrialEnquiryProgrammeInterests([
+      "bjj",
+      "muay_thai",
+      "strength_conditioning",
+    ]),
+    [...TRIAL_ENQUIRY_PROGRAMME_INTERESTS],
+  );
+});
+
+test("buildTrialEnquiryProgrammeInterests ignores inactive custom programme types", () => {
+  assert.deepEqual(
+    buildTrialEnquiryProgrammeInterests(["bjj", "custom", "muay_thai"]),
+    ["bjj", "muay_thai", "not_sure"],
+  );
 });

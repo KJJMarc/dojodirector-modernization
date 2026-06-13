@@ -7,10 +7,10 @@ import { clubTrialEnquiryApiPath } from "@/lib/clubs.shared";
 import {
   LEAD_EXPERIENCE_LEVELS,
   TRIAL_AUDIENCES,
-  TRIAL_ENQUIRY_PROGRAMME_INTERESTS,
   formatLeadExperienceLevelLabel,
   formatLeadProgrammeInterestLabel,
   formatTrialAudienceLabel,
+  type LeadProgrammeInterest,
   type LeadSubmissionResult,
 } from "@/lib/leads.shared";
 
@@ -71,6 +71,7 @@ async function submitTrialEnquiry(
 
 interface TrialEnquiryFormProps {
   clubSlug: string;
+  programmeInterests: readonly LeadProgrammeInterest[];
   pixelSettings?: AcademyPublicPixelSettings | null;
 }
 
@@ -82,7 +83,11 @@ const labelClassName = "text-xs font-medium text-dojo-muted";
 const audienceCardClassName =
   "flex min-h-[52px] cursor-pointer items-center gap-3 rounded-lg border border-dojo-border bg-dojo-black px-4 py-3 text-sm font-medium text-dojo-white transition has-[:checked]:border-dojo-red/70 has-[:checked]:bg-dojo-red/10";
 
-export function TrialEnquiryForm({ clubSlug, pixelSettings }: TrialEnquiryFormProps) {
+export function TrialEnquiryForm({
+  clubSlug,
+  programmeInterests,
+  pixelSettings,
+}: TrialEnquiryFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -189,7 +194,7 @@ export function TrialEnquiryForm({ clubSlug, pixelSettings }: TrialEnquiryFormPr
             <option value="" disabled>
               Select a programme
             </option>
-            {TRIAL_ENQUIRY_PROGRAMME_INTERESTS.map((value) => (
+            {programmeInterests.map((value) => (
               <option key={value} value={value}>
                 {formatLeadProgrammeInterestLabel(value)}
               </option>

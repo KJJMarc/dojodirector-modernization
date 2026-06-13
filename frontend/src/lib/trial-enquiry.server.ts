@@ -1,14 +1,63 @@
 import "server-only";
 
+import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
+import { STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES } from "@/lib/admin-programmes.shared";
+import { BAHAMAS_JIU_JITSU_CLUB_SLUG } from "@/lib/clubs.shared";
 import { getClubBySlug } from "@/lib/clubs.server";
 import { submitLead } from "@/lib/leads.server";
 import {
+  buildTrialEnquiryProgrammeInterests,
   parseLeadExperienceLevel,
-  parseLeadProgrammeInterest,
   parseTrialAudience,
+  parseTrialEnquiryProgrammeInterest,
   resolveTrialLeadAcademySlugForClub,
+  type LeadProgrammeInterest,
   type LeadSubmissionResult,
 } from "@/lib/leads.shared";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+async function loadActiveProgrammeTypesForClub(
+  clubId: string,
+  clubSlug: string,
+): Promise<string[]> {
+  if (!(await getProgrammesSchemaAvailable())) {
+    if (clubSlug.trim().toLowerCase() === BAHAMAS_JIU_JITSU_CLUB_SLUG) {
+      return ["bjj"];
+    }
+
+    return [...STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES];
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("programme_type, is_active")
+    .eq("club_id", clubId)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load programmes for trial enquiry: ${error.message}`);
+  }
+
+  return (data ?? [])
+    .filter((row) => row.is_active !== false)
+    .map((row) => String(row.programme_type ?? "").trim())
+    .filter(Boolean);
+}
+
+export async function loadTrialEnquiryProgrammeInterestsForClubSlug(
+  clubSlug: string,
+): Promise<LeadProgrammeInterest[]> {
+  const club = await getClubBySlug(clubSlug);
+
+  if (!club) {
+    throw new Error("Academy not found for this enquiry.");
+  }
+
+  const programmeTypes = await loadActiveProgrammeTypesForClub(club.id, club.slug);
+  return buildTrialEnquiryProgrammeInterests(programmeTypes);
+}
 
 export async function processTrialEnquirySubmission(
   clubSlug: string,
@@ -32,6 +81,15 @@ export async function processTrialEnquirySubmission(
   });
 
   try {
+    const submittingClub = await getClubBySlug(payload.clubSlug);
+
+    if (!submittingClub) {
+      throw new Error("Academy not found for this enquiry.");
+    }
+
+    const allowedProgrammeInterests = await loadTrialEnquiryProgrammeInterestsForClubSlug(
+      submittingClub.slug,
+    );
     const trialAudience = parseTrialAudience(payload.trialAudience);
     const targetSlug = resolveTrialLeadAcademySlugForClub(
       payload.clubSlug,
@@ -55,7 +113,10 @@ export async function processTrialEnquirySubmission(
         fullName: payload.fullName,
         email: payload.email,
         phone: payload.phone,
-        programmeInterest: parseLeadProgrammeInterest(payload.programmeInterest),
+        programmeInterest: parseTrialEnquiryProgrammeInterest(
+          payload.programmeInterest,
+          allowedProgrammeInterests,
+        ),
         experienceLevel: parseLeadExperienceLevel(payload.experienceLevel),
         leadSource: "website",
         notes: payload.notes,

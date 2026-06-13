@@ -46,6 +46,40 @@ export const TRIAL_ENQUIRY_PROGRAMME_INTERESTS = [
   "not_sure",
 ] as const satisfies readonly LeadProgrammeInterest[];
 
+const TRIAL_ENQUIRY_PROGRAMME_INTERESTS_BY_TYPE = [
+  "bjj",
+  "muay_thai",
+  "strength_conditioning",
+] as const satisfies readonly Exclude<
+  LeadProgrammeInterest,
+  "kids" | "not_sure"
+>[];
+
+/** Build trial enquiry programme options from a club's active programme types. */
+export function buildTrialEnquiryProgrammeInterests(
+  programmeTypes: readonly string[],
+): LeadProgrammeInterest[] {
+  const activeTypes = new Set(
+    programmeTypes
+      .map((programmeType) => programmeType.trim().toLowerCase())
+      .filter((programmeType) => programmeType.length > 0),
+  );
+  const interests: LeadProgrammeInterest[] = [];
+
+  for (const interest of TRIAL_ENQUIRY_PROGRAMME_INTERESTS_BY_TYPE) {
+    if (activeTypes.has(interest)) {
+      interests.push(interest);
+    }
+  }
+
+  if (interests.length === 0) {
+    return [...TRIAL_ENQUIRY_PROGRAMME_INTERESTS];
+  }
+
+  interests.push("not_sure");
+  return interests;
+}
+
 export const LEAD_EXPERIENCE_LEVELS = [
   "complete_beginner",
   "some_experience",
@@ -390,6 +424,19 @@ export function parseLeadProgrammeInterest(value: string): LeadProgrammeInterest
   }
 
   return value as LeadProgrammeInterest;
+}
+
+export function parseTrialEnquiryProgrammeInterest(
+  value: string,
+  allowedInterests: readonly LeadProgrammeInterest[],
+): LeadProgrammeInterest {
+  const programmeInterest = parseLeadProgrammeInterest(value);
+
+  if (!allowedInterests.includes(programmeInterest)) {
+    throw new Error("Select a programme interest.");
+  }
+
+  return programmeInterest;
 }
 
 export function parseLeadExperienceLevel(value: string): LeadExperienceLevel {

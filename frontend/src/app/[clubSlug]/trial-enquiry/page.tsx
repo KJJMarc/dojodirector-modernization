@@ -5,6 +5,7 @@ import { PublicAcademyPageHeader } from "@/components/public/public-academy-page
 import { getPublicAcademyPixelSettingsByClubSlug } from "@/lib/academy-pixel-settings.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
+import { loadTrialEnquiryProgrammeInterestsForClubSlug } from "@/lib/trial-enquiry.server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,10 @@ export async function generateMetadata({
 
 export default async function TrialEnquiryPage({ params }: TrialEnquiryPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const pixelSettings = await getPublicAcademyPixelSettingsByClubSlug(club.slug);
+  const [pixelSettings, programmeInterests] = await Promise.all([
+    getPublicAcademyPixelSettingsByClubSlug(club.slug),
+    loadTrialEnquiryProgrammeInterestsForClubSlug(club.slug),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -41,7 +45,11 @@ export default async function TrialEnquiryPage({ params }: TrialEnquiryPageProps
           we&apos;ll help you find the right class.
         </p>
 
-        <TrialEnquiryForm clubSlug={club.slug} pixelSettings={pixelSettings} />
+        <TrialEnquiryForm
+          clubSlug={club.slug}
+          programmeInterests={programmeInterests}
+          pixelSettings={pixelSettings}
+        />
       </main>
 
       <PublicSiteFooter variant="academy" />
