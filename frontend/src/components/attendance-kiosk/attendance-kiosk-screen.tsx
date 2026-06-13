@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { kioskMarkPresentAction } from "@/app/instructor-portal/(portal)/[clubSlug]/attendance-kiosk/[sessionId]/actions";
 import {
+  ATTENDANCE_KIOSK_NOT_BOOKED_MESSAGE,
+  ATTENDANCE_KIOSK_NOT_BOOKED_TITLE,
   ATTENDANCE_KIOSK_RESET_MS,
-  type AttendanceKioskCheckInResult,
   type AttendanceKioskStudentOption,
 } from "@/lib/attendance-kiosk.shared";
 import { instructorPortalAttendanceKioskListPath } from "@/lib/instructor-portal-routing.shared";
@@ -15,6 +16,7 @@ type KioskFeedbackState =
   | { kind: "idle" }
   | { kind: "success"; message: string }
   | { kind: "already"; message: string }
+  | { kind: "not_booked"; student: AttendanceKioskStudentOption }
   | { kind: "error"; message: string };
 
 interface AttendanceKioskScreenProps {
@@ -63,6 +65,8 @@ export function AttendanceKioskScreen({
   const otherStudents = filteredStudents.filter((student) => !student.isBooked);
   const showBookedSection = bookedStudents.length > 0;
   const showOtherSection = otherStudents.length > 0 && query.trim().length > 0;
+  const highlightedStudentId =
+    feedback.kind === "not_booked" ? feedback.student.userId : null;
 
   function resetFeedbackSoon() {
     window.setTimeout(() => {
@@ -71,7 +75,10 @@ export function AttendanceKioskScreen({
     }, ATTENDANCE_KIOSK_RESET_MS);
   }
 
-  function handleCheckIn(student: AttendanceKioskStudentOption) {
+  function handleCheckIn(
+    student: AttendanceKioskStudentOption,
+    options?: { confirmWalkIn?: boolean },
+  ) {
     if (markingDisabled || isPending) {
       return;
     }
@@ -90,35 +97,95 @@ export function AttendanceKioskScreen({
     formData.set("sessionId", sessionId);
     formData.set("userId", student.userId);
 
+    if (options?.confirmWalkIn) {
+      formData.set("confirmWalkIn", "on");
+    }
+
     startTransition(async () => {
-      try {
-        const result: AttendanceKioskCheckInResult =
-          await kioskMarkPresentAction(formData);
+      const result = await kioskMarkPresentAction(formData);
 
-        if (result.status === "already_present") {
-          setFeedback({
-            kind: "already",
-            message: `${result.studentName} is already marked present.`,
-          });
-        } else {
-          setFeedback({
-            kind: "success",
-            message: `${result.studentName} marked present.`,
-          });
-        }
-
-        router.refresh();
-        resetFeedbackSoon();
-      } catch (error) {
+      if (result.status === "error") {
         setFeedback({
           kind: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unable to mark attendance.",
+          message: result.message,
+        });
+        return;
+      }
+
+      if (result.status === "not_booked_for_session") {
+        setFeedback({
+          kind: "not_booked",
+          student,
+        });
+        return;
+      }
+
+      if (result.status === "already_present") {
+        setFeedback({
+          kind: "already",
+          message: `${result.studentName} is already marked present.`,
+        });
+      } else {
+        setFeedback({
+          kind: "success",
+          message: `${result.studentName} marked present.`,
         });
       }
+
+      router.refresh();
+      resetFeedbackSoon();
     });
+  }
+
+  function renderStudentCard(
+    student: AttendanceKioskStudentOption,
+    options: { showManualCheckIn?: boolean },
+  ) {
+    const isHighlighted = highlightedStudentId === student.userId;
+
+    return (
+      <div
+        key={student.userId}
+        className={`min-h-[72px] rounded-2xl border px-4 py-4 text-left transition ${
+          isHighlighted
+            ? "border-amber-500/40 bg-amber-500/10"
+            : student.isPresent
+              ? "border-green-500/40 bg-green-500/10"
+              : "border-dojo-border bg-dojo-surface"
+        }`}
+      >
+        <button
+          type="button"
+          disabled={markingDisabled || isPending}
+          onClick={() => handleCheckIn(student)}
+          className="w-full text-left disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="block text-xl font-semibold text-dojo-white">
+            {student.label}
+          </span>
+          {student.isPresent ? (
+            <span className="mt-1 block text-sm font-medium text-green-400">
+              Already marked present
+            </span>
+          ) : (
+            <span className="mt-1 block text-sm text-dojo-muted">
+              Tap to check in
+            </span>
+          )}
+        </button>
+
+        {options.showManualCheckIn && isHighlighted ? (
+          <button
+            type="button"
+            disabled={markingDisabled || isPending}
+            onClick={() => handleCheckIn(student, { confirmWalkIn: true })}
+            className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending ? "Checking in…" : "Check in manually"}
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -172,6 +239,24 @@ export function AttendanceKioskScreen({
           </div>
         ) : null}
 
+        {feedback.kind === "not_booked" ? (
+          <div
+            className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-6"
+            role="status"
+          >
+            <p className="text-xl font-semibold text-dojo-white">
+              {ATTENDANCE_KIOSK_NOT_BOOKED_TITLE}
+            </p>
+            <p className="mt-2 text-base text-dojo-muted">
+              {ATTENDANCE_KIOSK_NOT_BOOKED_MESSAGE}
+            </p>
+            <p className="mt-3 text-sm text-dojo-white">
+              <span className="font-semibold">{feedback.student.label}</span> can
+              still be checked in manually below if appropriate.
+            </p>
+          </div>
+        ) : null}
+
         {feedback.kind === "error" ? (
           <div
             className="rounded-2xl border border-dojo-red/40 bg-dojo-red/10 px-6 py-4 text-center text-base text-dojo-red"
@@ -202,32 +287,7 @@ export function AttendanceKioskScreen({
                 </h2>
               ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
-                {bookedStudents.map((student) => (
-                  <button
-                    key={student.userId}
-                    type="button"
-                    disabled={markingDisabled || isPending}
-                    onClick={() => handleCheckIn(student)}
-                    className={`min-h-[72px] rounded-2xl border px-4 py-4 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 ${
-                      student.isPresent
-                        ? "border-green-500/40 bg-green-500/10"
-                        : "border-dojo-border bg-dojo-surface hover:border-dojo-red/50"
-                    }`}
-                  >
-                    <span className="block text-xl font-semibold text-dojo-white">
-                      {student.label}
-                    </span>
-                    {student.isPresent ? (
-                      <span className="mt-1 block text-sm font-medium text-green-400">
-                        Already marked present
-                      </span>
-                    ) : (
-                      <span className="mt-1 block text-sm text-dojo-muted">
-                        Tap to check in
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {bookedStudents.map((student) => renderStudentCard(student, {}))}
               </div>
             </section>
           ) : null}
@@ -238,22 +298,9 @@ export function AttendanceKioskScreen({
                 Other students
               </h2>
               <div className="grid gap-3 sm:grid-cols-2">
-                {otherStudents.map((student) => (
-                  <button
-                    key={student.userId}
-                    type="button"
-                    disabled={markingDisabled || isPending}
-                    onClick={() => handleCheckIn(student)}
-                    className="min-h-[72px] rounded-2xl border border-dojo-border bg-dojo-surface px-4 py-4 text-left transition hover:border-dojo-red/50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <span className="block text-xl font-semibold text-dojo-white">
-                      {student.label}
-                    </span>
-                    <span className="mt-1 block text-sm text-dojo-muted">
-                      Tap to check in
-                    </span>
-                  </button>
-                ))}
+                {otherStudents.map((student) =>
+                  renderStudentCard(student, { showManualCheckIn: true }),
+                )}
               </div>
             </section>
           ) : null}

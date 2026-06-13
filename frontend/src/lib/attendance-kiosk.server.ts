@@ -99,6 +99,27 @@ async function createWalkInAttendee(sessionId: string, userId: string) {
   return data as SessionAttendeeRow;
 }
 
+async function reactivateWalkInAttendee(attendeeId: string) {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("session_attendees")
+    .update({
+      booking_status: "walk_in",
+      attendance_status: "not_marked",
+      source: "student_booking",
+      booked_at: new Date().toISOString(),
+    })
+    .eq("id", attendeeId)
+    .select("id, user_id, booking_status, attendance_status")
+    .single();
+
+  if (error) {
+    throw new Error(`Unable to add walk-in attendee: ${error.message}`);
+  }
+
+  return data as SessionAttendeeRow;
+}
+
 function buildKioskStudentOptions(input: {
   bookedAttendees: {
     userId: string;
@@ -280,6 +301,7 @@ export async function kioskCheckInStudent(input: {
   userId: string;
   clubId: string;
   classId: string;
+  confirmWalkIn?: boolean;
 }): Promise<AttendanceKioskCheckInResult> {
   const details = await getAttendanceSessionDetails(input.sessionId);
 
@@ -292,11 +314,6 @@ export async function kioskCheckInStudent(input: {
   }
 
   await assertActiveClubMember(input.userId, input.clubId);
-  await assertStudentCanBookClassProgramme({
-    userId: input.userId,
-    clubId: input.clubId,
-    classId: input.classId,
-  });
 
   const supabase = getSupabaseServerClient();
   const { data: userRow, error: userError } = await supabase
@@ -320,11 +337,28 @@ export async function kioskCheckInStudent(input: {
     return { status: "already_present", studentName };
   }
 
-  if (!attendee || !isActiveSessionBookingStatus(attendee.booking_status)) {
-    attendee = await createWalkInAttendee(input.sessionId, input.userId);
+  const hasActiveBooking =
+    attendee !== null && isActiveSessionBookingStatus(attendee.booking_status);
+
+  if (!hasActiveBooking && !input.confirmWalkIn) {
+    return { status: "not_booked_for_session", studentName };
   }
 
-  await applySessionAttendeeAttendanceStatus(attendee.id, "present");
+  if (!hasActiveBooking) {
+    attendee = attendee
+      ? await reactivateWalkInAttendee(attendee.id)
+      : await createWalkInAttendee(input.sessionId, input.userId);
+  }
+
+  if (!input.confirmWalkIn) {
+    await assertStudentCanBookClassProgramme({
+      userId: input.userId,
+      clubId: input.clubId,
+      classId: input.classId,
+    });
+  }
+
+  await applySessionAttendeeAttendanceStatus(attendee!.id, "present");
 
   return { status: "marked_present", studentName };
 }
