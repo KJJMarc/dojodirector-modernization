@@ -82,21 +82,21 @@ describe("buildAcademyLeadConversionEventPlan", () => {
     });
   });
 
-  it("fires conversion and generate_lead for AW- tags with an env fallback label", () => {
+  it("fires conversion and generate_lead for Kingston AW-846017609", () => {
     const settings = buildAcademyPublicPixelSettings({
       clubSlug: KINGSTON_CLUB_SLUG,
       metaPixelEnabled: false,
       metaPixelId: null,
       googleTrackingEnabled: true,
       googleTagId: "AW-846017609",
-      googleAdsConversionLabel: "trial_lead_label",
+      googleAdsConversionLabel: "i0ZxCIWfqb4cEMnotJMD",
     });
 
     assert.deepEqual(buildAcademyLeadConversionEventPlan(settings!), {
       metaLead: false,
       googleAdsConversion: true,
       googleGenerateLead: true,
-      googleAdsConversionSendTo: "AW-846017609/trial_lead_label",
+      googleAdsConversionSendTo: "AW-846017609/i0ZxCIWfqb4cEMnotJMD",
     });
   });
 });
