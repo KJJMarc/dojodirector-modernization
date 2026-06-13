@@ -1,4 +1,5 @@
 import {
+  BAHAMAS_JIU_JITSU_CLUB_SLUG,
   KINGSTON_CLUB_SLUG,
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
   clubAdminPath,
@@ -140,13 +141,27 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const LEADS_NOT_CONFIGURED_MESSAGE =
   "Leads are not set up yet. Please run the database migration.";
 
-/** Resolve target academy slug for a public trial enquiry. */
+/** Resolve target academy slug for a Kingston-area trial enquiry by audience. */
 export function resolveTrialLeadAcademySlug(audience: TrialAudience): string {
   if (audience === "child_teen") {
     return KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG;
   }
 
   return KINGSTON_CLUB_SLUG;
+}
+
+/** Resolve which academy receives a trial enquiry from a club-scoped public form. */
+export function resolveTrialLeadAcademySlugForClub(
+  clubSlug: string,
+  audience: TrialAudience,
+): string {
+  const normalizedClubSlug = clubSlug.trim().toLowerCase();
+
+  if (normalizedClubSlug === BAHAMAS_JIU_JITSU_CLUB_SLUG) {
+    return BAHAMAS_JIU_JITSU_CLUB_SLUG;
+  }
+
+  return resolveTrialLeadAcademySlug(audience);
 }
 
 /** Manage Leads hub for the academy. */

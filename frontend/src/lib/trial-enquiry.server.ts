@@ -6,7 +6,7 @@ import {
   parseLeadExperienceLevel,
   parseLeadProgrammeInterest,
   parseTrialAudience,
-  resolveTrialLeadAcademySlug,
+  resolveTrialLeadAcademySlugForClub,
   type LeadSubmissionResult,
 } from "@/lib/leads.shared";
 
@@ -33,7 +33,10 @@ export async function processTrialEnquirySubmission(
 
   try {
     const trialAudience = parseTrialAudience(payload.trialAudience);
-    const targetSlug = resolveTrialLeadAcademySlug(trialAudience);
+    const targetSlug = resolveTrialLeadAcademySlugForClub(
+      payload.clubSlug,
+      trialAudience,
+    );
     const academy = await getClubBySlug(targetSlug);
 
     console.info("[trial-enquiry] academy resolved", {
