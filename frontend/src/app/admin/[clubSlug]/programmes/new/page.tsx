@@ -8,7 +8,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { clubProgrammesAdminPath } from "@/lib/admin-programmes.shared";
 import {
   getProgrammesSchemaAvailable,
-  loadClubProgrammes,
+  loadClubProgrammeSlugs,
 } from "@/lib/admin-programmes.server";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -36,10 +36,9 @@ export default async function CreateProgrammePage({
 }: CreateProgrammePageProps) {
   const club = await requireClubBySlug(params.clubSlug);
   const programmesSchemaAvailable = await getProgrammesSchemaAvailable();
-  const programmes = programmesSchemaAvailable
-    ? await loadClubProgrammes(club.id)
+  const existingProgrammeSlugs = programmesSchemaAvailable
+    ? await loadClubProgrammeSlugs(club.id)
     : [];
-  const existingProgrammeTypes = programmes.map((programme) => programme.programmeType);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -59,7 +58,7 @@ export default async function CreateProgrammePage({
         {programmesSchemaAvailable ? (
           <CreateProgrammeForm
             clubSlug={club.slug}
-            existingProgrammeTypes={existingProgrammeTypes}
+            existingProgrammeSlugs={existingProgrammeSlugs}
             action={createProgrammeAction}
           />
         ) : (

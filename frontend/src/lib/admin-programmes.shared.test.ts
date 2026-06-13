@@ -8,9 +8,14 @@ import {
   buildAdminAreaProgrammeClassScope,
   buildStudentProfileAdminPath,
   classBelongsToAdminAreaProgrammeScope,
+  defaultProgrammeSettingsForCreateTemplate,
   filterProgrammesForStudentAccessForms,
   formatStudentProfileBackLabel,
+  inferProgrammeTypeFromSlug,
+  isProgrammeSlugTakenInClub,
+  parseProgrammeCreateFormData,
   programmeStudentsAdminPath,
+  validateProgrammeSlug,
   STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
   STUDENT_PROFILE_FROM_PROGRAMME_PARAM,
 } from "@/lib/admin-programmes.shared";
@@ -326,6 +331,133 @@ describe("admin dashboard programme class scope", () => {
         scope,
       ),
       false,
+    );
+  });
+});
+
+describe("programme create input parsing", () => {
+  it("parses name, slug, feature toggles, and admin area from form data", () => {
+    const formData = new FormData();
+    formData.set("programmeName", "  Competition BJJ  ");
+    formData.set("programmeSlug", "competition-bjj");
+    formData.set("attendanceTrackingEnabled", "on");
+    formData.set("classBookingEnabled", "on");
+    formData.set("adminAreaEnabled", "on");
+
+    const parsed = parseProgrammeCreateFormData(formData);
+
+    assert.equal(parsed.name, "Competition BJJ");
+    assert.equal(parsed.slug, "competition-bjj");
+    assert.equal(parsed.adminAreaEnabled, true);
+    assert.equal(parsed.settings.attendanceTrackingEnabled, true);
+    assert.equal(parsed.settings.classBookingEnabled, true);
+    assert.equal(parsed.settings.gradingSystemEnabled, false);
+  });
+
+  it("slugifies the name when slug is omitted", () => {
+    const formData = new FormData();
+    formData.set("programmeName", "Kids Muay Thai");
+
+    const parsed = parseProgrammeCreateFormData(formData);
+
+    assert.equal(parsed.slug, "kids-muay-thai");
+  });
+
+  it("rejects programme names that are too short", () => {
+    const formData = new FormData();
+    formData.set("programmeName", "A");
+
+    assert.throws(
+      () => parseProgrammeCreateFormData(formData),
+      /at least 2 characters/,
+    );
+  });
+});
+
+describe("programme slug validation", () => {
+  it("accepts lowercase hyphenated slugs", () => {
+    assert.equal(validateProgrammeSlug("competition-bjj"), "competition-bjj");
+  });
+
+  it("normalises slug casing and whitespace", () => {
+    assert.equal(validateProgrammeSlug("  Muay-Thai  "), "muay-thai");
+  });
+
+  it("rejects invalid slug characters", () => {
+    assert.throws(
+      () => validateProgrammeSlug("bjj_programme"),
+      /lowercase letters, numbers, and hyphens/,
+    );
+    assert.throws(
+      () => validateProgrammeSlug("bjj programme"),
+      /lowercase letters, numbers, and hyphens/,
+    );
+  });
+
+  it("infers programme type from standard slugs", () => {
+    assert.equal(inferProgrammeTypeFromSlug("bjj"), "bjj");
+    assert.equal(inferProgrammeTypeFromSlug("muay-thai"), "muay_thai");
+    assert.equal(inferProgrammeTypeFromSlug("strength-conditioning"), "strength_conditioning");
+    assert.equal(inferProgrammeTypeFromSlug("kids-bjj"), "custom");
+  });
+});
+
+describe("programme create template defaults", () => {
+  it("applies BJJ defaults from the BJJ template", () => {
+    const settings = defaultProgrammeSettingsForCreateTemplate("bjj");
+
+    assert.equal(settings.attendanceCardsEnabled, true);
+    assert.equal(settings.gradingSystemEnabled, true);
+    assert.equal(settings.promotionCandidatesEnabled, true);
+  });
+
+  it("applies Muay Thai defaults from the Muay Thai template", () => {
+    const settings = defaultProgrammeSettingsForCreateTemplate("muay_thai");
+
+    assert.equal(settings.attendanceCardsEnabled, false);
+    assert.equal(settings.gradingSystemEnabled, false);
+    assert.equal(settings.studentPortalAccessEnabled, true);
+  });
+
+  it("applies minimal defaults from the blank template", () => {
+    const settings = defaultProgrammeSettingsForCreateTemplate("blank");
+
+    assert.equal(settings.attendanceTrackingEnabled, true);
+    assert.equal(settings.studentPortalAccessEnabled, false);
+    assert.equal(settings.promotionCandidatesEnabled, false);
+  });
+});
+
+describe("club-scoped programme slug uniqueness", () => {
+  it("detects when a slug is already used at the academy", () => {
+    assert.equal(
+      isProgrammeSlugTakenInClub("muay-thai", ["bjj", "muay-thai"]),
+      true,
+    );
+  });
+
+  it("is case-insensitive when checking slug uniqueness", () => {
+    assert.equal(
+      isProgrammeSlugTakenInClub("BJJ", ["bjj"]),
+      true,
+    );
+  });
+
+  it("allows reusing the same slug when updating the same programme", () => {
+    assert.equal(
+      isProgrammeSlugTakenInClub("muay-thai", ["muay-thai"], {
+        ignoreSlug: "muay-thai",
+      }),
+      false,
+    );
+  });
+
+  it("still blocks another programme from taking an existing slug", () => {
+    assert.equal(
+      isProgrammeSlugTakenInClub("muay-thai", ["bjj", "muay-thai"], {
+        ignoreSlug: "bjj",
+      }),
+      true,
     );
   });
 });

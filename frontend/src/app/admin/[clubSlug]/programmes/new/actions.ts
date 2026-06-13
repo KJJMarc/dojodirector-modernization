@@ -6,7 +6,7 @@ import {
   clubProgrammeAdminPath,
   clubProgrammesAdminPath,
   PROGRAMME_MANAGEMENT_UNAVAILABLE_MESSAGE,
-  parseCreatableProgrammeTypeValue,
+  parseProgrammeCreateFormData,
 } from "@/lib/admin-programmes.shared";
 import {
   createAdminProgramme,
@@ -29,13 +29,14 @@ export async function createProgrammeAction(
 
     const clubSlug = String(formData.get("clubSlug") ?? "").trim();
     const club = await requireClubBySlug(clubSlug);
-    const programmeType = parseCreatableProgrammeTypeValue(
-      String(formData.get("programmeType") ?? ""),
-    );
+    const parsed = parseProgrammeCreateFormData(formData);
 
     const programme = await createAdminProgramme({
       clubId: club.id,
-      programmeType,
+      name: parsed.name,
+      slug: parsed.slug,
+      settings: parsed.settings,
+      adminAreaEnabled: parsed.adminAreaEnabled,
     });
 
     revalidatePath(clubProgrammesAdminPath(club.slug));

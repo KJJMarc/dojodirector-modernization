@@ -582,3 +582,148 @@ export function parseProgrammeFeatureSettings(
     promotionCandidatesEnabled: formData.get("promotionCandidatesEnabled") === "on",
   };
 }
+
+export const PROGRAMME_NAME_MIN_LENGTH = 2;
+export const PROGRAMME_NAME_MAX_LENGTH = 80;
+export const PROGRAMME_SLUG_MAX_LENGTH = 60;
+export const PROGRAMME_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function validateProgrammeName(value: string): string {
+  const name = value.trim();
+
+  if (name.length < PROGRAMME_NAME_MIN_LENGTH) {
+    throw new Error("Programme name must be at least 2 characters.");
+  }
+
+  if (name.length > PROGRAMME_NAME_MAX_LENGTH) {
+    throw new Error(
+      `Programme name must be ${PROGRAMME_NAME_MAX_LENGTH} characters or fewer.`,
+    );
+  }
+
+  return name;
+}
+
+export function validateProgrammeSlug(value: string): string {
+  const slug = value.trim().toLowerCase();
+
+  if (!slug) {
+    throw new Error("Programme slug is required.");
+  }
+
+  if (slug.length > PROGRAMME_SLUG_MAX_LENGTH) {
+    throw new Error(
+      `Programme slug must be ${PROGRAMME_SLUG_MAX_LENGTH} characters or fewer.`,
+    );
+  }
+
+  if (!PROGRAMME_SLUG_PATTERN.test(slug)) {
+    throw new Error(
+      "Programme slug must use lowercase letters, numbers, and hyphens only.",
+    );
+  }
+
+  return slug;
+}
+
+export function inferProgrammeTypeFromSlug(slug: string): ProgrammeTypeValue {
+  const normalized = slug.trim().toLowerCase();
+
+  if (normalized === BJJ_PROGRAMME_SLUG) {
+    return "bjj";
+  }
+
+  if (normalized === "muay-thai") {
+    return "muay_thai";
+  }
+
+  if (normalized === "strength-conditioning") {
+    return "strength_conditioning";
+  }
+
+  return "custom";
+}
+
+export function programmeTypeEnablesAdminArea(programmeType: ProgrammeTypeValue) {
+  return programmeType !== "strength_conditioning";
+}
+
+export function isProgrammeSlugTakenInClub(
+  slug: string,
+  existingSlugs: readonly string[],
+  options?: { ignoreSlug?: string },
+): boolean {
+  const normalized = slug.trim().toLowerCase();
+  const ignore = options?.ignoreSlug?.trim().toLowerCase();
+
+  return existingSlugs.some((existing) => {
+    const existingNormalized = existing.trim().toLowerCase();
+
+    if (existingNormalized !== normalized) {
+      return false;
+    }
+
+    return existingNormalized !== ignore;
+  });
+}
+
+export const CREATE_PROGRAMME_TEMPLATE_VALUES = [
+  "bjj",
+  "muay_thai",
+  "blank",
+] as const;
+
+export type CreateProgrammeTemplateValue =
+  (typeof CREATE_PROGRAMME_TEMPLATE_VALUES)[number];
+
+export const CREATE_PROGRAMME_TEMPLATE_OPTIONS: {
+  value: CreateProgrammeTemplateValue;
+  label: string;
+}[] = [
+  { value: "bjj", label: "BJJ defaults" },
+  { value: "muay_thai", label: "Muay Thai defaults" },
+  { value: "blank", label: "Blank / custom" },
+];
+
+export function parseCreateProgrammeTemplateValue(
+  value: string,
+): CreateProgrammeTemplateValue {
+  if (
+    !CREATE_PROGRAMME_TEMPLATE_VALUES.includes(value as CreateProgrammeTemplateValue)
+  ) {
+    return "blank";
+  }
+
+  return value as CreateProgrammeTemplateValue;
+}
+
+export function defaultProgrammeSettingsForCreateTemplate(
+  template: CreateProgrammeTemplateValue,
+): ProgrammeFeatureSettings {
+  if (template === "blank") {
+    return defaultProgrammeSettingsForType("custom");
+  }
+
+  return defaultProgrammeSettingsForType(template);
+}
+
+export interface ParsedProgrammeCreateInput {
+  name: string;
+  slug: string;
+  settings: ProgrammeFeatureSettings;
+  adminAreaEnabled: boolean;
+}
+
+export function parseProgrammeCreateFormData(
+  formData: FormData,
+): ParsedProgrammeCreateInput {
+  const name = validateProgrammeName(String(formData.get("programmeName") ?? ""));
+  const slugInput = String(formData.get("programmeSlug") ?? "").trim();
+  const slug = slugInput
+    ? validateProgrammeSlug(slugInput)
+    : validateProgrammeSlug(slugifyProgrammeName(name));
+  const settings = parseProgrammeFeatureSettings(formData);
+  const adminAreaEnabled = formData.get("adminAreaEnabled") === "on";
+
+  return { name, slug, settings, adminAreaEnabled };
+}

@@ -14,10 +14,13 @@ import {
   defaultProgrammeSettingsForType,
   filterProgrammesForStudentAccessForms,
   formatProgrammeTypeOptionLabel,
+  inferProgrammeTypeFromSlug,
   noBjjProgrammeFeatureVisibility,
-  parseCreatableProgrammeTypeValue,
   programmeNameForType,
   programmeSlugForType,
+  programmeTypeEnablesAdminArea,
+  validateProgrammeName,
+  validateProgrammeSlug,
   STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES,
   type AdminProgramme,
   type CreatableProgrammeTypeValue,
@@ -158,10 +161,6 @@ function isMissingProgrammeBookingAccessTable(
   }
 
   return false;
-}
-
-function programmeTypeEnablesAdminArea(programmeType: ProgrammeTypeValue) {
-  return programmeType !== "strength_conditioning";
 }
 
 let programmeBookingAccessSchemaAvailable: boolean | null = null;
@@ -1166,16 +1165,47 @@ export async function loadProgrammeMembershipUserIds(
 
 export interface CreateAdminProgrammeInput {
   clubId: string;
-  programmeType: CreatableProgrammeTypeValue;
-  settings?: ProgrammeFeatureSettings;
+  name: string;
+  slug: string;
+  settings: ProgrammeFeatureSettings;
+  adminAreaEnabled: boolean;
 }
 
-function buildUniqueProgrammeSlug(
-  _clubId: string,
-  _name: string,
-  programmeType: ProgrammeTypeValue,
+export async function loadClubProgrammeSlugs(clubId: string): Promise<string[]> {
+  if (!(await isProgrammesSchemaAvailable())) {
+    return [BJJ_PROGRAMME_SLUG];
+  }
+
+  const rows = await loadProgrammeRowsForClub(clubId);
+  return rows.map((row) => row.slug);
+}
+
+async function assertProgrammeSlugAvailableForCreate(
+  clubId: string,
+  slug: string,
+  reEnableProgrammeId?: string,
 ) {
-  return programmeSlugForType(programmeType);
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("id, slug")
+    .eq("club_id", clubId)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to validate programme slug: ${error.message}`);
+  }
+
+  if (!data) {
+    return;
+  }
+
+  if (reEnableProgrammeId && data.id === reEnableProgrammeId) {
+    return;
+  }
+
+  throw new Error("A programme with this slug already exists at this academy.");
 }
 
 async function resolveCreatableProgrammeRow(
@@ -1221,68 +1251,80 @@ async function resolveCreatableProgrammeRow(
   return row;
 }
 
+function buildProgrammeRowPayload(
+  input: CreateAdminProgrammeInput,
+  programmeType: ProgrammeTypeValue,
+) {
+  return {
+    name: input.name,
+    slug: input.slug,
+    programme_type: programmeType,
+    admin_area_enabled: input.adminAreaEnabled,
+    is_active: true,
+    attendance_tracking_enabled: input.settings.attendanceTrackingEnabled,
+    attendance_cards_enabled: input.settings.attendanceCardsEnabled,
+    grading_system_enabled: input.settings.gradingSystemEnabled,
+    belts_ranks_enabled: input.settings.beltsRanksEnabled,
+    retention_tracking_enabled: input.settings.retentionTrackingEnabled,
+    student_portal_access_enabled: input.settings.studentPortalAccessEnabled,
+    class_booking_enabled: input.settings.classBookingEnabled,
+    promotion_candidates_enabled: input.settings.promotionCandidatesEnabled,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 export async function createAdminProgramme(
   input: CreateAdminProgrammeInput,
 ): Promise<AdminProgramme> {
   await assertProgrammesSchemaAvailable();
 
   const supabase = getSupabaseAdminClient();
-  const programmeType = parseCreatableProgrammeTypeValue(String(input.programmeType));
-  const name = programmeNameForType(programmeType);
-  const settings =
-    input.settings ?? defaultProgrammeSettingsForType(programmeType);
-  const slug = buildUniqueProgrammeSlug(input.clubId, name, programmeType);
-  const existingProgramme = await resolveCreatableProgrammeRow(
+  const name = validateProgrammeName(input.name);
+  const slug = validateProgrammeSlug(input.slug);
+  const programmeType = inferProgrammeTypeFromSlug(slug);
+
+  if (!programmeTypeEnablesAdminArea(programmeType)) {
+    throw new Error(
+      "Strength & Conditioning cannot be enabled as a programme admin area yet.",
+    );
+  }
+
+  let existingProgramme: Awaited<ReturnType<typeof resolveCreatableProgrammeRow>> =
+    null;
+
+  if (programmeType === "bjj" || programmeType === "muay_thai") {
+    existingProgramme = await resolveCreatableProgrammeRow(
+      input.clubId,
+      programmeType,
+    );
+  }
+
+  await assertProgrammeSlugAvailableForCreate(
     input.clubId,
+    slug,
+    existingProgramme?.id,
+  );
+
+  const rowPayload = buildProgrammeRowPayload(
+    { ...input, name, slug },
     programmeType,
   );
 
   if (existingProgramme) {
-    if (!programmeTypeEnablesAdminArea(programmeType)) {
-      throw new Error(
-        "Strength & Conditioning cannot be enabled as a programme admin area yet.",
-      );
-    }
-
     const { data, error } = await supabase
       .from("programmes")
-      .update({
-        name,
-        slug,
-        admin_area_enabled: true,
-        is_active: true,
-        attendance_tracking_enabled: settings.attendanceTrackingEnabled,
-        attendance_cards_enabled: settings.attendanceCardsEnabled,
-        grading_system_enabled: settings.gradingSystemEnabled,
-        belts_ranks_enabled: settings.beltsRanksEnabled,
-        retention_tracking_enabled: settings.retentionTrackingEnabled,
-        student_portal_access_enabled: settings.studentPortalAccessEnabled,
-        class_booking_enabled: settings.classBookingEnabled,
-        promotion_candidates_enabled: settings.promotionCandidatesEnabled,
-        updated_at: new Date().toISOString(),
-      })
+      .update(rowPayload)
       .eq("id", existingProgramme.id)
       .eq("club_id", input.clubId)
       .select(PROGRAMME_ROW_SELECT)
       .single();
 
     if (error && isMissingAdminAreaEnabledColumn(error)) {
+      const { admin_area_enabled: _adminAreaEnabled, ...legacyPayload } =
+        rowPayload;
       const { data: legacyData, error: legacyError } = await supabase
         .from("programmes")
-        .update({
-          name,
-          slug,
-          is_active: true,
-          attendance_tracking_enabled: settings.attendanceTrackingEnabled,
-          attendance_cards_enabled: settings.attendanceCardsEnabled,
-          grading_system_enabled: settings.gradingSystemEnabled,
-          belts_ranks_enabled: settings.beltsRanksEnabled,
-          retention_tracking_enabled: settings.retentionTrackingEnabled,
-          student_portal_access_enabled: settings.studentPortalAccessEnabled,
-          class_booking_enabled: settings.classBookingEnabled,
-          promotion_candidates_enabled: settings.promotionCandidatesEnabled,
-          updated_at: new Date().toISOString(),
-        })
+        .update(legacyPayload)
         .eq("id", existingProgramme.id)
         .eq("club_id", input.clubId)
         .select(PROGRAMME_ROW_SELECT_LEGACY)
@@ -1317,50 +1359,25 @@ export async function createAdminProgramme(
     ((existingProgrammes?.[0] as { sort_order: number } | undefined)?.sort_order ??
       0) + 1;
 
-  if (!programmeTypeEnablesAdminArea(programmeType)) {
-    throw new Error(
-      "Strength & Conditioning cannot be enabled as a programme admin area yet.",
-    );
-  }
-
   const { data, error } = await supabase
     .from("programmes")
     .insert({
       club_id: input.clubId,
-      name,
-      slug,
-      programme_type: programmeType,
+      ...rowPayload,
       sort_order: nextSortOrder,
-      admin_area_enabled: true,
-      attendance_tracking_enabled: settings.attendanceTrackingEnabled,
-      attendance_cards_enabled: settings.attendanceCardsEnabled,
-      grading_system_enabled: settings.gradingSystemEnabled,
-      belts_ranks_enabled: settings.beltsRanksEnabled,
-      retention_tracking_enabled: settings.retentionTrackingEnabled,
-      student_portal_access_enabled: settings.studentPortalAccessEnabled,
-      class_booking_enabled: settings.classBookingEnabled,
-      promotion_candidates_enabled: settings.promotionCandidatesEnabled,
     })
     .select(PROGRAMME_ROW_SELECT)
     .single();
 
   if (error && isMissingAdminAreaEnabledColumn(error)) {
+    const { admin_area_enabled: _adminAreaEnabled, ...legacyPayload } =
+      rowPayload;
     const { data: legacyData, error: legacyError } = await supabase
       .from("programmes")
       .insert({
         club_id: input.clubId,
-        name,
-        slug,
-        programme_type: programmeType,
+        ...legacyPayload,
         sort_order: nextSortOrder,
-        attendance_tracking_enabled: settings.attendanceTrackingEnabled,
-        attendance_cards_enabled: settings.attendanceCardsEnabled,
-        grading_system_enabled: settings.gradingSystemEnabled,
-        belts_ranks_enabled: settings.beltsRanksEnabled,
-        retention_tracking_enabled: settings.retentionTrackingEnabled,
-        student_portal_access_enabled: settings.studentPortalAccessEnabled,
-        class_booking_enabled: settings.classBookingEnabled,
-        promotion_candidates_enabled: settings.promotionCandidatesEnabled,
       })
       .select(PROGRAMME_ROW_SELECT_LEGACY)
       .single();
