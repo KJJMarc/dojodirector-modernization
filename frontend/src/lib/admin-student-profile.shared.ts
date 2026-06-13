@@ -49,7 +49,6 @@ export interface AdminStudentPortalAccessSummary {
   inviteSentAt: string | null;
   canSetPassword: boolean;
   canSendInvite: boolean;
-  inviteUnavailableReason: string | null;
 }
 
 export interface AdminInstructorPortalAccessSummary {
@@ -101,7 +100,6 @@ export interface PortalSetupAccessSummary {
   statusLabel: string;
   sentAtLabel: string | null;
   canSendSetupEmail: boolean;
-  setupEmailUnavailableReason: string | null;
 }
 
 export interface AdminStudentProgrammeAccessItem {

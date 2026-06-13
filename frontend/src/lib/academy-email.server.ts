@@ -2,11 +2,9 @@ import "server-only";
 
 import {
   formatAcademyFromAddress,
-  resolveAcademyPortalInviteEmailAvailability,
   resolveSenderDisplayName,
   type AcademyEmailSettings,
   type AcademyEmailSettingsFormState,
-  type AcademyPortalInviteEmailAvailability,
   type GuestBookingEmailSettingsFormState,
 } from "@/lib/academy-email.shared";
 import { getClubBySlug, requireClubBySlug } from "@/lib/clubs.server";
@@ -181,44 +179,6 @@ export async function getAcademyEmailSettingsBySlug(
   }
 
   return getAcademyEmailSettingsByClubId(club.id);
-}
-
-export async function getAcademyPortalInviteEmailAvailability(
-  clubSlug: string,
-): Promise<AcademyPortalInviteEmailAvailability> {
-  const club = await getClubBySlug(clubSlug);
-
-  if (!club) {
-    return {
-      canSendPortalInviteEmail: false,
-      unavailableReason: "Academy not found.",
-    };
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("clubs")
-    .select("name, contact_email, reply_to_email, email_enabled")
-    .eq("id", club.id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to load academy email settings: ${error.message}`);
-  }
-
-  if (!data) {
-    return {
-      canSendPortalInviteEmail: false,
-      unavailableReason: "Academy not found.",
-    };
-  }
-
-  return resolveAcademyPortalInviteEmailAvailability({
-    clubName: data.name,
-    contactEmail: data.contact_email,
-    replyToEmail: data.reply_to_email,
-    emailEnabled: data.email_enabled,
-  });
 }
 
 export async function loadGuestBookingEmailSettingsForEdit(

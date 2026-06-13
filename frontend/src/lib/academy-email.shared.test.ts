@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import {
   buildAcademyEmailHeadersPreview,
   formatAcademyFromAddress,
-  resolveAcademyPortalInviteEmailAvailability,
   resolveSenderDisplayName,
 } from "./academy-email.shared.ts";
 
@@ -36,57 +35,6 @@ describe("formatAcademyFromAddress", () => {
         "notifications@example.com",
       ),
       "Kingston Jiu Jitsu Kids <notifications@example.com>",
-    );
-  });
-});
-
-describe("resolveAcademyPortalInviteEmailAvailability", () => {
-  it("allows Kingston when academy email is configured and enabled", () => {
-    assert.deepEqual(
-      resolveAcademyPortalInviteEmailAvailability({
-        clubName: "Kingston Jiu Jitsu",
-        contactEmail: "admin@kingstonjiujitsu.com",
-        replyToEmail: "admin@kingstonjiujitsu.com",
-        emailEnabled: true,
-      }),
-      {
-        canSendPortalInviteEmail: true,
-        unavailableReason: null,
-      },
-    );
-  });
-
-  it("blocks Bahamas when academy email is disabled", () => {
-    const availability = resolveAcademyPortalInviteEmailAvailability({
-      clubName: "Bahamas Jiu Jitsu",
-      contactEmail: null,
-      replyToEmail: null,
-      emailEnabled: false,
-    });
-
-    assert.equal(availability.canSendPortalInviteEmail, false);
-    assert.match(
-      availability.unavailableReason ?? "",
-      /Bahamas Jiu Jitsu/i,
-    );
-    assert.match(
-      availability.unavailableReason ?? "",
-      /Academy Email settings/i,
-    );
-  });
-
-  it("blocks invites when contact and reply-to are missing even if enabled", () => {
-    const availability = resolveAcademyPortalInviteEmailAvailability({
-      clubName: "Bahamas Jiu Jitsu",
-      contactEmail: "",
-      replyToEmail: "",
-      emailEnabled: true,
-    });
-
-    assert.equal(availability.canSendPortalInviteEmail, false);
-    assert.match(
-      availability.unavailableReason ?? "",
-      /contact and reply-to emails/i,
     );
   });
 });
