@@ -65,6 +65,10 @@ export function PortalSetupPanel({
         >
           {isPending ? "Sending…" : "Send portal setup email"}
         </button>
+      ) : portalSetup.setupEmailUnavailableReason ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-dojo-white">
+          {portalSetup.setupEmailUnavailableReason}
+        </p>
       ) : (
         <p className="text-sm leading-snug text-dojo-muted">
           {portalSetup.statusLabel === "Portal active"

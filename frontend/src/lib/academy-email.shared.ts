@@ -46,6 +46,42 @@ export function clubGuestBookingEmailSettingsPath(clubSlug: string) {
   return clubAdminPath(clubSlug, "messaging/guest-booking-email-settings");
 }
 
+export interface AcademyPortalInviteEmailAvailability {
+  canSendPortalInviteEmail: boolean;
+  unavailableReason: string | null;
+}
+
+/** Whether an academy can send student portal setup/invite emails. */
+export function resolveAcademyPortalInviteEmailAvailability(input: {
+  clubName: string;
+  contactEmail: string | null | undefined;
+  replyToEmail: string | null | undefined;
+  emailEnabled: boolean | null | undefined;
+}): AcademyPortalInviteEmailAvailability {
+  const clubName = input.clubName.trim() || "this academy";
+  const contactEmail = input.contactEmail?.trim() ?? "";
+  const replyToEmail = input.replyToEmail?.trim() ?? "";
+
+  if (!contactEmail || !replyToEmail) {
+    return {
+      canSendPortalInviteEmail: false,
+      unavailableReason: `Portal invites are unavailable until ${clubName} contact and reply-to emails are configured in Academy Email settings.`,
+    };
+  }
+
+  if (!input.emailEnabled) {
+    return {
+      canSendPortalInviteEmail: false,
+      unavailableReason: `Portal invites are unavailable because academy email is disabled for ${clubName}. Enable email in Academy Email settings first.`,
+    };
+  }
+
+  return {
+    canSendPortalInviteEmail: true,
+    unavailableReason: null,
+  };
+}
+
 /** Resolve sender display name, defaulting to the academy name when unset. */
 export function resolveSenderDisplayName(
   storedSenderDisplayName: string | null | undefined,

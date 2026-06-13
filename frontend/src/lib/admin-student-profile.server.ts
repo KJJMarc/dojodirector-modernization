@@ -45,6 +45,8 @@ import {
   normalizeInstructorPortalAuthStatus,
 } from "@/lib/instructor-portal-membership-sync.shared";
 import { getProfileLoginAccessSummary } from "@/lib/profile-login-access.server";
+import { getAcademyPortalInviteEmailAvailability } from "@/lib/academy-email.server";
+import { getClubById } from "@/lib/clubs.server";
 import { getPortalSetupAdminStatusForMember } from "@/lib/portal-setup.server";
 import { getAdminStudentAgreementSummary } from "@/lib/student-portal-agreements.server";
 import { getAdminStudentPortalAuthSummary } from "@/lib/student-portal-auth.server";
@@ -285,6 +287,13 @@ export async function getAdminStudentProfilePageData(
     membershipRole: membership.role,
     membershipStatus: membership.status,
   });
+  const club = await getClubById(clubId);
+  const portalInviteEmailAvailability = club
+    ? await getAcademyPortalInviteEmailAvailability(club.slug)
+    : {
+        canSendPortalInviteEmail: false,
+        unavailableReason: "Academy not found.",
+      };
 
   return {
     kidsToAdultMigration,
@@ -295,7 +304,12 @@ export async function getAdminStudentProfilePageData(
     portalSetup: {
       statusLabel: portalSetup.statusLabel,
       sentAtLabel: portalSetup.sentAtLabel,
-      canSendSetupEmail: portalSetup.canSendSetupEmail,
+      canSendSetupEmail:
+        portalSetup.canSendSetupEmail &&
+        portalInviteEmailAvailability.canSendPortalInviteEmail,
+      setupEmailUnavailableReason: portalInviteEmailAvailability.canSendPortalInviteEmail
+        ? null
+        : portalInviteEmailAvailability.unavailableReason,
     },
     student: {
       id: user.id,
@@ -321,7 +335,12 @@ export async function getAdminStudentProfilePageData(
       portalLoginEmail: portalAccess.portalLoginEmail,
       inviteSentAt: portalAccess.portalInvitedAt,
       canSetPassword: portalAccess.canSetPassword,
-      canSendInvite: portalAccess.canSendInvite,
+      canSendInvite:
+        portalAccess.canSendInvite &&
+        portalInviteEmailAvailability.canSendPortalInviteEmail,
+      inviteUnavailableReason: portalInviteEmailAvailability.canSendPortalInviteEmail
+        ? null
+        : portalInviteEmailAvailability.unavailableReason,
     },
     instructorPortalAccess: instructorPortalAccess
       ? (() => {

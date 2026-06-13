@@ -116,8 +116,30 @@ export async function sendPortalSetupEmailAction(clubSlug: string, userId: strin
   return result;
 }
 
-export async function sendStudentPortalInviteAction(clubSlug: string, userId: string) {
-  return sendPortalSetupEmailAction(clubSlug, userId);
+export type PortalInviteActionResult =
+  | { success: true; message: string }
+  | { success: false; error: string };
+
+export async function sendStudentPortalInviteAction(
+  clubSlug: string,
+  userId: string,
+): Promise<PortalInviteActionResult> {
+  try {
+    const result = await sendPortalSetupEmailAction(clubSlug, userId);
+    return { success: true, message: result.message };
+  } catch (error) {
+    console.error("[sendStudentPortalInviteAction] failed", {
+      clubSlug,
+      userId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Unable to send portal invite.",
+    };
+  }
 }
 
 export async function sendInstructorPortalInviteAction(clubSlug: string, userId: string) {

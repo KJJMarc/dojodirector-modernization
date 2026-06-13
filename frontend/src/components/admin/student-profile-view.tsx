@@ -153,6 +153,7 @@ export function StudentProfileView({
         loginAccess={loginAccess}
         canSendPortalInvite={portalAccess.canSendInvite}
         portalInviteSentAt={portalAccess.inviteSentAt}
+        portalInviteUnavailableReason={portalAccess.inviteUnavailableReason}
       />
 
       <PortalSetupPanel

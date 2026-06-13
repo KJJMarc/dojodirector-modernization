@@ -1,6 +1,9 @@
 import "server-only";
 
-import { getAcademyEmailSettingsBySlug } from "@/lib/academy-email.server";
+import {
+  getAcademyEmailSettingsBySlug,
+  getAcademyPortalInviteEmailAvailability,
+} from "@/lib/academy-email.server";
 import { sendEmailForAcademy, sendPlatformEmail } from "@/lib/email.server";
 import {
   buildPortalSetupEmailHtml,
@@ -24,11 +27,20 @@ export async function sendPortalSetupEmail(input: {
   });
 
   if (input.clubSlug) {
+    const availability = await getAcademyPortalInviteEmailAvailability(input.clubSlug);
+
+    if (!availability.canSendPortalInviteEmail) {
+      throw new Error(
+        availability.unavailableReason ??
+          "Portal invites are unavailable for this academy.",
+      );
+    }
+
     const academy = await getAcademyEmailSettingsBySlug(input.clubSlug);
 
-    if (!academy?.emailEnabled) {
+    if (!academy) {
       throw new Error(
-        "Academy email is disabled. Enable email in Academy Email settings first.",
+        "Academy email is not configured. Add contact and reply-to emails in Academy Email settings first.",
       );
     }
 

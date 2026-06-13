@@ -19,6 +19,7 @@ interface LoginAccessPanelProps {
   loginAccess: ProfileLoginAccessSummary;
   canSendPortalInvite: boolean;
   portalInviteSentAt: string | null;
+  portalInviteUnavailableReason?: string | null;
 }
 
 const inputClassName =
@@ -33,6 +34,7 @@ export function LoginAccessPanel({
   loginAccess,
   canSendPortalInvite,
   portalInviteSentAt,
+  portalInviteUnavailableReason = null,
 }: LoginAccessPanelProps) {
   const [showForm, setShowForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -80,6 +82,12 @@ export function LoginAccessPanel({
               startInviteTransition(async () => {
                 try {
                   const result = await sendStudentPortalInviteAction(clubSlug, userId);
+
+                  if (!result.success) {
+                    setInviteErrorMessage(result.error);
+                    return;
+                  }
+
                   setInviteSuccessMessage(result.message);
                 } catch (error) {
                   setInviteErrorMessage(
@@ -111,6 +119,10 @@ export function LoginAccessPanel({
             </p>
           ) : null}
         </div>
+      ) : portalInviteUnavailableReason ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-dojo-white">
+          {portalInviteUnavailableReason}
+        </p>
       ) : null}
 
       {!loginAccess.canSetPassword ? (
