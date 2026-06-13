@@ -3,10 +3,16 @@ import "server-only";
 import { getStudentFullName } from "@/lib/attendance";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { ProgrammeType } from "@/lib/admin-programme-types";
+import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
 import {
+  buildFallbackRecurringClassProgrammeOptions,
+  buildRecurringClassProgrammeOptionsFromRows,
+  isRecurringClassProgrammeTypeAllowed,
   RECURRING_CLASS_SESSION_DAYS_AHEAD,
   sortRecurringClassSchedules,
   type RecurringClassDeleteStatus,
+  type RecurringClassProgrammeOption,
+  type RecurringClassProgrammeRow,
   type RecurringClassScheduleRow,
 } from "@/lib/admin-recurring-classes.shared";
 import type {
@@ -17,7 +23,114 @@ import { sessionBelongsToRecurringScheduleRow } from "@/lib/class-session-schedu
 import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export type { RecurringClassScheduleRow, CreateRecurringClassInput };
+export type {
+  RecurringClassScheduleRow,
+  CreateRecurringClassInput,
+  RecurringClassProgrammeOption,
+};
+
+async function loadActiveProgrammeRowsForRecurringClasses(
+  clubId: string,
+): Promise<RecurringClassProgrammeRow[]> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("id, name, programme_type, is_active")
+    .eq("club_id", clubId)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      `Failed to load programmes for recurring classes: ${error.message}`,
+    );
+  }
+
+  return ((data ?? []) as Array<{
+    id: string;
+    name: string;
+    programme_type: string;
+    is_active: boolean | null;
+  }>).map((row) => ({
+    id: row.id,
+    name: row.name,
+    programmeType: row.programme_type,
+    isActive: row.is_active !== false,
+  }));
+}
+
+/** Active academy programmes available when creating or editing recurring classes. */
+export async function loadRecurringClassProgrammeOptionsForClub(
+  clubId: string,
+  clubSlug: string,
+): Promise<RecurringClassProgrammeOption[]> {
+  try {
+    if (!(await getProgrammesSchemaAvailable())) {
+      return buildFallbackRecurringClassProgrammeOptions(clubSlug);
+    }
+
+    const rows = await loadActiveProgrammeRowsForRecurringClasses(clubId);
+    const options = buildRecurringClassProgrammeOptionsFromRows(rows);
+
+    if (options.length > 0) {
+      return options;
+    }
+
+    return buildFallbackRecurringClassProgrammeOptions(clubSlug);
+  } catch (error) {
+    console.error("[recurring-class] failed to load programme options", {
+      clubId,
+      clubSlug,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    return buildFallbackRecurringClassProgrammeOptions(clubSlug);
+  }
+}
+
+async function resolveClubProgrammeIdForType(
+  clubId: string,
+  programmeType: ProgrammeType,
+): Promise<string | null> {
+  if (!(await getProgrammesSchemaAvailable())) {
+    return null;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("programmes")
+    .select("id")
+    .eq("club_id", clubId)
+    .eq("programme_type", programmeType)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[recurring-class] failed to resolve programme id", {
+      clubId,
+      programmeType,
+      error: error.message,
+    });
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
+async function assertRecurringClassProgrammeTypeAllowedForClub(input: {
+  clubId: string;
+  clubSlug: string;
+  programmeType: ProgrammeType;
+}) {
+  const options = await loadRecurringClassProgrammeOptionsForClub(
+    input.clubId,
+    input.clubSlug,
+  );
+
+  if (!isRecurringClassProgrammeTypeAllowed(input.programmeType, options)) {
+    throw new Error("Programme type is not enabled for this academy.");
+  }
+}
 
 interface RecurringScheduleQueryRow {
   id: string;
@@ -171,10 +284,11 @@ async function findOrCreateClassTemplate(
   programmeType: ProgrammeType,
 ) {
   const supabase = getSupabaseAdminClient();
+  const programmeId = await resolveClubProgrammeIdForType(clubId, programmeType);
 
   const { data: existing, error: existingError } = await supabase
     .from("classes")
-    .select("id, programme_type, is_active")
+    .select("id, programme_type, programme_id, is_active")
     .eq("club_id", clubId)
     .eq("name", className)
     .maybeSingle();
@@ -190,6 +304,23 @@ async function findOrCreateClassTemplate(
       );
     }
 
+    if (programmeId && !existing.programme_id) {
+      const { error: linkError } = await supabase
+        .from("classes")
+        .update({
+          programme_id: programmeId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id)
+        .eq("club_id", clubId);
+
+      if (linkError) {
+        throw new Error(
+          `Unable to link class template to programme: ${linkError.message}`,
+        );
+      }
+    }
+
     return existing.id as string;
   }
 
@@ -199,6 +330,7 @@ async function findOrCreateClassTemplate(
       club_id: clubId,
       name: className,
       programme_type: programmeType,
+      programme_id: programmeId,
       is_active: true,
     })
     .select("id")
@@ -384,7 +516,16 @@ export async function syncFutureRecurringSessionCapacity(input: {
 export async function createRecurringClassSchedule(
   input: CreateRecurringClassInput,
   clubId: string = ACTIVE_CLUB_ID,
+  clubSlug?: string,
 ) {
+  if (clubSlug) {
+    await assertRecurringClassProgrammeTypeAllowedForClub({
+      clubId,
+      clubSlug,
+      programmeType: input.programmeType,
+    });
+  }
+
   const supabase = getSupabaseAdminClient();
   const classId = await findOrCreateClassTemplate(
     clubId,
@@ -641,7 +782,16 @@ export async function deleteRecurringClassSchedulePermanently(
 export async function updateRecurringClassSchedule(
   input: UpdateRecurringClassInput,
   clubId: string = ACTIVE_CLUB_ID,
+  clubSlug?: string,
 ) {
+  if (clubSlug) {
+    await assertRecurringClassProgrammeTypeAllowedForClub({
+      clubId,
+      clubSlug,
+      programmeType: input.programmeType,
+    });
+  }
+
   const supabase = getSupabaseAdminClient();
   const existing = await getRecurringClassScheduleById(input.scheduleId, clubId);
 
@@ -655,11 +805,17 @@ export async function updateRecurringClassSchedule(
     input.programmeType,
   );
 
+  const programmeId = await resolveClubProgrammeIdForType(
+    clubId,
+    input.programmeType,
+  );
+
   const { error: classUpdateError } = await supabase
     .from("classes")
     .update({
       name: input.className,
       programme_type: input.programmeType,
+      programme_id: programmeId,
       is_active: input.isActive ?? true,
       updated_at: new Date().toISOString(),
     })

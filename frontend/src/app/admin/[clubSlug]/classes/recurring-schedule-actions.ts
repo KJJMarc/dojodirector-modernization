@@ -139,7 +139,7 @@ export async function updateRecurringClassAction(formData: FormData) {
   const input = parseUpdateRecurringClassInput(formData);
 
   await requireScheduleForClub(input.scheduleId, club.id);
-  const sessionSync = await updateRecurringClassSchedule(input, club.id);
+  const sessionSync = await updateRecurringClassSchedule(input, club.id, club.slug);
   revalidateRecurringClassPaths(clubSlug, input.scheduleId);
 
   return {

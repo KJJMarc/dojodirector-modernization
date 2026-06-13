@@ -1,6 +1,125 @@
-import { formatProgrammeTypeLabel, type ProgrammeType } from "@/lib/admin-programme-types";
+import {
+  PROGRAMME_TYPES,
+  formatProgrammeTypeLabel,
+  type ProgrammeType,
+} from "@/lib/admin-programme-types";
+import {
+  BAHAMAS_JIU_JITSU_CLUB_SLUG,
+} from "@/lib/clubs.shared";
+import { STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES } from "@/lib/admin-programmes.shared";
 
 export { formatProgrammeTypeLabel, type ProgrammeType };
+
+export interface RecurringClassProgrammeOption {
+  programmeId: string | null;
+  programmeType: ProgrammeType;
+  label: string;
+}
+
+export interface RecurringClassProgrammeRow {
+  id: string;
+  name: string;
+  programmeType: string;
+  isActive: boolean;
+}
+
+function isKnownRecurringClassProgrammeType(
+  value: string,
+): value is ProgrammeType {
+  return (PROGRAMME_TYPES as readonly string[]).includes(value);
+}
+
+/** Build recurring-class programme options from active academy programme rows. */
+export function buildRecurringClassProgrammeOptionsFromRows(
+  rows: readonly RecurringClassProgrammeRow[],
+): RecurringClassProgrammeOption[] {
+  const seenTypes = new Set<string>();
+  const options: RecurringClassProgrammeOption[] = [];
+
+  for (const row of rows) {
+    if (!row.isActive) {
+      continue;
+    }
+
+    const programmeType = row.programmeType.trim().toLowerCase();
+
+    if (!programmeType || seenTypes.has(programmeType)) {
+      continue;
+    }
+
+    if (!isKnownRecurringClassProgrammeType(programmeType)) {
+      continue;
+    }
+
+    seenTypes.add(programmeType);
+    options.push({
+      programmeId: row.id,
+      programmeType,
+      label: formatProgrammeTypeLabel(programmeType),
+    });
+  }
+
+  return options;
+}
+
+/** Legacy fallback when programme rows are unavailable for an academy. */
+export function buildFallbackRecurringClassProgrammeOptions(
+  clubSlug: string,
+): RecurringClassProgrammeOption[] {
+  const normalizedClubSlug = clubSlug.trim().toLowerCase();
+  const programmeTypes =
+    normalizedClubSlug === BAHAMAS_JIU_JITSU_CLUB_SLUG
+      ? (["bjj"] as const)
+      : STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES;
+
+  return programmeTypes.map((programmeType) => ({
+    programmeId: null,
+    programmeType,
+    label: formatProgrammeTypeLabel(programmeType),
+  }));
+}
+
+export function isRecurringClassProgrammeTypeAllowed(
+  programmeType: string,
+  options: readonly RecurringClassProgrammeOption[],
+) {
+  const normalizedType = programmeType.trim().toLowerCase();
+
+  return options.some((option) => option.programmeType === normalizedType);
+}
+
+/** Keep edit forms working when a legacy class uses a programme type no longer enabled. */
+export function ensureRecurringClassProgrammeOptionPresent(
+  options: readonly RecurringClassProgrammeOption[],
+  programmeType?: ProgrammeType,
+): RecurringClassProgrammeOption[] {
+  if (!programmeType || isRecurringClassProgrammeTypeAllowed(programmeType, options)) {
+    return [...options];
+  }
+
+  return [
+    ...options,
+    {
+      programmeId: null,
+      programmeType,
+      label: formatProgrammeTypeLabel(programmeType),
+    },
+  ];
+}
+
+export function resolveDefaultRecurringClassProgrammeType(
+  options: readonly RecurringClassProgrammeOption[],
+  preferredType?: ProgrammeType,
+) {
+  if (
+    preferredType &&
+    isRecurringClassProgrammeTypeAllowed(preferredType, options)
+  ) {
+    return preferredType;
+  }
+
+  return options[0]?.programmeType ?? "bjj";
+}
 
 /** How far ahead recurring class sessions are generated (52 weeks). */
 export const RECURRING_CLASS_SESSION_DAYS_AHEAD = 364;

@@ -6,24 +6,31 @@ import { useState, useTransition } from "react";
 import { createRecurringClassAction } from "@/app/admin/[clubSlug]/classes/actions";
 import { updateRecurringClassAction } from "@/app/admin/[clubSlug]/classes/recurring-schedule-actions";
 import { clubAdminPath } from "@/lib/clubs.shared";
-import { PROGRAMME_TYPES, formatProgrammeTypeLabel } from "@/lib/admin-programme-types";
 import {
   DAY_OF_WEEK_OPTIONS,
+  resolveDefaultRecurringClassProgrammeType,
+  type RecurringClassProgrammeOption,
   type RecurringClassScheduleRow,
 } from "@/lib/admin-recurring-classes.shared";
 
 interface RecurringClassFormProps {
   clubSlug: string;
+  programmeOptions: RecurringClassProgrammeOption[];
   schedule?: RecurringClassScheduleRow;
   instructorLabel?: string | null;
 }
 
 export function RecurringClassForm({
   clubSlug,
+  programmeOptions,
   schedule,
   instructorLabel,
 }: RecurringClassFormProps) {
   const isEdit = Boolean(schedule);
+  const defaultProgrammeType = resolveDefaultRecurringClassProgrammeType(
+    programmeOptions,
+    schedule?.programmeType,
+  );
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -111,19 +118,29 @@ export function RecurringClassForm({
         >
           Programme type
         </label>
-        <select
-          id="programmeType"
-          name="programmeType"
-          required
-          defaultValue={schedule?.programmeType ?? "bjj"}
-          className={fieldClassName}
-        >
-          {PROGRAMME_TYPES.map((programmeType) => (
-            <option key={programmeType} value={programmeType}>
-              {formatProgrammeTypeLabel(programmeType)}
-            </option>
-          ))}
-        </select>
+        {programmeOptions.length === 0 ? (
+          <p className="mt-1 rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-muted">
+            No programmes are enabled for this academy yet. Add an active programme
+            in Programme Management before creating recurring classes.
+          </p>
+        ) : (
+          <select
+            id="programmeType"
+            name="programmeType"
+            required
+            defaultValue={defaultProgrammeType}
+            className={fieldClassName}
+          >
+            {programmeOptions.map((programmeOption) => (
+              <option
+                key={programmeOption.programmeType}
+                value={programmeOption.programmeType}
+              >
+                {programmeOption.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -236,7 +253,7 @@ export function RecurringClassForm({
       <div className="flex flex-wrap gap-3 pt-2">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || programmeOptions.length === 0}
           className="min-h-[40px] rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending

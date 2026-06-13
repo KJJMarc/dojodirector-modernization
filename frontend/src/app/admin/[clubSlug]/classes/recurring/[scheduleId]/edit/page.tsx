@@ -14,7 +14,11 @@ import {
   getRecurringClassDeleteStatus,
   getRecurringClassInstructorLabel,
   getRecurringClassScheduleById,
+  loadRecurringClassProgrammeOptionsForClub,
 } from "@/lib/admin-recurring-classes.server";
+import {
+  ensureRecurringClassProgrammeOptionPresent,
+} from "@/lib/admin-recurring-classes.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -45,10 +49,15 @@ export default async function EditRecurringClassPage({
     notFound();
   }
 
-  const [instructorLabel, deleteStatus] = await Promise.all([
+  const [instructorLabel, deleteStatus, programmeOptions] = await Promise.all([
     getRecurringClassInstructorLabel(params.scheduleId, club.id),
     getRecurringClassDeleteStatus(params.scheduleId, club.id),
+    loadRecurringClassProgrammeOptionsForClub(club.id, club.slug),
   ]);
+  const programmeOptionsForForm = ensureRecurringClassProgrammeOptionPresent(
+    programmeOptions,
+    schedule.programmeType,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -74,6 +83,7 @@ export default async function EditRecurringClassPage({
         clubSlug={club.slug}
         schedule={schedule}
         instructorLabel={instructorLabel}
+        programmeOptions={programmeOptionsForForm}
       />
 
       <RecurringClassEditActions

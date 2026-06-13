@@ -19,7 +19,7 @@ export async function createRecurringClassAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
   const club = await requireClubBySlug(clubSlug);
   const input = parseCreateRecurringClassInput(formData);
-  await createRecurringClassSchedule(input, club.id);
+  await createRecurringClassSchedule(input, club.id, club.slug);
   revalidateClassManagementPaths(clubSlug);
 }
 

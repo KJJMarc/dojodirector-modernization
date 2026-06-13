@@ -4,6 +4,7 @@ import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { RecurringClassForm } from "@/components/admin/recurring-class-form";
 import { AppHeader } from "@/components/layout/app-header";
+import { loadRecurringClassProgrammeOptionsForClub } from "@/lib/admin-recurring-classes.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
@@ -28,6 +29,10 @@ export default async function ClubNewClassPage({
   params,
 }: ClubNewClassPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
+  const programmeOptions = await loadRecurringClassProgrammeOptionsForClub(
+    club.id,
+    club.slug,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -51,7 +56,10 @@ export default async function ClubNewClassPage({
           </p>
         </div>
 
-        <RecurringClassForm clubSlug={club.slug} />
+        <RecurringClassForm
+          clubSlug={club.slug}
+          programmeOptions={programmeOptions}
+        />
       </section>
     </main>
   );
