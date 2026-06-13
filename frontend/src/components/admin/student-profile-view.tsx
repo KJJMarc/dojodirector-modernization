@@ -162,6 +162,7 @@ export function StudentProfileView({
       />
 
       <ProfileAccessAgreementsPanel
+        clubSlug={clubSlug}
         studentUserId={student.id}
         membershipRole={student.membershipRole}
         portalAccess={portalAccess}

@@ -13,10 +13,12 @@ import type {
   AdminStudentPortalAccessSummary,
 } from "@/lib/admin-student-profile.shared";
 import { formatProfileDate } from "@/lib/admin-student-profile.shared";
+import { buildAdminMembershipAgreementPdfApiPath } from "@/lib/admin-membership-agreement-pdf.shared";
 import { formatMembershipInstructorRoleLabel } from "@/lib/instructor-portal-membership-sync.shared";
 import { isInstructorPortalMembershipRole } from "@/lib/instructor-portal-auth.shared";
 
 interface ProfileAccessAgreementsPanelProps {
+  clubSlug: string;
   studentUserId: string;
   membershipRole: string | null;
   portalAccess: AdminStudentPortalAccessSummary;
@@ -59,6 +61,7 @@ function formatAdminRoleLabel(
 }
 
 export function ProfileAccessAgreementsPanel({
+  clubSlug,
   studentUserId,
   membershipRole,
   portalAccess,
@@ -67,7 +70,10 @@ export function ProfileAccessAgreementsPanel({
   showAdminDashboardAccess,
   adminAccess,
 }: ProfileAccessAgreementsPanelProps) {
-  const agreementPdfHref = `/api/admin/students/${studentUserId}/membership-agreement-pdf`;
+  const agreementPdfHref = buildAdminMembershipAgreementPdfApiPath(
+    clubSlug,
+    studentUserId,
+  );
   const adminEnabled = showAdminDashboardAccess && Boolean(adminAccess);
   const instructorRoleAtAcademy = isInstructorPortalMembershipRole(membershipRole);
 

@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
-import { resolveLegacyKingstonMembershipAgreementPdfClubSlug } from "@/lib/admin-membership-agreement-pdf.shared";
 import { resolveAdminMembershipAgreementPdfSignedUrl } from "@/lib/admin-membership-agreement-pdf.server";
 
 export const dynamic = "force-dynamic";
 
-interface LegacyMembershipAgreementPdfRouteProps {
-  params: { userId: string };
+interface MembershipAgreementPdfRouteProps {
+  params: { clubSlug: string; userId: string };
 }
 
 export async function GET(
   _request: Request,
-  { params }: LegacyMembershipAgreementPdfRouteProps,
+  { params }: MembershipAgreementPdfRouteProps,
 ) {
   try {
     const signedUrl = await resolveAdminMembershipAgreementPdfSignedUrl(
-      resolveLegacyKingstonMembershipAgreementPdfClubSlug(),
+      params.clubSlug,
       params.userId,
     );
 
