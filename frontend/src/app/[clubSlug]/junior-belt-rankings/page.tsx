@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JuniorBeltRankingsView } from "@/components/public/junior-belt-rankings-view";
 import { PublicAcademyPageHeader } from "@/components/public/public-academy-page-header";
+import { isJuniorBeltRankingsPublicPageSlug } from "@/lib/belt-rankings-clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG } from "@/lib/clubs.shared";
 import { getJuniorBeltRankingsPageData } from "@/lib/junior-belt-rankings.server";
 import { publicAcademyDocumentTitle } from "@/lib/public-academy-branding.shared";
 
@@ -19,7 +19,7 @@ export async function generateMetadata({
   const { clubSlug } = await params;
   const club = await requireClubBySlug(clubSlug).catch(() => null);
 
-  if (!club || club.slug !== KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG) {
+  if (!club || !isJuniorBeltRankingsPublicPageSlug(club.slug)) {
     return {
       title: "Junior Belt Rankings",
     };
@@ -37,11 +37,15 @@ export default async function JuniorBeltRankingsPage({
   const { clubSlug } = await params;
   const club = await requireClubBySlug(clubSlug);
 
-  if (club.slug !== KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG) {
+  if (!isJuniorBeltRankingsPublicPageSlug(club.slug)) {
     notFound();
   }
 
-  const pageData = await getJuniorBeltRankingsPageData(club.id, club.name);
+  const pageData = await getJuniorBeltRankingsPageData(
+    club.id,
+    club.name,
+    club.slug,
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-8 pb-16 sm:px-6 sm:py-10">

@@ -8,7 +8,7 @@ import {
   loadBeltLevelsForClub,
   loadLatestGradeAwardsByUserIdForClubs,
 } from "@/lib/admin-belt-promotion.server";
-import { JUNIOR_BELT_RANKINGS_SOURCE_CLUB_IDS } from "@/lib/belt-rankings-clubs.shared";
+import { resolveJuniorBeltRankingsSourceClubIds } from "@/lib/belt-rankings-clubs.shared";
 import {
   loadAdminStudentProfileRowsByIds,
   loadClubMembershipRows,
@@ -427,8 +427,9 @@ function buildRecentPromotions(input: {
 export async function getJuniorBeltRankingsPageData(
   clubId: string,
   clubName: string,
+  clubSlug: string,
 ): Promise<JuniorBeltRankingsPageData> {
-  const sourceClubIds = JUNIOR_BELT_RANKINGS_SOURCE_CLUB_IDS;
+  const sourceClubIds = resolveJuniorBeltRankingsSourceClubIds(clubSlug, clubId);
   const activeMemberUserIds = await loadActiveMemberUserIdsForClubs(sourceClubIds);
   const activeMemberUserIdSet = new Set(activeMemberUserIds);
 

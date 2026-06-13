@@ -61,3 +61,9 @@ export function clubJuniorBeltRankingsPath(slug: string) {
     ? `/${normalized}/junior-belt-rankings`
     : `/${KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG}/junior-belt-rankings`;
 }
+
+/** Public adult belt rankings page for a club-scoped academy route. */
+export function clubAdultBeltRankingsPath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized ? `/${normalized}/adult-belt-rankings` : "/adult-belt-rankings";
+}

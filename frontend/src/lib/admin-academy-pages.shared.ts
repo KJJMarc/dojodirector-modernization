@@ -1,8 +1,10 @@
 import {
   clubAdminPath,
+  clubAdultBeltRankingsPath,
   clubBookingPath,
   clubJuniorBeltRankingsPath,
   clubTrialEnquiryPath,
+  BAHAMAS_JIU_JITSU_CLUB_SLUG,
   KINGSTON_CLUB_SLUG,
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
 } from "@/lib/clubs.shared";
@@ -44,8 +46,11 @@ const ADULT_BELT_RANKINGS_PAGE: AcademyPublicPageDefinition = {
   name: "Adult Belt Rankings",
   description: "Public academy belt rankings and recent promotions.",
   pathLabel: "/adult-belt-rankings",
-  resolveHref: () => "/adult-belt-rankings",
-  clubSlugs: [KINGSTON_CLUB_SLUG],
+  resolveHref: (clubSlug) =>
+    clubSlug === KINGSTON_CLUB_SLUG
+      ? "/adult-belt-rankings"
+      : clubAdultBeltRankingsPath(clubSlug),
+  clubSlugs: [KINGSTON_CLUB_SLUG, BAHAMAS_JIU_JITSU_CLUB_SLUG],
 };
 
 const JUNIOR_BELT_RANKINGS_PAGE: AcademyPublicPageDefinition = {
@@ -54,7 +59,7 @@ const JUNIOR_BELT_RANKINGS_PAGE: AcademyPublicPageDefinition = {
   description: "Public junior belt rankings and recent promotions for the Kids academy.",
   pathLabel: "/junior-belt-rankings",
   resolveHref: (clubSlug) => clubJuniorBeltRankingsPath(clubSlug),
-  clubSlugs: [KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG],
+  clubSlugs: [KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG, BAHAMAS_JIU_JITSU_CLUB_SLUG],
 };
 
 const STUDENT_OF_THE_YEAR_PAGE: AcademyPublicPageDefinition = {
@@ -84,6 +89,31 @@ export function getAcademyPublicPageById(pageId: string) {
   return ACADEMY_PUBLIC_PAGES.find((page) => page.id === pageId) ?? null;
 }
 
+function resolveAcademyPublicPagePathLabel(
+  page: AcademyPublicPageDefinition,
+  clubSlug: string,
+): string {
+  if (page.id === "guest-bookings") {
+    return clubBookingPath(clubSlug);
+  }
+
+  if (page.id === "trial-enquiry") {
+    return clubTrialEnquiryPath(clubSlug);
+  }
+
+  if (page.id === "junior-belt-rankings") {
+    return clubJuniorBeltRankingsPath(clubSlug);
+  }
+
+  if (page.id === "adult-belt-rankings") {
+    return clubSlug === KINGSTON_CLUB_SLUG
+      ? "/adult-belt-rankings"
+      : clubAdultBeltRankingsPath(clubSlug);
+  }
+
+  return page.pathLabel;
+}
+
 export function getAcademyPublicPagesForClub(clubSlug: string) {
   const normalizedSlug = clubSlug.trim().toLowerCase();
 
@@ -95,13 +125,6 @@ export function getAcademyPublicPagesForClub(clubSlug: string) {
     ...page,
     href: page.resolveHref(clubSlug),
     editHref: page.resolveEditHref?.(clubSlug) ?? null,
-    pathLabel:
-      page.id === "guest-bookings"
-        ? clubBookingPath(clubSlug)
-        : page.id === "trial-enquiry"
-          ? clubTrialEnquiryPath(clubSlug)
-          : page.id === "junior-belt-rankings"
-            ? clubJuniorBeltRankingsPath(clubSlug)
-            : page.pathLabel,
+    pathLabel: resolveAcademyPublicPagePathLabel(page, clubSlug),
   }));
 }

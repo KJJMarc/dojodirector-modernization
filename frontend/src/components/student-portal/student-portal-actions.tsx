@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { formatPortalMessagesNavLabel } from "@/lib/portal-messages.shared";
 import {
-  resolveStudentPortalGradingHistoryHref,
-  studentPortalPath,
+  buildStudentPortalQuickActions,
   type StudentPortalUiConfig,
 } from "@/lib/student-portal-routing.shared";
-import { studentOfTheYearPublicPath } from "@/lib/student-of-the-year.shared";
 
 const PORTAL_ACTION_CARD_CLASSNAME =
   "flex min-h-[88px] items-center justify-center rounded-xl border border-dojo-border bg-dojo-surface px-4 py-4 text-center transition hover:border-dojo-red/50 hover:bg-dojo-elevated active:scale-[0.99]";
@@ -25,60 +22,13 @@ export function StudentPortalActions({
   showAdultBeltRankings,
   unreadMessageCount = 0,
 }: StudentPortalActionsProps) {
-  const basePath = studentPortalPath(clubSlug, userId);
-  const gradingHistoryHref = resolveStudentPortalGradingHistoryHref(
+  const actions = buildStudentPortalQuickActions({
     clubSlug,
     userId,
     uiConfig,
-  );
-
-  const actions = [
-    uiConfig.showBookClass
-      ? { label: "Book a Class", href: `${basePath}/book`, openInNewTab: false }
-      : null,
-    uiConfig.showUpcomingBookings
-      ? { label: "Cancel Bookings", href: `${basePath}/bookings`, openInNewTab: false }
-      : null,
-    uiConfig.showMessages
-      ? {
-          label: formatPortalMessagesNavLabel(unreadMessageCount),
-          href: `${basePath}/messages`,
-          openInNewTab: false,
-        }
-      : null,
-    gradingHistoryHref && uiConfig.showGradingHistory
-      ? {
-          label: "Grading History",
-          href: gradingHistoryHref,
-          openInNewTab: gradingHistoryHref.startsWith("http"),
-        }
-      : null,
-    uiConfig.showJuniorBeltLevels && uiConfig.juniorBeltRankingsHref
-      ? {
-          label: "Junior Belt Levels",
-          href: uiConfig.juniorBeltRankingsHref,
-          openInNewTab: true,
-        }
-      : null,
-    showAdultBeltRankings && uiConfig.showAdultBeltRankings
-      ? {
-          label: "Adult Belt Rankings",
-          href: "/adult-belt-rankings",
-          openInNewTab: true,
-        }
-      : null,
-    showAdultBeltRankings && uiConfig.showAdultBeltRankings
-      ? {
-          label: "Student of the Year",
-          href: studentOfTheYearPublicPath(),
-          openInNewTab: true,
-        }
-      : null,
-  ].filter(Boolean) as {
-    label: string;
-    href: string;
-    openInNewTab: boolean;
-  }[];
+    showAdultBeltRankings,
+    unreadMessageCount,
+  });
 
   return (
     <section aria-label="Portal navigation">
