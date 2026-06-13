@@ -88,7 +88,7 @@ export async function loadRecurringClassProgrammeOptionsForClub(
   }
 }
 
-async function resolveClubProgrammeIdForType(
+export async function resolveClubProgrammeIdForType(
   clubId: string,
   programmeType: ProgrammeType,
 ): Promise<string | null> {
@@ -117,7 +117,7 @@ async function resolveClubProgrammeIdForType(
   return data?.id ?? null;
 }
 
-async function assertRecurringClassProgrammeTypeAllowedForClub(input: {
+export async function assertClassProgrammeTypeAllowedForClub(input: {
   clubId: string;
   clubSlug: string;
   programmeType: ProgrammeType;
@@ -519,7 +519,7 @@ export async function createRecurringClassSchedule(
   clubSlug?: string,
 ) {
   if (clubSlug) {
-    await assertRecurringClassProgrammeTypeAllowedForClub({
+    await assertClassProgrammeTypeAllowedForClub({
       clubId,
       clubSlug,
       programmeType: input.programmeType,
@@ -785,7 +785,7 @@ export async function updateRecurringClassSchedule(
   clubSlug?: string,
 ) {
   if (clubSlug) {
-    await assertRecurringClassProgrammeTypeAllowedForClub({
+    await assertClassProgrammeTypeAllowedForClub({
       clubId,
       clubSlug,
       programmeType: input.programmeType,

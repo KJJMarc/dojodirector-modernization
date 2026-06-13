@@ -9,6 +9,10 @@ import {
   ProgrammeType,
 } from "@/lib/admin-programme-types";
 import {
+  assertClassProgrammeTypeAllowedForClub,
+  resolveClubProgrammeIdForType,
+} from "@/lib/admin-recurring-classes.server";
+import {
   buildAdminSessionExternalId,
   londonLocalDateTimeToUtcIso,
 } from "@/lib/london-datetime";
@@ -62,10 +66,11 @@ async function findOrCreateEventClassTemplate(
   description: string | null,
 ) {
   const supabase = getSupabaseAdminClient();
+  const programmeId = await resolveClubProgrammeIdForType(clubId, programmeType);
 
   const { data: existing, error: existingError } = await supabase
     .from("classes")
-    .select("id, programme_type, description")
+    .select("id, programme_type, programme_id, description")
     .eq("club_id", clubId)
     .eq("name", title)
     .maybeSingle();
@@ -79,6 +84,23 @@ async function findOrCreateEventClassTemplate(
       throw new Error(
         `An event titled "${title}" already exists with programme type ${existing.programme_type}.`,
       );
+    }
+
+    if (programmeId && !existing.programme_id) {
+      const { error: linkError } = await supabase
+        .from("classes")
+        .update({
+          programme_id: programmeId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id)
+        .eq("club_id", clubId);
+
+      if (linkError) {
+        throw new Error(
+          `Unable to link event class template to programme: ${linkError.message}`,
+        );
+      }
     }
 
     if (description && description !== existing.description) {
@@ -101,6 +123,7 @@ async function findOrCreateEventClassTemplate(
       club_id: clubId,
       name: title,
       programme_type: programmeType,
+      programme_id: programmeId,
       description,
       is_active: true,
     })
@@ -117,7 +140,16 @@ async function findOrCreateEventClassTemplate(
 export async function createOneOffEvent(
   input: CreateOneOffEventInput,
   clubId: string = ACTIVE_CLUB_ID,
+  clubSlug?: string,
 ) {
+  if (clubSlug) {
+    await assertClassProgrammeTypeAllowedForClub({
+      clubId,
+      clubSlug,
+      programmeType: input.programmeType,
+    });
+  }
+
   const supabase = getSupabaseAdminClient();
   const classId = await findOrCreateEventClassTemplate(
     clubId,

@@ -6,11 +6,22 @@ import { useState, useTransition } from "react";
 import { createOneOffEventAction } from "@/app/admin/[clubSlug]/classes/actions";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
-  PROGRAMME_TYPES,
-  formatProgrammeTypeLabel,
-} from "@/lib/admin-programme-types";
+  resolveDefaultRecurringClassProgrammeType,
+  type RecurringClassProgrammeOption,
+} from "@/lib/admin-recurring-classes.shared";
 
-export function OneOffEventForm({ clubSlug }: { clubSlug: string }) {
+interface OneOffEventFormProps {
+  clubSlug: string;
+  programmeOptions: RecurringClassProgrammeOption[];
+}
+
+export function OneOffEventForm({
+  clubSlug,
+  programmeOptions,
+}: OneOffEventFormProps) {
+  const defaultProgrammeType = resolveDefaultRecurringClassProgrammeType(
+    programmeOptions,
+  );
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -64,19 +75,29 @@ export function OneOffEventForm({ clubSlug }: { clubSlug: string }) {
         <label htmlFor="programmeType" className="text-sm font-medium text-dojo-white">
           Programme type
         </label>
-        <select
-          id="programmeType"
-          name="programmeType"
-          required
-          defaultValue="bjj"
-          className={fieldClassName}
-        >
-          {PROGRAMME_TYPES.map((programmeType) => (
-            <option key={programmeType} value={programmeType}>
-              {formatProgrammeTypeLabel(programmeType)}
-            </option>
-          ))}
-        </select>
+        {programmeOptions.length === 0 ? (
+          <p className="mt-1 rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-muted">
+            No programmes are enabled for this academy yet. Add an active programme
+            in Programme Management before creating one-off events.
+          </p>
+        ) : (
+          <select
+            id="programmeType"
+            name="programmeType"
+            required
+            defaultValue={defaultProgrammeType}
+            className={fieldClassName}
+          >
+            {programmeOptions.map((programmeOption) => (
+              <option
+                key={programmeOption.programmeType}
+                value={programmeOption.programmeType}
+              >
+                {programmeOption.label}
+              </option>
+            ))}
+          </select>
+        )}
         <p className="mt-1 text-xs text-dojo-muted">
           Use BJJ for seminars, gradings and events that should count on BJJ
           attendance cards.
@@ -164,7 +185,7 @@ export function OneOffEventForm({ clubSlug }: { clubSlug: string }) {
       <div className="flex flex-wrap gap-3 pt-2">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || programmeOptions.length === 0}
           className="min-h-[40px] rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Creating…" : "Create one-off event"}

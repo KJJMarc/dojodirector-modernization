@@ -27,7 +27,7 @@ export async function createOneOffEventAction(formData: FormData) {
   const clubSlug = parseClubSlugFromForm(formData);
   const club = await requireClubBySlug(clubSlug);
   const input = parseCreateOneOffEventInput(formData);
-  const sessionId = await createOneOffEvent(input, club.id);
+  const sessionId = await createOneOffEvent(input, club.id, club.slug);
   revalidateClassManagementPaths(clubSlug, sessionId);
 }
 
