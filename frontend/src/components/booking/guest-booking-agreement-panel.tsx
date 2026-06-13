@@ -6,8 +6,7 @@ import type { GuestAgreementFormValues } from "@/lib/guest-booking-form";
 import type { GuestBookingFieldErrors } from "@/lib/guest-booking-form";
 import type { ClientClubAgreementContent } from "@/lib/club-agreement-templates.shared";
 import {
-  GUEST_PARENT_GUARDIAN_CHECKBOX_LABELS,
-  GUEST_PARTICIPANT_AGREEMENT_CHECKBOX_LABEL,
+  buildGuestBookingAgreementCheckboxLabels,
 } from "@/lib/guest-training-agreement.shared";
 import {
   SIGNATORY_TYPE_OPTIONS,
@@ -19,6 +18,7 @@ import {
 interface GuestBookingAgreementPanelProps {
   formRef: RefObject<HTMLFormElement>;
   guestFullName: string;
+  clubName: string;
   className: string;
   dateLabel: string;
   timeLabel: string;
@@ -48,6 +48,7 @@ function FieldError({ message }: { message?: string }) {
 export function GuestBookingAgreementPanel({
   formRef,
   guestFullName,
+  clubName,
   className,
   dateLabel,
   timeLabel,
@@ -57,6 +58,7 @@ export function GuestBookingAgreementPanel({
   onConfirm,
   isPending,
 }: GuestBookingAgreementPanelProps) {
+  const checkboxLabels = buildGuestBookingAgreementCheckboxLabels(clubName);
   const [signatoryType, setSignatoryType] = useState<SignatoryType>(
     SIGNATORY_TYPE_PARTICIPANT,
   );
@@ -207,7 +209,7 @@ export function GuestBookingAgreementPanel({
                   aria-invalid={Boolean(fieldErrors.guardianConfirm)}
                 />
                 <span className="text-sm text-dojo-white">
-                  {GUEST_PARENT_GUARDIAN_CHECKBOX_LABELS.guardianConfirm}
+                  {checkboxLabels.guardianConfirm}
                 </span>
               </label>
               <FieldError message={fieldErrors.guardianConfirm} />
@@ -222,7 +224,7 @@ export function GuestBookingAgreementPanel({
                   aria-invalid={Boolean(fieldErrors.consentTraining)}
                 />
                 <span className="text-sm text-dojo-white">
-                  {GUEST_PARENT_GUARDIAN_CHECKBOX_LABELS.consentTraining}
+                  {checkboxLabels.consentTraining}
                 </span>
               </label>
               <FieldError message={fieldErrors.consentTraining} />
@@ -237,7 +239,7 @@ export function GuestBookingAgreementPanel({
                   aria-invalid={Boolean(fieldErrors.agreeAgreement)}
                 />
                 <span className="text-sm text-dojo-white">
-                  {GUEST_PARENT_GUARDIAN_CHECKBOX_LABELS.agreeAgreement}
+                  {checkboxLabels.agreeAgreement}
                 </span>
               </label>
               <FieldError message={fieldErrors.agreeAgreement} />
@@ -255,7 +257,7 @@ export function GuestBookingAgreementPanel({
                   aria-invalid={Boolean(fieldErrors.agreeAgreement)}
                 />
                 <span className="text-sm text-dojo-white">
-                  {GUEST_PARTICIPANT_AGREEMENT_CHECKBOX_LABEL}
+                  {checkboxLabels.participant}
                 </span>
               </label>
               <FieldError message={fieldErrors.agreeAgreement} />

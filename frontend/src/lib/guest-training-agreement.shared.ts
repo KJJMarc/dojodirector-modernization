@@ -23,6 +23,19 @@ export const GUEST_PARENT_GUARDIAN_CHECKBOX_LABELS = {
     "I have read and agree to the Kingston Jiu Jitsu Training Agreement.",
 } as const;
 
+export function buildGuestBookingAgreementCheckboxLabels(clubName: string) {
+  const normalizedClubName = clubName.trim();
+
+  return {
+    participant:
+      `I have read and agree to the ${normalizedClubName} Training Agreement.`,
+    guardianConfirm: GUEST_PARENT_GUARDIAN_CHECKBOX_LABELS.guardianConfirm,
+    consentTraining: `I consent to the participant taking part in training and related activities provided by ${normalizedClubName}.`,
+    agreeAgreement:
+      `I have read and agree to the ${normalizedClubName} Training Agreement.`,
+  };
+}
+
 function mapParagraphForGuestDisplay(paragraph: string) {
   if (paragraph === "MEMBERSHIP AGREEMENT") {
     return "TRAINING AGREEMENT";

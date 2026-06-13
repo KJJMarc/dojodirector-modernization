@@ -23,6 +23,7 @@ import { isSignatoryType } from "@/lib/student-portal-agreements.shared";
 
 interface GuestBookingFlowProps {
   clubSlug: string;
+  clubName: string;
   sessionGroups: BookableSessionGroup[];
   trainingAgreement: ClientClubAgreementContent;
   showMemberPortalNotice?: boolean;
@@ -60,6 +61,7 @@ function pickAgreementFieldErrors(
 
 export function GuestBookingFlow({
   clubSlug,
+  clubName,
   sessionGroups,
   trainingAgreement,
   showMemberPortalNotice = false,
@@ -250,6 +252,7 @@ export function GuestBookingFlow({
           key={pendingSessionId}
           formRef={agreementFormRef}
           guestFullName={displayGuestName}
+          clubName={clubName}
           className={pendingSession.session.className}
           dateLabel={pendingSession.group.dateLabel}
           timeLabel={formatScheduleTimeRange(

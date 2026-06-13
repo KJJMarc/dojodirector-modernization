@@ -52,6 +52,7 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
 
         <GuestBookingFlow
           clubSlug={club.slug}
+          clubName={club.name}
           sessionGroups={sessionGroups}
           trainingAgreement={trainingAgreement}
           showMemberPortalNotice={shouldShowGuestBookingStudentPortalNotice(club.slug)}
