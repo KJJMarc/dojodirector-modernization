@@ -6,7 +6,11 @@ import {
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
 } from "@/lib/clubs.shared";
 import {
+  ADMIN_EDIT_LEAD_SOURCE_OPTIONS,
   buildTrialEnquiryProgrammeInterests,
+  formatLeadSourceLabel,
+  MANUAL_LEAD_SOURCE_OPTIONS,
+  resolveAdminEditableLeadSource,
   resolveTrialLeadAcademySlug,
   resolveTrialLeadAcademySlugForClub,
   TRIAL_ENQUIRY_PROGRAMME_INTERESTS,
@@ -102,4 +106,40 @@ test("buildTrialEnquiryProgrammeInterests ignores inactive custom programme type
     buildTrialEnquiryProgrammeInterests(["bjj", "custom", "muay_thai"]),
     ["bjj", "muay_thai", "not_sure"],
   );
+});
+
+test("manual lead source options exclude web attribution categories", () => {
+  assert.deepEqual(MANUAL_LEAD_SOURCE_OPTIONS, ["phone", "walk_in", "referral", "other"]);
+  assert.ok(!MANUAL_LEAD_SOURCE_OPTIONS.includes("website" as never));
+  assert.ok(!MANUAL_LEAD_SOURCE_OPTIONS.includes("google_ads" as never));
+});
+
+test("edit lead source options use clean attribution categories only", () => {
+  assert.deepEqual(ADMIN_EDIT_LEAD_SOURCE_OPTIONS, [
+    "google_ads",
+    "facebook_ads",
+    "google_search",
+    "website_direct",
+    "referral",
+    "phone",
+    "walk_in",
+    "other",
+  ]);
+  assert.ok(!ADMIN_EDIT_LEAD_SOURCE_OPTIONS.includes("website" as never));
+  assert.ok(!ADMIN_EDIT_LEAD_SOURCE_OPTIONS.includes("google" as never));
+  assert.ok(!ADMIN_EDIT_LEAD_SOURCE_OPTIONS.includes("facebook" as never));
+});
+
+test("resolveAdminEditableLeadSource maps legacy stored values for edit dropdown", () => {
+  assert.equal(resolveAdminEditableLeadSource("website"), "website_direct");
+  assert.equal(resolveAdminEditableLeadSource("google"), "google_search");
+  assert.equal(resolveAdminEditableLeadSource("facebook"), "facebook_ads");
+  assert.equal(resolveAdminEditableLeadSource("google_ads"), "google_ads");
+});
+
+test("formatLeadSourceLabel still displays legacy stored values correctly", () => {
+  assert.equal(formatLeadSourceLabel("website"), "Direct / Unknown");
+  assert.equal(formatLeadSourceLabel("google"), "Organic Search");
+  assert.equal(formatLeadSourceLabel("facebook"), "Meta Ads");
+  assert.equal(formatLeadSourceLabel("google_ads"), "Google Ads");
 });

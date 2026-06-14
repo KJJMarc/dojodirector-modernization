@@ -1,6 +1,11 @@
 import "server-only";
 
 import { sendLeadEmailsAfterSubmission } from "@/lib/leads-email.server";
+import type { LeadAttribution } from "@/lib/lead-attribution.shared";
+import {
+  formatAnalyticsLeadSourceLabel,
+  normalizeLeadSourceForAnalytics,
+} from "@/lib/lead-source-analytics.shared";
 import {
   LEADS_NOT_CONFIGURED_MESSAGE,
   buildAdminLeadsSummary,
@@ -26,6 +31,7 @@ interface SupabaseErrorLike {
 let leadsTableAvailable: boolean | null = null;
 let leadTrackingColumnsAvailable: boolean | null = null;
 let leadArchivedColumnAvailable: boolean | null = null;
+let leadAttributionColumnsAvailable: boolean | null = null;
 
 export { LEADS_NOT_CONFIGURED_MESSAGE };
 
@@ -111,6 +117,110 @@ async function checkLeadTrackingColumnsAvailable() {
   return leadTrackingColumnsAvailable;
 }
 
+function isMissingLeadAttributionColumnsError(error: SupabaseErrorLike) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return (
+    (error.code === "42703" &&
+      (message.includes("gclid") ||
+        message.includes("fbclid") ||
+        message.includes("utm_source") ||
+        message.includes("referrer_url"))) ||
+    (error.code === "PGRST204" &&
+      (message.includes("gclid") ||
+        message.includes("fbclid") ||
+        message.includes("utm_source") ||
+        message.includes("referrer_url")))
+  );
+}
+
+async function checkLeadAttributionColumnsAvailable() {
+  if (leadAttributionColumnsAvailable !== null) {
+    return leadAttributionColumnsAvailable;
+  }
+
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    leadAttributionColumnsAvailable = false;
+    return false;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("leads").select("id, gclid, referrer_url").limit(0);
+
+  if (error && isMissingLeadAttributionColumnsError(error)) {
+    leadAttributionColumnsAvailable = false;
+    return false;
+  }
+
+  leadAttributionColumnsAvailable = !error;
+  return leadAttributionColumnsAvailable;
+}
+
+function formatStoredLeadSourceLabel(leadSource: string) {
+  const analyticsSource = normalizeLeadSourceForAnalytics(leadSource);
+
+  if (analyticsSource) {
+    return formatAnalyticsLeadSourceLabel(analyticsSource);
+  }
+
+  return leadSource;
+}
+
+function mapLeadAttributionFromRow(row: LeadRecordRow): LeadAttribution {
+  return {
+    gclid: row.gclid ?? null,
+    fbclid: row.fbclid ?? null,
+    utm_source: row.utm_source ?? null,
+    utm_medium: row.utm_medium ?? null,
+    utm_campaign: row.utm_campaign ?? null,
+    utm_content: row.utm_content ?? null,
+    utm_term: row.utm_term ?? null,
+    referrer_url: row.referrer_url ?? null,
+  };
+}
+
+function appendAttributionToInsertRow(
+  row: LeadInsertRow,
+  attribution: LeadAttribution | undefined,
+): LeadInsertRow {
+  if (!attribution) {
+    return row;
+  }
+
+  return {
+    ...row,
+    gclid: attribution.gclid,
+    fbclid: attribution.fbclid,
+    utm_source: attribution.utm_source,
+    utm_medium: attribution.utm_medium,
+    utm_campaign: attribution.utm_campaign,
+    utm_content: attribution.utm_content,
+    utm_term: attribution.utm_term,
+    referrer_url: attribution.referrer_url,
+  };
+}
+
+function stripAttributionFromInsertRow(row: LeadInsertRow): LeadInsertRow {
+  const {
+    gclid: _gclid,
+    fbclid: _fbclid,
+    utm_source: _utmSource,
+    utm_medium: _utmMedium,
+    utm_campaign: _utmCampaign,
+    utm_content: _utmContent,
+    utm_term: _utmTerm,
+    referrer_url: _referrerUrl,
+    ...baseRow
+  } = row;
+
+  return baseRow;
+}
+
+const LEAD_ATTRIBUTION_SELECT =
+  "gclid, fbclid, utm_source, utm_medium, utm_campaign, utm_content, utm_term, referrer_url";
+
 async function checkLeadArchivedColumnAvailable() {
   if (leadArchivedColumnAvailable !== null) {
     return leadArchivedColumnAvailable;
@@ -152,6 +262,14 @@ interface LeadInsertRow {
   trial_booked_at?: string;
   trial_attended_at?: string;
   joined_at?: string;
+  gclid?: string | null;
+  fbclid?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
+  referrer_url?: string | null;
 }
 
 function buildLeadInsertRow(
@@ -187,12 +305,17 @@ function buildLeadInsertRow(
 async function insertLeadRow(row: LeadInsertRow) {
   const supabase = getSupabaseAdminClient();
   let trackingAvailable = await checkLeadTrackingColumnsAvailable();
+  let attributionAvailable = await checkLeadAttributionColumnsAvailable();
   let payload = row;
 
   if (!trackingAvailable) {
     const { submitted_at: _submittedAt, last_activity_at: _lastActivityAt, updated_at: _updatedAt, ...baseRow } =
       row;
     payload = baseRow;
+  }
+
+  if (!attributionAvailable) {
+    payload = stripAttributionFromInsertRow(payload);
   }
 
   const attemptInsert = async (insertRow: LeadInsertRow) =>
@@ -211,8 +334,14 @@ async function insertLeadRow(row: LeadInsertRow) {
       trial_attended_at: _trialAttendedAt,
       joined_at: _joinedAt,
       ...baseRow
-    } = row;
-    ({ data, error } = await attemptInsert(baseRow));
+    } = payload;
+    payload = baseRow;
+    ({ data, error } = await attemptInsert(payload));
+  }
+
+  if (error && isMissingLeadAttributionColumnsError(error)) {
+    leadAttributionColumnsAvailable = false;
+    ({ data, error } = await attemptInsert(stripAttributionFromInsertRow(payload)));
   }
 
   return { data, error };
@@ -238,6 +367,14 @@ interface LeadRecordRow {
   joined_at?: string | null;
   last_activity_at?: string | null;
   archived_at?: string | null;
+  gclid?: string | null;
+  fbclid?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
+  referrer_url?: string | null;
 }
 
 function mapArchivedLeadListRow(row: LeadRecordRow): AdminArchivedLeadListRow {
@@ -280,6 +417,7 @@ function mapLeadListRow(
     programmeInterest: row.programme_interest as AdminLeadListRow["programmeInterest"],
     experienceLevel: row.experience_level as AdminLeadListRow["experienceLevel"],
     leadSource: row.lead_source as AdminLeadListRow["leadSource"],
+    leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     status: row.status as AdminLeadListRow["status"],
     createdAt: row.created_at,
     submittedAt,
@@ -309,6 +447,7 @@ function mapLeadDetail(row: LeadRecordRow): AdminLeadDetail {
     programmeInterest: row.programme_interest as AdminLeadDetail["programmeInterest"],
     experienceLevel: row.experience_level as AdminLeadDetail["experienceLevel"],
     leadSource: row.lead_source as AdminLeadDetail["leadSource"],
+    leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     notes: row.notes,
     status: row.status as AdminLeadDetail["status"],
     createdAt: row.created_at,
@@ -319,6 +458,7 @@ function mapLeadDetail(row: LeadRecordRow): AdminLeadDetail {
     trialAttendedAt: row.trial_attended_at ?? null,
     joinedAt: row.joined_at ?? null,
     lastActivityAt: resolveLastActivityAt(row),
+    attribution: mapLeadAttributionFromRow(row),
   };
 }
 
@@ -587,8 +727,10 @@ export async function loadAdminLeadDetail(
   }
 
   const supabase = getSupabaseAdminClient();
-  const trackingSelect =
-    "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
+  const attributionAvailable = await checkLeadAttributionColumnsAvailable();
+  const trackingSelect = attributionAvailable
+    ? `id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at, ${LEAD_ATTRIBUTION_SELECT}`
+    : "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
   const baseSelect =
     "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at";
 
@@ -598,6 +740,18 @@ export async function loadAdminLeadDetail(
     .eq("academy_id", academyId)
     .eq("id", leadId)
     .maybeSingle();
+
+  if (error && isMissingLeadAttributionColumnsError(error)) {
+    leadAttributionColumnsAvailable = false;
+    ({ data, error } = await supabase
+      .from("leads")
+      .select(
+        "id, academy_id, full_name, email, phone, programme_interest, experience_level, lead_source, notes, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at",
+      )
+      .eq("academy_id", academyId)
+      .eq("id", leadId)
+      .maybeSingle());
+  }
 
   if (error && isMissingLeadTrackingColumnsError(error)) {
     ({ data, error } = await supabase
@@ -621,13 +775,14 @@ export async function loadAdminLeadDetail(
     return null;
   }
 
-  return mapLeadDetail(data as LeadRecordRow);
+  return mapLeadDetail(data as unknown as LeadRecordRow);
 }
 
 export async function submitLead(input: {
   academyId: string;
   submission: LeadSubmission;
   trialAudience?: TrialAudience;
+  attribution?: LeadAttribution;
 }): Promise<LeadSubmissionResult> {
   const tableAvailable = await checkLeadsTableAvailable();
 
@@ -638,20 +793,23 @@ export async function submitLead(input: {
   const submission = parseLeadSubmission(input.submission);
   const now = new Date().toISOString();
   const trackingAvailable = await checkLeadTrackingColumnsAvailable();
-  const insertRow = buildLeadInsertRow(
-    {
-      academy_id: input.academyId,
-      full_name: submission.fullName,
-      email: submission.email,
-      phone: submission.phone || null,
-      programme_interest: submission.programmeInterest,
-      experience_level: submission.experienceLevel,
-      lead_source: submission.leadSource,
-      notes: submission.notes || null,
-      status: "new",
-    },
-    now,
-    trackingAvailable,
+  const insertRow = appendAttributionToInsertRow(
+    buildLeadInsertRow(
+      {
+        academy_id: input.academyId,
+        full_name: submission.fullName,
+        email: submission.email,
+        phone: submission.phone || null,
+        programme_interest: submission.programmeInterest,
+        experience_level: submission.experienceLevel,
+        lead_source: submission.leadSource,
+        notes: submission.notes || null,
+        status: "new",
+      },
+      now,
+      trackingAvailable,
+    ),
+    input.attribution,
   );
 
   const { data, error } = await insertLeadRow(insertRow);

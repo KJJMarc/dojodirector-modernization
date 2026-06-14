@@ -17,7 +17,7 @@ import {
   clubLeadsListAdminPath,
   parseLeadExperienceLevel,
   parseLeadProgrammeInterest,
-  parseLeadSource,
+  parseManualLeadSource,
   parseLeadStatus,
 } from "@/lib/leads.shared";
 
@@ -45,7 +45,7 @@ export async function createLeadAction(clubSlug: string, formData: FormData) {
     experienceLevel: parseLeadExperienceLevel(
       String(formData.get("experienceLevel") ?? ""),
     ),
-    leadSource: parseLeadSource(String(formData.get("leadSource") ?? "other")),
+    leadSource: parseManualLeadSource(String(formData.get("leadSource") ?? "other")),
     notes: String(formData.get("notes") ?? ""),
     status: parseLeadStatus(String(formData.get("status") ?? "new")),
   });

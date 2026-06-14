@@ -30,6 +30,7 @@ export function LeadsTable({ clubSlug, leads }: LeadsTableProps) {
         <thead className="border-b border-dojo-border text-xs uppercase tracking-wide text-dojo-muted">
           <tr>
             <th className="px-3 py-3 font-semibold">Name</th>
+            <th className="px-3 py-3 font-semibold">Source</th>
             <th className="px-3 py-3 font-semibold">Status</th>
             <th className="px-3 py-3 font-semibold">Programme</th>
             <th className="px-3 py-3 font-semibold">Submitted</th>
@@ -49,6 +50,7 @@ export function LeadsTable({ clubSlug, leads }: LeadsTableProps) {
                   {lead.fullName}
                 </Link>
               </td>
+              <td className="px-3 py-3 text-dojo-muted">{lead.leadSourceLabel}</td>
               <td className="px-3 py-3">{formatLeadStatusLabel(lead.status)}</td>
               <td className="px-3 py-3">
                 {formatLeadProgrammeInterestLabel(lead.programmeInterest)}

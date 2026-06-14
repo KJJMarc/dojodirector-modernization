@@ -4,6 +4,11 @@ import {
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
   clubAdminPath,
 } from "@/lib/clubs.shared";
+import {
+  formatAnalyticsLeadSourceLabel,
+  normalizeLeadSourceForAnalytics,
+} from "@/lib/lead-source-analytics.shared";
+import type { LeadAttribution } from "@/lib/lead-attribution.shared";
 
 export const LEAD_STATUSES = [
   "new",
@@ -27,6 +32,43 @@ export const LEAD_SOURCES = [
 ] as const;
 
 export type LeadSource = (typeof LEAD_SOURCES)[number];
+
+/** Values allowed in leads.lead_source (legacy manual + analytics buckets). */
+export const STORED_LEAD_SOURCES = [
+  ...LEAD_SOURCES,
+  "google_ads",
+  "facebook_ads",
+  "google_maps",
+  "google_search",
+  "instagram",
+  "website_direct",
+] as const;
+
+export type StoredLeadSource = (typeof STORED_LEAD_SOURCES)[number];
+
+/** Manual lead sources for staff-created leads (Add Lead form). */
+export const MANUAL_LEAD_SOURCE_OPTIONS = [
+  "phone",
+  "walk_in",
+  "referral",
+  "other",
+] as const;
+
+export type ManualLeadSource = (typeof MANUAL_LEAD_SOURCE_OPTIONS)[number];
+
+/** Clean lead source list for the Edit Lead form. */
+export const ADMIN_EDIT_LEAD_SOURCE_OPTIONS = [
+  "google_ads",
+  "facebook_ads",
+  "google_search",
+  "website_direct",
+  "referral",
+  "phone",
+  "walk_in",
+  "other",
+] as const;
+
+export type AdminEditLeadSource = (typeof ADMIN_EDIT_LEAD_SOURCE_OPTIONS)[number];
 
 export const LEAD_PROGRAMME_INTERESTS = [
   "bjj",
@@ -99,7 +141,7 @@ export interface LeadSubmission {
   phone: string;
   programmeInterest: LeadProgrammeInterest;
   experienceLevel: LeadExperienceLevel;
-  leadSource: LeadSource;
+  leadSource: StoredLeadSource;
   notes: string;
 }
 
@@ -126,7 +168,7 @@ export interface AdminLeadListRow {
   phone: string | null;
   programmeInterest: LeadProgrammeInterest;
   experienceLevel: LeadExperienceLevel;
-  leadSource: LeadSource;
+  leadSource: StoredLeadSource;
   status: LeadStatus;
   createdAt: string;
   submittedAt: string;
@@ -137,6 +179,7 @@ export interface AdminLeadListRow {
   lastActivityAt: string;
   linkedTrialSessionStartsAt: string | null;
   followUpStatus: LeadFollowUpStatus;
+  leadSourceLabel: string;
 }
 
 export interface AdminLeadDetail {
@@ -147,7 +190,7 @@ export interface AdminLeadDetail {
   phone: string | null;
   programmeInterest: LeadProgrammeInterest;
   experienceLevel: LeadExperienceLevel;
-  leadSource: LeadSource;
+  leadSource: StoredLeadSource;
   notes: string | null;
   status: LeadStatus;
   createdAt: string;
@@ -158,6 +201,8 @@ export interface AdminLeadDetail {
   trialAttendedAt: string | null;
   joinedAt: string | null;
   lastActivityAt: string;
+  attribution: LeadAttribution;
+  leadSourceLabel: string;
 }
 
 export interface AdminLeadsSummary {
@@ -242,7 +287,13 @@ export function formatLeadStatusLabel(status: LeadStatus | string) {
   }
 }
 
-export function formatLeadSourceLabel(value: LeadSource | string) {
+export function formatLeadSourceLabel(value: LeadSource | StoredLeadSource | string) {
+  const analyticsSource = normalizeLeadSourceForAnalytics(value);
+
+  if (analyticsSource) {
+    return formatAnalyticsLeadSourceLabel(analyticsSource);
+  }
+
   switch (value) {
     case "website":
       return "Website";
@@ -418,6 +469,77 @@ export function parseLeadSource(value: string): LeadSource {
   return value as LeadSource;
 }
 
+export function parseManualLeadSource(value: string): ManualLeadSource {
+  if (!MANUAL_LEAD_SOURCE_OPTIONS.includes(value as ManualLeadSource)) {
+    throw new Error("Select a lead source.");
+  }
+
+  return value as ManualLeadSource;
+}
+
+export function isAdminEditLeadSource(value: string): value is AdminEditLeadSource {
+  return ADMIN_EDIT_LEAD_SOURCE_OPTIONS.includes(value as AdminEditLeadSource);
+}
+
+/** Maps stored lead sources (including legacy values) to Edit Lead dropdown options. */
+export function resolveAdminEditableLeadSource(value: string): AdminEditLeadSource {
+  if (isAdminEditLeadSource(value)) {
+    return value;
+  }
+
+  switch (value) {
+    case "website":
+      return "website_direct";
+    case "google":
+      return "google_search";
+    case "facebook":
+      return "facebook_ads";
+    case "google_maps":
+      return "google_search";
+    case "instagram":
+      return "facebook_ads";
+    default:
+      break;
+  }
+
+  const analyticsSource = normalizeLeadSourceForAnalytics(value);
+
+  switch (analyticsSource) {
+    case "google_ads":
+      return "google_ads";
+    case "facebook_ads":
+      return "facebook_ads";
+    case "google_search":
+      return "google_search";
+    case "website_direct":
+      return "website_direct";
+    case "referral":
+      return "referral";
+    case "walk_in":
+      return "walk_in";
+    case "other":
+      return "other";
+    default:
+      return "other";
+  }
+}
+
+export function parseAdminEditLeadSource(value: string): AdminEditLeadSource {
+  if (!isAdminEditLeadSource(value)) {
+    throw new Error("Select a lead source.");
+  }
+
+  return value;
+}
+
+export function parseStoredLeadSource(value: string): StoredLeadSource {
+  if (!STORED_LEAD_SOURCES.includes(value as StoredLeadSource)) {
+    throw new Error("Select a lead source.");
+  }
+
+  return value as StoredLeadSource;
+}
+
 export function parseLeadProgrammeInterest(value: string): LeadProgrammeInterest {
   if (!LEAD_PROGRAMME_INTERESTS.includes(value as LeadProgrammeInterest)) {
     throw new Error("Select a programme interest.");
@@ -477,7 +599,7 @@ export function parseLeadSubmission(input: LeadSubmission): LeadSubmission {
     phone,
     programmeInterest: parseLeadProgrammeInterest(input.programmeInterest),
     experienceLevel: parseLeadExperienceLevel(input.experienceLevel),
-    leadSource: parseLeadSource(input.leadSource),
+    leadSource: parseStoredLeadSource(input.leadSource),
     notes,
   };
 }

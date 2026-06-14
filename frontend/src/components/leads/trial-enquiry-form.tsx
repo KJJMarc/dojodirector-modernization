@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import { trackAcademyLeadConversion } from "@/lib/academy-pixel-tracking.client";
 import type { AcademyPublicPixelSettings } from "@/lib/academy-pixel-settings.shared";
+import { TrialEnquiryAttributionFields } from "@/components/leads/trial-enquiry-attribution-fields";
+import {
+  leadAttributionFieldNames,
+  readLeadAttributionForClub,
+} from "@/lib/lead-attribution.client";
 import { clubTrialEnquiryApiPath } from "@/lib/clubs.shared";
 import {
   LEAD_EXPERIENCE_LEVELS,
@@ -115,6 +120,11 @@ export function TrialEnquiryForm({
         event.preventDefault();
         setErrorMessage(null);
         const formData = new FormData(event.currentTarget);
+        const attribution = readLeadAttributionForClub(clubSlug);
+
+        for (const field of leadAttributionFieldNames()) {
+          formData.set(field, attribution[field] ?? "");
+        }
 
         startTransition(async () => {
           try {
@@ -136,6 +146,8 @@ export function TrialEnquiryForm({
         });
       }}
     >
+      <TrialEnquiryAttributionFields clubSlug={clubSlug} />
+
       <fieldset className="space-y-3 rounded-xl border-2 border-dojo-red/40 bg-dojo-elevated p-4">
         <legend className="px-1 text-sm font-semibold uppercase tracking-wide text-dojo-red">
           Who is the trial for?

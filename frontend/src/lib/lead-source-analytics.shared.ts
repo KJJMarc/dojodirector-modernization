@@ -76,17 +76,17 @@ export function formatAnalyticsLeadSourceLabel(
     case "google_ads":
       return "Google Ads";
     case "facebook_ads":
-      return "Facebook Ads";
+      return "Meta Ads";
     case "google_maps":
       return "Google Maps";
     case "google_search":
-      return "Google Search";
+      return "Organic Search";
     case "instagram":
       return "Instagram";
     case "referral":
       return "Referral";
     case "website_direct":
-      return "Website Direct";
+      return "Direct / Unknown";
     case "walk_in":
       return "Walk-in";
     case "other":

@@ -7,10 +7,11 @@ import {
   deleteLeadAction,
   updateLeadAction,
 } from "@/app/admin/[clubSlug]/leads/actions";
+import { LeadAttributionPanel } from "@/components/admin/lead-attribution-panel";
 import {
+  ADMIN_EDIT_LEAD_SOURCE_OPTIONS,
   LEAD_EXPERIENCE_LEVELS,
   LEAD_PROGRAMME_INTERESTS,
-  LEAD_SOURCES,
   LEAD_STATUSES,
   clubLeadsAdminPath,
   clubLeadsListAdminPath,
@@ -19,6 +20,7 @@ import {
   formatLeadProgrammeInterestLabel,
   formatLeadSourceLabel,
   formatLeadStatusLabel,
+  resolveAdminEditableLeadSource,
   type AdminLeadDetail,
 } from "@/lib/leads.shared";
 
@@ -40,7 +42,9 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
   const [phone, setPhone] = useState(lead.phone ?? "");
   const [programmeInterest, setProgrammeInterest] = useState(lead.programmeInterest);
   const [experienceLevel, setExperienceLevel] = useState(lead.experienceLevel);
-  const [leadSource, setLeadSource] = useState(lead.leadSource);
+  const [leadSource, setLeadSource] = useState(() =>
+    resolveAdminEditableLeadSource(lead.leadSource),
+  );
   const [status, setStatus] = useState(lead.status);
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -83,6 +87,11 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
           </p>
         ) : null}
       </div>
+
+      <LeadAttributionPanel
+        attribution={lead.attribution}
+        leadSourceLabel={lead.leadSourceLabel}
+      />
 
       <form
         className="space-y-4 rounded-xl border border-dojo-border bg-dojo-surface p-4"
@@ -189,7 +198,7 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
               onChange={(event) => setLeadSource(event.target.value as typeof leadSource)}
               className={inputClassName}
             >
-              {LEAD_SOURCES.map((value) => (
+              {ADMIN_EDIT_LEAD_SOURCE_OPTIONS.map((value) => (
                 <option key={value} value={value}>
                   {formatLeadSourceLabel(value)}
                 </option>

@@ -1,3 +1,4 @@
+import { PublicAcademyAttributionCapture } from "@/components/public/public-academy-attribution-capture";
 import { PublicAcademyPixelTracking } from "@/components/public/public-academy-pixel-tracking";
 
 interface ClubPublicLayoutProps {
@@ -11,6 +12,7 @@ export default async function ClubPublicLayout({
 }: ClubPublicLayoutProps) {
   return (
     <>
+      <PublicAcademyAttributionCapture clubSlug={params.clubSlug} />
       <PublicAcademyPixelTracking clubSlug={params.clubSlug} />
       {children}
     </>

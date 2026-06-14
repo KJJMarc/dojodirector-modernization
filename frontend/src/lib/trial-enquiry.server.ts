@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  classifyLeadAttribution,
+  parseLeadAttributionFromFormData,
+} from "@/lib/lead-attribution.shared";
 import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
 import { STUDENT_PORTAL_ACCESS_PROGRAMME_TYPES } from "@/lib/admin-programmes.shared";
 import { BAHAMAS_JIU_JITSU_CLUB_SLUG } from "@/lib/clubs.shared";
@@ -106,6 +110,9 @@ export async function processTrialEnquirySubmission(
       throw new Error("Academy not found for this enquiry.");
     }
 
+    const attribution = parseLeadAttributionFromFormData(formData);
+    const leadSource = classifyLeadAttribution(attribution);
+
     const result = await submitLead({
       academyId: academy.id,
       trialAudience,
@@ -118,9 +125,10 @@ export async function processTrialEnquirySubmission(
           allowedProgrammeInterests,
         ),
         experienceLevel: parseLeadExperienceLevel(payload.experienceLevel),
-        leadSource: "website",
+        leadSource,
         notes: payload.notes,
       },
+      attribution,
     });
 
     console.info("[trial-enquiry] submit succeeded", {

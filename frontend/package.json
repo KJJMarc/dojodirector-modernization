@@ -16,6 +16,8 @@
     "test:class-session-schedule": "npx --yes tsx --test src/lib/class-session-schedule.test.ts",
     "test:class-metrics": "npx --yes tsx --test src/lib/admin-class-metrics.shared.test.ts",
     "test:london-datetime": "npx --yes tsx --test src/lib/london-datetime.test.ts",
+    "test:lead-attribution": "node --experimental-strip-types --test src/lib/lead-attribution.shared.test.ts",
+    "test:leads-shared": "node --experimental-strip-types --import ./scripts/register-tsconfig-paths.mjs --test src/lib/leads.shared.test.ts",
     "generate:favicon": "node scripts/generate-favicon.mjs",
     "verify:london-migrations": "node scripts/verify-london-recurring-migrations.mjs",
     "repair:london-sessions": "node scripts/repair-london-timetable-sessions.mjs"

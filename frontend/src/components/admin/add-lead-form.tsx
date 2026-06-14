@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createLeadAction } from "@/app/admin/[clubSlug]/leads/actions";
 import {
+  MANUAL_LEAD_SOURCE_OPTIONS,
   LEAD_EXPERIENCE_LEVELS,
   LEAD_PROGRAMME_INTERESTS,
-  LEAD_SOURCES,
   LEAD_STATUSES,
   clubLeadDetailAdminPath,
   clubLeadsAdminPath,
@@ -112,7 +112,7 @@ export function AddLeadForm({ clubSlug }: AddLeadFormProps) {
         <label className="block space-y-1 sm:col-span-2">
           <span className={labelClassName}>Lead source</span>
           <select name="leadSource" className={inputClassName} defaultValue="phone">
-            {LEAD_SOURCES.map((value) => (
+            {MANUAL_LEAD_SOURCE_OPTIONS.map((value) => (
               <option key={value} value={value}>
                 {formatLeadSourceLabel(value)}
               </option>
