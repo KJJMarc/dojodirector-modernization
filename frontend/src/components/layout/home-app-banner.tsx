@@ -5,15 +5,17 @@ import { PWA_ICON_PATHS, PWA_NAME } from "@/lib/pwa.shared";
 
 function AppBannerMockup() {
   return (
-    <div className="relative w-[10.5rem] rounded-[1.75rem] border border-dojo-border/80 bg-dojo-surface p-2 shadow-[0_16px_48px_rgba(0,0,0,0.4)] xl:w-[11rem]">
+    <div className="w-full rounded-[1.75rem] border border-dojo-border/80 bg-dojo-surface p-2 shadow-lg shadow-black/35">
       <div className="rounded-[1.25rem] bg-dojo-black px-3 pb-3 pt-5">
         <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-dojo-border" />
-        <div className="mx-auto flex h-14 w-14 items-center justify-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[0.875rem] bg-dojo-black">
           <Image
             src={PWA_ICON_PATHS.icon192}
             alt=""
             width={56}
             height={56}
+            priority
+            sizes="56px"
             className="h-14 w-14 rounded-[0.875rem] object-contain"
           />
         </div>
@@ -38,24 +40,23 @@ export function HomeAppBanner() {
       aria-labelledby="dojo-director-app-heading"
       className="bg-neutral-50 px-4 py-3 sm:px-6 sm:py-5"
     >
-      <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border border-dojo-red/25 bg-gradient-to-br from-neutral-950 via-dojo-black to-neutral-900 shadow-xl shadow-black/25 lg:rounded-3xl">
+      <div className="relative mx-auto max-w-6xl rounded-2xl border border-dojo-red/25 shadow-xl shadow-black/25 lg:rounded-3xl">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-dojo-red/15 blur-3xl lg:-right-12 lg:-top-12 lg:h-40 lg:w-40 lg:bg-dojo-red/20"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-dojo-red/50 to-transparent"
-        />
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl bg-gradient-to-br from-neutral-950 via-dojo-black to-neutral-900 lg:rounded-3xl"
+        >
+          <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-dojo-red/15 blur-3xl lg:h-36 lg:w-36 lg:bg-dojo-red/20" />
+          <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-dojo-red/50 to-transparent" />
+        </div>
 
-        <div className="relative flex flex-col p-3.5 sm:p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-5 lg:p-5 xl:gap-6">
+        <div className="relative grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_10.5rem] lg:items-center lg:gap-8 lg:p-6 xl:grid-cols-[minmax(0,1fr)_11rem] xl:gap-10">
           <div className="max-w-lg">
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-dojo-red sm:text-xs">
               {HOME_APP_BANNER.eyebrow}
             </p>
             <h2
               id="dojo-director-app-heading"
-              className="mt-1.5 text-lg font-semibold normal-case leading-tight tracking-tight text-white sm:mt-2 sm:text-xl lg:text-2xl"
+              className="mt-1.5 text-lg font-semibold normal-case leading-tight tracking-tight text-white sm:mt-2 sm:text-xl lg:text-[1.375rem]"
             >
               {HOME_APP_BANNER.title}
             </h2>
@@ -70,7 +71,10 @@ export function HomeAppBanner() {
             </Link>
           </div>
 
-          <div aria-hidden="true" className="hidden shrink-0 lg:flex lg:justify-end">
+          <div
+            aria-hidden="true"
+            className="hidden min-w-0 justify-self-center lg:block lg:justify-self-end"
+          >
             <AppBannerMockup />
           </div>
         </div>
