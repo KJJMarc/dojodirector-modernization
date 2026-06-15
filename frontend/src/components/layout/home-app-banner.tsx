@@ -36,7 +36,7 @@ export function HomeAppBanner() {
     <section
       id="dojo-director-app"
       aria-labelledby="dojo-director-app-heading"
-      className="bg-neutral-50 px-4 py-4 sm:px-6 sm:py-6"
+      className="bg-neutral-50 px-4 py-3 sm:px-6 sm:py-5"
     >
       <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border border-dojo-red/25 bg-gradient-to-br from-neutral-950 via-dojo-black to-neutral-900 shadow-xl shadow-black/25 lg:rounded-3xl">
         <div
@@ -48,23 +48,23 @@ export function HomeAppBanner() {
           className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-dojo-red/50 to-transparent"
         />
 
-        <div className="relative flex flex-col p-4 sm:p-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6 lg:p-6 xl:gap-7">
+        <div className="relative flex flex-col p-3.5 sm:p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-5 lg:p-5 xl:gap-6">
           <div className="max-w-lg">
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-dojo-red sm:text-xs">
               {HOME_APP_BANNER.eyebrow}
             </p>
             <h2
               id="dojo-director-app-heading"
-              className="mt-1.5 text-xl font-semibold tracking-tight text-white sm:mt-2 sm:text-2xl"
+              className="mt-1.5 text-lg font-semibold normal-case leading-tight tracking-tight text-white sm:mt-2 sm:text-xl lg:text-2xl"
             >
               {HOME_APP_BANNER.title}
             </h2>
-            <p className="mt-1.5 max-w-md text-sm leading-relaxed text-neutral-300 sm:mt-2">
+            <p className="mt-1.5 max-w-md text-sm leading-snug text-neutral-300 sm:mt-2">
               {HOME_APP_BANNER.description}
             </p>
             <Link
               href={HOME_APP_BANNER.cta.href}
-              className="mt-3 inline-flex min-h-[42px] items-center justify-center rounded-md bg-dojo-red px-5 py-2 text-sm font-semibold text-white shadow-md shadow-dojo-red/25 transition hover:bg-dojo-red-hover active:scale-[0.99] sm:mt-4"
+              className="mt-3 inline-flex min-h-[40px] items-center justify-center rounded-md bg-dojo-red px-5 py-2 text-sm font-semibold text-white shadow-md shadow-dojo-red/25 transition hover:bg-dojo-red-hover active:scale-[0.99]"
             >
               {HOME_APP_BANNER.cta.label}
             </Link>
