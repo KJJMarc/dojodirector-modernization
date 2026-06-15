@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { PWA_APP_ENTRY_PATH } from "@/lib/pwa.shared";
+import { PWA_APP_ENTRY_PATH, shouldUseAppEntryAfterPortalSignOut } from "@/lib/pwa.shared";
 import {
   hasAcceptedCurrentStudentAgreements,
   logStudentAgreementGate,
@@ -32,6 +32,7 @@ import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templa
 import {
   studentPortalAgreementsPath,
   studentPortalEntryPath,
+  studentPortalLoginPath,
   studentPortalPath,
 } from "@/lib/student-portal-routing.shared";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
@@ -65,9 +66,13 @@ export async function signInStudentPortalAction(formData: FormData) {
   }
 }
 
-export async function signOutStudentPortalAction(_formData?: FormData) {
+export async function signOutStudentPortalAction(formData?: FormData) {
   await signOutStudentPortal();
-  redirect(PWA_APP_ENTRY_PATH);
+  redirect(
+    shouldUseAppEntryAfterPortalSignOut(formData)
+      ? PWA_APP_ENTRY_PATH
+      : studentPortalLoginPath(),
+  );
 }
 
 export async function acceptStudentAgreementsAction(formData: FormData) {
