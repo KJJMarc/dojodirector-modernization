@@ -9,9 +9,9 @@ export const HOME_APP_BANNER = {
   eyebrow: "Installable web app",
   title: "Dojo Director App",
   description:
-    "Install Dojo Director on your phone for quick access to student and instructor tools.",
+    "Install Dojo Director on your phone for quick access to your academy tools.",
   cta: {
-    label: "Open the App",
+    label: "Open the app",
     href: "/app",
   },
 } as const;
