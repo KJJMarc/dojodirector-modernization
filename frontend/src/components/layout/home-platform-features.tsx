@@ -1,43 +1,39 @@
-import type { HomePlatformSection } from "@/lib/home-platform-content";
-import { HOME_PLATFORM_OVERVIEW, HOME_PLATFORM_SECTIONS } from "@/lib/home-platform-content";
+import {
+  HOME_PLATFORM_CATEGORIES,
+  HOME_PLATFORM_OVERVIEW,
+} from "@/lib/home-platform-content";
 
-function HomeFeatureCategory({
-  section,
+function HomePlatformCategoryPanel({
+  title,
+  description,
+  bullets,
 }: {
-  section: HomePlatformSection;
+  title: string;
+  description: string;
+  bullets: readonly string[];
 }) {
   return (
-    <div className="scroll-mt-24" id={section.id}>
-      <div className="mb-5 flex flex-col gap-2 border-b border-dojo-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dojo-red">
-            {section.eyebrow}
-          </p>
-          <h3 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-            {section.title}
-          </h3>
-        </div>
-        <p className="max-w-xl text-sm leading-relaxed text-dojo-muted sm:text-right">
-          {section.description}
-        </p>
-      </div>
-
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 sm:gap-4">
-        {section.features.map((feature) => (
+    <article className="flex h-full flex-col rounded-2xl border border-dojo-border/70 bg-dojo-surface/50 p-6 sm:p-7">
+      <div className="mb-4 h-1 w-12 rounded-full bg-dojo-red" />
+      <h3 className="text-xl font-semibold text-dojo-white sm:text-2xl">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-dojo-muted sm:text-base">
+        {description}
+      </p>
+      <ul className="mt-5 space-y-2.5">
+        {bullets.map((bullet) => (
           <li
-            key={feature.title}
-            className="rounded-xl border border-dojo-border/70 bg-dojo-surface/80 px-4 py-4 transition hover:border-dojo-red/35 hover:bg-dojo-surface sm:px-5 sm:py-5"
+            key={bullet}
+            className="flex items-start gap-3 text-sm leading-relaxed text-dojo-white/90 sm:text-[0.9375rem]"
           >
-            <h4 className="text-base font-semibold text-dojo-white">
-              {feature.title}
-            </h4>
-            <p className="mt-1.5 text-sm leading-relaxed text-dojo-muted">
-              {feature.description}
-            </p>
+            <span
+              aria-hidden="true"
+              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-dojo-red"
+            />
+            <span>{bullet}</span>
           </li>
         ))}
       </ul>
-    </div>
+    </article>
   );
 }
 
@@ -50,11 +46,11 @@ export function HomePlatformFeatures() {
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(220,38,38,0.14),_transparent_50%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(220,38,38,0.12),_transparent_50%)]"
       />
 
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-        <header className="mb-10 max-w-3xl">
+        <header className="mb-10 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
             {HOME_PLATFORM_OVERVIEW.eyebrow}
           </p>
@@ -69,9 +65,15 @@ export function HomePlatformFeatures() {
           </p>
         </header>
 
-        <div className="space-y-12 sm:space-y-14">
-          {HOME_PLATFORM_SECTIONS.map((section) => (
-            <HomeFeatureCategory key={section.id} section={section} />
+        <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
+          {HOME_PLATFORM_CATEGORIES.map((category) => (
+            <div key={category.id} id={category.id} className="scroll-mt-24">
+              <HomePlatformCategoryPanel
+                title={category.title}
+                description={category.description}
+                bullets={category.bullets}
+              />
+            </div>
           ))}
         </div>
       </div>
