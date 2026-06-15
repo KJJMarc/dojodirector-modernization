@@ -12,7 +12,7 @@ import { studentPortalPath } from "@/lib/student-portal-preview.shared";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Portal Dev Picker",
+  title: "Dojo Director | Portal Dev Picker",
   description: "Development-only student portal account picker.",
 };
 

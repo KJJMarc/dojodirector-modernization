@@ -21,7 +21,7 @@ export async function generateMetadata({
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
 
   return {
-    title: `DojoDirector | Grading History | ${uiConfig.pageTitle}`,
+    title: `Dojo Director | Grading History | ${uiConfig.pageTitle}`,
     description: "View grading history.",
   };
 }

@@ -8,7 +8,7 @@ import { signInSuperAdminLoginAction } from "./actions";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Super Admin Access",
+  title: "Dojo Director | Super Admin Access",
   description: "Platform super admin sign-in.",
   robots: { index: false, follow: false },
 };

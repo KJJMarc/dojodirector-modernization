@@ -22,7 +22,7 @@ export async function generateMetadata({
   const pageData = await getInstructorMyClassesPageData(instructorSlug, club.id);
 
   return {
-    title: `DojoDirector | My Classes | ${pageData.identity.displayName}`,
+    title: `Dojo Director | My Classes | ${pageData.identity.displayName}`,
     description: "View assigned recurring classes and upcoming sessions.",
   };
 }

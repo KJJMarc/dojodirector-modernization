@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
     if (!profile) {
       return {
-        title: "DojoDirector | Grading History",
+        title: "Dojo Director | Grading History",
         description: "View your belt and stripe progression history.",
       };
     }
@@ -31,12 +31,12 @@ export async function generateMetadata(): Promise<Metadata> {
     );
 
     return {
-      title: `DojoDirector | Grading History — ${pageData.studentName}`,
+      title: `Dojo Director | Grading History — ${pageData.studentName}`,
       description: `Belt and stripe progression for ${pageData.studentName}.`,
     };
   } catch {
     return {
-      title: "DojoDirector | Grading History",
+      title: "Dojo Director | Grading History",
       description: "View your belt and stripe progression history.",
     };
   }

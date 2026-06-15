@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: StudentPortalBookPageProps): 
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
 
   return {
-    title: `DojoDirector | Book a Class | ${uiConfig.pageTitle}`,
+    title: `Dojo Director | Book a Class | ${uiConfig.pageTitle}`,
     description: "Book an upcoming class.",
   };
 }

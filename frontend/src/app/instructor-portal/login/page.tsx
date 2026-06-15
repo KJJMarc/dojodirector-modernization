@@ -8,7 +8,7 @@ import { resolveInstructorPortalSessionState } from "@/lib/instructor-portal-aut
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Instructor Login",
+  title: "Dojo Director | Instructor Login",
   description: "Sign in to the instructor portal.",
 };
 

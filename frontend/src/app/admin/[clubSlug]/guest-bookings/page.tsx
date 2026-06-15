@@ -23,7 +23,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Guest Bookings`,
+    title: `Dojo Director | ${club.name} Guest Bookings`,
     description: `View guest and trial bookings for ${club.name}.`,
   };
 }

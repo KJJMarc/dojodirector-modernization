@@ -30,7 +30,7 @@ export async function generateMetadata({
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
 
   return {
-    title: `DojoDirector | Messages | ${uiConfig.pageTitle}`,
+    title: `Dojo Director | Messages | ${uiConfig.pageTitle}`,
     description: "Member portal messages.",
   };
 }

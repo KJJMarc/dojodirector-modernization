@@ -3,7 +3,7 @@ import { PublicLegalDocument } from "@/components/public/public-legal-document";
 import { PrivacyPolicyContent } from "@/components/public/privacy-policy-content";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Privacy Policy",
+  title: "Dojo Director | Privacy Policy",
   description: "Privacy policy for Dojo Director.",
 };
 

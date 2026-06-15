@@ -30,11 +30,11 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   if (!isClubAgreementType(params.agreementType)) {
-    return { title: "DojoDirector | Training Agreement" };
+    return { title: "Dojo Director | Training Agreement" };
   }
 
   return {
-    title: `DojoDirector | ${club.name} ${clubAgreementTypeLabel(params.agreementType)}`,
+    title: `Dojo Director | ${club.name} ${clubAgreementTypeLabel(params.agreementType)}`,
     description: `Edit ${clubAgreementTypeLabel(params.agreementType)} for ${club.name}.`,
   };
 }

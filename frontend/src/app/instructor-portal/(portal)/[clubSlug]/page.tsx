@@ -22,7 +22,7 @@ export async function generateMetadata({
   const { club } = await requireInstructorPortalPageContext(params.clubSlug);
 
   return {
-    title: `DojoDirector | Instructor Portal | ${club.name}`,
+    title: `Dojo Director | Instructor Portal | ${club.name}`,
     description: `Instructor portal for ${club.name}.`,
   };
 }

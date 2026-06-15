@@ -1,4 +1,9 @@
-export const PRODUCT_NAME = "DOJO DIRECTOR";
+export const PRODUCT_NAME = "Dojo Director";
+export const BRAND_PAGE_TITLE_PREFIX = "Dojo Director";
+
+export function brandPageTitle(pageTitle: string): string {
+  return `${BRAND_PAGE_TITLE_PREFIX} | ${pageTitle}`;
+}
 
 /** Active club for MVP; replace with context/provider when multi-club ships. */
 export const ACTIVE_CLUB_NAME = "Kingston Jiu Jitsu";

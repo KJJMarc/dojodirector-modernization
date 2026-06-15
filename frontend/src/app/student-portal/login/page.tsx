@@ -8,7 +8,7 @@ import { resolveStudentPortalSessionState } from "@/lib/student-portal-auth.serv
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Student Login",
+  title: "Dojo Director | Student Login",
   description: "Sign in to the member portal.",
 };
 

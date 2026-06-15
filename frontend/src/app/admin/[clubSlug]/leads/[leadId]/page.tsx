@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: LeadDetailPageProps): Promise
 
   return {
     title: lead
-      ? `DojoDirector | ${club.name} Lead — ${lead.fullName}`
-      : `DojoDirector | ${club.name} Lead`,
+      ? `Dojo Director | ${club.name} Lead — ${lead.fullName}`
+      : `Dojo Director | ${club.name} Lead`,
     description: `Lead details for ${club.name}.`,
   };
 }

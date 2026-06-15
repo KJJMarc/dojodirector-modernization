@@ -16,7 +16,7 @@ import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Reset Password",
+  title: "Dojo Director | Reset Password",
   description: "Set a new password for your account.",
   robots: { index: false, follow: false },
 };

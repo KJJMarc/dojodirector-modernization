@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: AddLeadPageProps): Promise<Me
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Add Lead`,
+    title: `Dojo Director | ${club.name} Add Lead`,
     description: `Manually add a trial enquiry lead for ${club.name}.`,
   };
 }

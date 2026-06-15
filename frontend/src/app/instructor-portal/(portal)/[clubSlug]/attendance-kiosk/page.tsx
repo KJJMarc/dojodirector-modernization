@@ -26,7 +26,7 @@ export async function generateMetadata({
   const { club } = await requireInstructorPortalPageContext(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Attendance Kiosk`,
+    title: `Dojo Director | ${club.name} Attendance Kiosk`,
     description: `Choose a class session to open the self check-in kiosk at ${club.name}.`,
   };
 }

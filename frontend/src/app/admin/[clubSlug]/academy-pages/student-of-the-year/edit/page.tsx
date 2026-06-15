@@ -29,7 +29,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Student of the Year`,
+    title: `Dojo Director | ${club.name} Student of the Year`,
     description: `Edit Student of the Year winners for ${club.name}.`,
   };
 }

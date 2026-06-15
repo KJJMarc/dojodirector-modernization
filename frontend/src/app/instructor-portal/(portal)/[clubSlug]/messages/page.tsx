@@ -10,7 +10,7 @@ import { requireInstructorPortalPageContext } from "@/lib/instructor-portal-page
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Instructor Messages",
+  title: "Dojo Director | Instructor Messages",
   description: "Instructor portal messages.",
 };
 

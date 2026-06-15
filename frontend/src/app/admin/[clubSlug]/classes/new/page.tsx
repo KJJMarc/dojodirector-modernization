@@ -20,7 +20,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Add recurring class`,
+    title: `Dojo Director | ${club.name} Add recurring class`,
     description: `Create a recurring class template for ${club.name}.`,
   };
 }

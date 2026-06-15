@@ -21,7 +21,7 @@ export async function generateMetadata({
   const pageData = await getInstructorSessionCoverPageData(instructorSlug, club.id);
 
   return {
-    title: `DojoDirector | Session Cover | ${pageData.identity.displayName}`,
+    title: `Dojo Director | Session Cover | ${pageData.identity.displayName}`,
     description: "View who is teaching upcoming classes.",
   };
 }

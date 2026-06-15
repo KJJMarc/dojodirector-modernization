@@ -43,7 +43,7 @@ export async function generateMetadata({
     params.programmeSlug !== BJJ_PROGRAMME_SLUG
   ) {
     return {
-      title: `DojoDirector | ${club.name} Programme Students`,
+      title: `Dojo Director | ${club.name} Programme Students`,
       description: `View programme students for ${club.name}.`,
     };
   }
@@ -52,7 +52,7 @@ export async function generateMetadata({
   const pageTitle = formatProgrammeStudentsLabel(programme);
 
   return {
-    title: `DojoDirector | ${club.name} ${pageTitle}`,
+    title: `Dojo Director | ${club.name} ${pageTitle}`,
     description: `View ${pageTitle.toLowerCase()} for ${club.name}.`,
   };
 }

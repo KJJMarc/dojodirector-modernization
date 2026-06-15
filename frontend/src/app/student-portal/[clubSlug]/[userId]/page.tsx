@@ -32,12 +32,12 @@ export async function generateMetadata({
     );
 
     return {
-      title: `DojoDirector | ${uiConfig.pageTitle} | ${pageData.studentName}`,
+      title: `Dojo Director | ${uiConfig.pageTitle} | ${pageData.studentName}`,
       description: `Member portal for ${pageData.studentName} at ${club.name}.`,
     };
   } catch {
     return {
-      title: "DojoDirector | My Portal",
+      title: "Dojo Director | My Portal",
       description: "Your member portal.",
     };
   }

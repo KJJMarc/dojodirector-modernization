@@ -10,7 +10,7 @@ import { signInAcademyAdminLoginAction } from "./actions";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Admin Access",
+  title: "Dojo Director | Admin Access",
   description: "Academy admin sign-in.",
   robots: { index: false, follow: false },
 };

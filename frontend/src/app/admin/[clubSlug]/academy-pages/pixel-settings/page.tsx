@@ -23,7 +23,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Pixel Settings`,
+    title: `Dojo Director | ${club.name} Pixel Settings`,
     description: `Meta Pixel and Google tag settings for ${club.name} public academy pages.`,
   };
 }

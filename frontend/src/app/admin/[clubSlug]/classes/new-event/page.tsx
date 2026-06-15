@@ -20,7 +20,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Add one-off event`,
+    title: `Dojo Director | ${club.name} Add one-off event`,
     description: `Create a one-off class session for ${club.name}.`,
   };
 }

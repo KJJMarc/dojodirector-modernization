@@ -23,7 +23,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Grading History`,
+    title: `Dojo Director | ${club.name} Grading History`,
     description: `View and manage grading history for a ${club.name} student.`,
   };
 }

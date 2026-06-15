@@ -21,7 +21,7 @@ export async function generateMetadata({
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
 
   return {
-    title: `DojoDirector | Cancel Bookings | ${uiConfig.pageTitle}`,
+    title: `Dojo Director | Cancel Bookings | ${uiConfig.pageTitle}`,
     description: "View and manage upcoming class bookings.",
   };
 }

@@ -9,7 +9,7 @@ import { getSupabaseAuthSessionUser } from "@/lib/student-portal-auth.server";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Admin",
+  title: "Dojo Director | Admin",
   description: "Dojo Director admin dashboard.",
 };
 

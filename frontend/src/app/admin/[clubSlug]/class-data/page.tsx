@@ -18,7 +18,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Class Data`,
+    title: `Dojo Director | ${club.name} Class Data`,
     description: `Class performance and attendance metrics for ${club.name}.`,
   };
 }

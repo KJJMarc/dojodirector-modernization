@@ -24,12 +24,12 @@ export async function generateMetadata({
     const belt = await getBeltLevelEditPageData(club.id, params.beltId);
 
     return {
-      title: `DojoDirector | ${club.name} Edit ${belt.name}`,
+      title: `Dojo Director | ${club.name} Edit ${belt.name}`,
       description: `Edit belt settings for ${belt.name} at ${club.name}.`,
     };
   } catch {
     return {
-      title: `DojoDirector | ${club.name} Edit Belt`,
+      title: `Dojo Director | ${club.name} Edit Belt`,
       description: `Edit belt settings for ${club.name}.`,
     };
   }

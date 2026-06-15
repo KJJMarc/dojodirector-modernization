@@ -22,7 +22,7 @@ import { StudentPortalUnlinkedProfile } from "@/components/student-portal/studen
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Membership Agreement",
+  title: "Dojo Director | Membership Agreement",
   description: "Accept the membership agreement for the student portal.",
 };
 

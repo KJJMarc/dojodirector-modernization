@@ -8,7 +8,8 @@ export interface HomePlatformCategory {
 export const HOME_APP_BANNER = {
   eyebrow: "Installable web app",
   title: "Dojo Director App",
-  description: "Access student and instructor tools from your phone.",
+  description:
+    "Install Dojo Director on your phone for quick access to student and instructor tools.",
   cta: {
     label: "Open the App",
     href: "/app",
@@ -86,11 +87,5 @@ export const APP_INSTALL_GUIDANCE = {
     "Open this page in Chrome",
     "Tap the browser menu",
     "Choose Add to Home Screen",
-  ],
-  features: [
-    "Student and instructor login",
-    "Class booking and upcoming bookings",
-    "Attendance cards and grading progress",
-    "Instructor registers and portal messages",
   ],
 } as const;

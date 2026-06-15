@@ -3,7 +3,7 @@ import { PublicLegalDocument } from "@/components/public/public-legal-document";
 import { TermsAndConditionsContent } from "@/components/public/terms-and-conditions-content";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Terms & Conditions",
+  title: "Dojo Director | Terms & Conditions",
   description: "Terms and conditions for using Dojo Director.",
 };
 

@@ -12,7 +12,7 @@ import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Instructor Portal",
+  title: "Dojo Director | Instructor Portal",
   description: "Instructor portal for your academy.",
 };
 

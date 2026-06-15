@@ -9,7 +9,7 @@ import { adminAcademySelectPath } from "@/lib/admin-auth.shared";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Email Test",
+  title: "Dojo Director | Email Test",
   description: "Send a test email through Resend for an academy.",
   robots: { index: false, follow: false },
 };

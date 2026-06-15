@@ -10,7 +10,7 @@ import { listClubs } from "@/lib/clubs.server";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Super Admin",
+  title: "Dojo Director | Super Admin",
   description: "Super admin dashboard for managing clubs.",
 };
 

@@ -7,7 +7,7 @@ import { requireAcademyAdminSelectionAccess } from "@/lib/admin-auth.server";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Select Academy",
+  title: "Dojo Director | Select Academy",
   description: "Choose which academy you want to open.",
   robots: { index: false, follow: false },
 };

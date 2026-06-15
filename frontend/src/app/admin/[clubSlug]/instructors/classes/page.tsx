@@ -21,7 +21,7 @@ export async function generateMetadata({
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Instructor class allocation`,
+    title: `Dojo Director | ${club.name} Instructor class allocation`,
     description: `Assign instructors to recurring classes for ${club.name}.`,
   };
 }

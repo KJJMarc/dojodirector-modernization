@@ -14,7 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Set Up Account",
+  title: "Dojo Director | Set Up Account",
   description: "Finish setting up your Dojo Director login.",
   robots: { index: false, follow: false },
 };

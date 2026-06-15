@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: LeadsListPageProps): Promise<
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `DojoDirector | ${club.name} Leads`,
+    title: `Dojo Director | ${club.name} Leads`,
     description: `Trial enquiry leads for ${club.name}.`,
   };
 }

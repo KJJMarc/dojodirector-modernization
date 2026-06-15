@@ -23,7 +23,7 @@ export async function generateMetadata({
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
 
   return {
-    title: `DojoDirector | Attendance | ${uiConfig.pageTitle}`,
+    title: `Dojo Director | Attendance | ${uiConfig.pageTitle}`,
     description: "View your attendance card.",
   };
 }

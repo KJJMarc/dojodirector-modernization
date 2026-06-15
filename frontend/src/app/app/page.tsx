@@ -79,21 +79,6 @@ export default function AppEntryPage() {
             </ol>
           </div>
         </div>
-
-        <ul className="mt-4 grid gap-1.5 sm:grid-cols-2">
-          {APP_INSTALL_GUIDANCE.features.map((feature) => (
-            <li
-              key={feature}
-              className="flex items-start gap-2 text-sm text-dojo-muted"
-            >
-              <span
-                aria-hidden="true"
-                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-dojo-red"
-              />
-              <span>{feature}</span>
-            </li>
-          ))}
-        </ul>
       </section>
     </main>
   );

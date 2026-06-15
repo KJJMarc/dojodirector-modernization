@@ -20,7 +20,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | My Portal",
+  title: "Dojo Director | My Portal",
   description: "Sign in to your member portal.",
 };
 

@@ -33,7 +33,7 @@ export async function generateMetadata({
 
   if (!(await getProgrammesSchemaAvailable())) {
     return {
-      title: `DojoDirector | ${club.name} Programme Settings`,
+      title: `Dojo Director | ${club.name} Programme Settings`,
       description: `Configure programmes for ${club.name}.`,
     };
   }
@@ -41,7 +41,7 @@ export async function generateMetadata({
   const programme = await requireClubProgrammeBySlug(club.id, params.programmeSlug);
 
   return {
-    title: `DojoDirector | ${club.name} ${programme.name} Settings`,
+    title: `Dojo Director | ${club.name} ${programme.name} Settings`,
     description: `Configure ${programme.name} for ${club.name}.`,
   };
 }

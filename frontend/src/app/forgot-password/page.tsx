@@ -9,7 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DojoDirector | Forgot Password",
+  title: "Dojo Director | Forgot Password",
   description: "Request a password reset link.",
   robots: { index: false, follow: false },
 };
