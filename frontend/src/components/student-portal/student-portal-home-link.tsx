@@ -1,29 +1,28 @@
-import Link from "next/link";
+"use client";
+
+import { PortalBackLink } from "@/components/portal/portal-back-link";
 import { studentPortalPath } from "@/lib/student-portal-routing.shared";
 
 interface StudentPortalHomeLinkProps {
   clubSlug?: string;
   userId?: string;
+  isPortalHome?: boolean;
 }
 
-export function StudentPortalHomeLink({ clubSlug, userId }: StudentPortalHomeLinkProps) {
-  if (clubSlug && userId) {
-    return (
-      <Link
-        href={studentPortalPath(clubSlug, userId)}
-        className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-      >
-        ← Back to Portal Home
-      </Link>
-    );
+export function StudentPortalHomeLink({
+  clubSlug,
+  userId,
+  isPortalHome = false,
+}: StudentPortalHomeLinkProps) {
+  if (isPortalHome) {
+    return null;
   }
 
   return (
-    <Link
-      href="/"
-      className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
-    >
-      ← Back to Home
-    </Link>
+    <PortalBackLink
+      portalHomeHref={
+        clubSlug && userId ? studentPortalPath(clubSlug, userId) : undefined
+      }
+    />
   );
 }

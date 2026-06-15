@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/layout/app-header";
 import { InstructorQuickActions } from "@/components/instructor/instructor-quick-actions";
-import { InstructorPortalHomeLink } from "@/components/instructor-portal/instructor-portal-home-link";
 import { InstructorPortalSignOutButton } from "@/components/instructor-portal/instructor-portal-sign-out-button";
 import { InstructorPortalSwitchAcademyButton } from "@/components/instructor-portal/instructor-portal-switch-academy-button";
 import { countUnreadPortalMessages } from "@/lib/portal-messages.server";
@@ -44,14 +43,11 @@ export default async function InstructorPortalClubPage({
     <main className="portal-page-shell mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Instructor Portal" clubName={club.name} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <InstructorPortalHomeLink clubSlug={club.slug} />
-        <div className="flex flex-wrap items-center gap-2">
-          {clubContext.accessibleClubs.length > 1 ? (
-            <InstructorPortalSwitchAcademyButton />
-          ) : null}
-          <InstructorPortalSignOutButton />
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {clubContext.accessibleClubs.length > 1 ? (
+          <InstructorPortalSwitchAcademyButton />
+        ) : null}
+        <InstructorPortalSignOutButton />
       </div>
 
       <section className="rounded-xl border border-dojo-border bg-dojo-surface px-4 py-3">

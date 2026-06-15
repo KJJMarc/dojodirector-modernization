@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { PWA_APP_ENTRY_PATH, shouldUseAppEntryAfterPortalSignOut } from "@/lib/pwa.shared";
+import { PWA_APP_ENTRY_PATH } from "@/lib/pwa.shared";
 import {
   hasAcceptedCurrentStudentAgreements,
   logStudentAgreementGate,
@@ -65,13 +65,9 @@ export async function signInStudentPortalAction(formData: FormData) {
   }
 }
 
-export async function signOutStudentPortalAction(formData?: FormData) {
+export async function signOutStudentPortalAction(_formData?: FormData) {
   await signOutStudentPortal();
-  redirect(
-    shouldUseAppEntryAfterPortalSignOut(formData)
-      ? PWA_APP_ENTRY_PATH
-      : studentPortalEntryPath(),
-  );
+  redirect(PWA_APP_ENTRY_PATH);
 }
 
 export async function acceptStudentAgreementsAction(formData: FormData) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { PWA_APP_ENTRY_PATH, shouldUseAppEntryAfterPortalSignOut } from "@/lib/pwa.shared";
+import { PWA_APP_ENTRY_PATH } from "@/lib/pwa.shared";
 import { promoteInvitedPortalAccessAfterPasswordSignIn } from "@/lib/portal-auth-activation.server";
 import {
   PORTAL_AUTH_INVALID_CREDENTIALS_MESSAGE,
@@ -53,14 +53,10 @@ export async function signInInstructorPortalAction(formData: FormData) {
   }
 }
 
-export async function signOutInstructorPortalAction(formData?: FormData) {
+export async function signOutInstructorPortalAction(_formData?: FormData) {
   await clearSelectedInstructorPortalClubSlug();
   await signOutInstructorPortal();
-  redirect(
-    shouldUseAppEntryAfterPortalSignOut(formData)
-      ? PWA_APP_ENTRY_PATH
-      : instructorPortalLoginPath(),
-  );
+  redirect(PWA_APP_ENTRY_PATH);
 }
 
 export async function selectInstructorPortalClubAction(clubSlug: string) {
