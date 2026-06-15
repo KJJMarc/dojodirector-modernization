@@ -76,9 +76,19 @@ export function PromotionCandidatesList({
                 {candidates.map((candidate) => (
                   <tr key={candidate.id}>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-dojo-white">
+                      <Link
+                        href={clubAdminPath(
+                          clubSlug,
+                          `students/${candidate.id}/profile`,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-dojo-white transition hover:text-dojo-red"
+                        title={`View profile for ${candidate.fullName}`}
+                        aria-label={`View profile for ${candidate.fullName}`}
+                      >
                         {candidate.fullName}
-                      </div>
+                      </Link>
                       {candidate.email ? (
                         <div className="text-xs text-dojo-muted">{candidate.email}</div>
                       ) : null}
@@ -127,9 +137,19 @@ export function PromotionCandidatesList({
               >
                 <div className="space-y-3">
                   <div>
-                    <p className="text-base font-semibold text-dojo-white">
+                    <Link
+                      href={clubAdminPath(
+                        clubSlug,
+                        `students/${candidate.id}/profile`,
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-base font-semibold text-dojo-white transition hover:text-dojo-red"
+                      title={`View profile for ${candidate.fullName}`}
+                      aria-label={`View profile for ${candidate.fullName}`}
+                    >
                       {candidate.fullName}
-                    </p>
+                    </Link>
                     {candidate.email ? (
                       <p className="text-sm text-dojo-muted">{candidate.email}</p>
                     ) : null}
