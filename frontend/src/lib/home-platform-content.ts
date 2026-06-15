@@ -78,11 +78,15 @@ export const HOME_PLATFORM_CATEGORIES: HomePlatformCategory[] = [
 ];
 
 export const APP_INSTALL_GUIDANCE = {
-  title: "Install on your phone",
+  title: "Install Dojo Director on your phone",
   description:
-    "Add Dojo Director to your home screen for quick access in full-screen mode. No app store required.",
+    "Add to Home Screen for quick access in full-screen mode. No app store required.",
   iosSteps: ["Open this page in Safari", "Tap Share", "Choose Add to Home Screen"],
-  androidSteps: ["Open this page in Chrome", "Tap the browser menu", "Choose Install app or Add to Home Screen"],
+  androidSteps: [
+    "Open this page in Chrome",
+    "Tap the browser menu",
+    "Choose Add to Home Screen",
+  ],
   features: [
     "Student and instructor login",
     "Class booking and upcoming bookings",

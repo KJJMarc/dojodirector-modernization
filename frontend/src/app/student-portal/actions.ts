@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
+import { PWA_APP_ENTRY_PATH, shouldUseAppEntryAfterPortalSignOut } from "@/lib/pwa.shared";
 import {
   hasAcceptedCurrentStudentAgreements,
   logStudentAgreementGate,
@@ -28,6 +28,7 @@ import {
   SIGNATORY_TYPE_PARENT_GUARDIAN,
   SIGNATORY_TYPE_PARTICIPANT,
 } from "@/lib/student-portal-agreements.shared";
+import { resolveMemberPortalAgreementContent } from "@/lib/club-agreement-templates.server";
 import {
   studentPortalAgreementsPath,
   studentPortalEntryPath,
@@ -64,9 +65,13 @@ export async function signInStudentPortalAction(formData: FormData) {
   }
 }
 
-export async function signOutStudentPortalAction() {
+export async function signOutStudentPortalAction(formData?: FormData) {
   await signOutStudentPortal();
-  redirect(studentPortalEntryPath());
+  redirect(
+    shouldUseAppEntryAfterPortalSignOut(formData)
+      ? PWA_APP_ENTRY_PATH
+      : studentPortalEntryPath(),
+  );
 }
 
 export async function acceptStudentAgreementsAction(formData: FormData) {

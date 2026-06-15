@@ -137,6 +137,28 @@ if (
   score++;
 }
 
+total++;
+if (
+  check(
+    "Manifest name is Dojo Director",
+    manifestFields.name === "Dojo Director",
+    manifestFields.name ?? "missing",
+  )
+) {
+  score++;
+}
+
+total++;
+if (
+  check(
+    "Manifest short_name is Dojo Director",
+    manifestFields.short_name === "Dojo Director",
+    manifestFields.short_name ?? "missing",
+  )
+) {
+  score++;
+}
+
 const icons = manifestFields.icons ?? [];
 const has192 = icons.some((icon) => icon.sizes === "192x192");
 const has512 = icons.some((icon) => icon.sizes === "512x512");
