@@ -26,7 +26,7 @@ export default async function StudentPortalLoginPage({
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+    <main className="portal-page-shell mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Student Login" clubName={null} />
 
       <StudentPortalHomeLink />

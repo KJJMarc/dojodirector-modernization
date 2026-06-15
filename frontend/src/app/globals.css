@@ -8,6 +8,19 @@
 
 body {
   @apply bg-dojo-black text-dojo-white antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+.portal-page-shell {
+  padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
 }
 
 body:has(.adult-belt-rankings-page),

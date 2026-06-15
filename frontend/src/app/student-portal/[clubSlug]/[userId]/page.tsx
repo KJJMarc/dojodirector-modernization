@@ -73,7 +73,7 @@ export default async function StudentPortalPage({
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 overflow-x-hidden px-3 py-4 pb-20 sm:px-5">
+    <main className="portal-page-shell mx-auto min-h-screen w-full max-w-4xl space-y-6 overflow-x-hidden px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="My Portal" clubName={uiConfig.clubDisplayName ?? club.name} />
 
       <StudentPortalTopBar />
