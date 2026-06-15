@@ -1,10 +1,9 @@
 import { HomeHeader } from "@/components/layout/home-header";
 import { HomeAppBanner } from "@/components/layout/home-app-banner";
-import { HomeFeatureSection } from "@/components/layout/home-feature-section";
 import { HomeHeroSection } from "@/components/layout/home-hero-section";
 import { HomeLoginProvider } from "@/components/layout/home-login-context";
+import { HomePlatformFeatures } from "@/components/layout/home-platform-features";
 import { PublicSiteFooter } from "@/components/layout/public-site-footer";
-import { HOME_PLATFORM_SECTIONS } from "@/lib/home-platform-content";
 
 export default function Home() {
   return (
@@ -15,9 +14,7 @@ export default function Home() {
         <main>
           <HomeHeroSection />
           <HomeAppBanner />
-          {HOME_PLATFORM_SECTIONS.map((section) => (
-            <HomeFeatureSection key={section.id} {...section} />
-          ))}
+          <HomePlatformFeatures />
         </main>
 
         <PublicSiteFooter />

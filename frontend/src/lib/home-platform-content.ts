@@ -14,221 +14,193 @@ export interface HomePlatformSection {
 export const HOME_APP_BANNER = {
   eyebrow: "Installable web app",
   title: "Dojo Director App",
-  description:
-    "Students and instructors can install Dojo Director directly to their iPhone or Android home screen from the website. No App Store required — just add the installable web app and sign in.",
-  bullets: [
-    "Student login",
-    "Instructor login",
-    "Class booking",
-    "Upcoming bookings",
-    "Attendance cards",
-    "Grading progress",
-    "Instructor registers",
-  ],
-  primaryCta: {
-    label: "Open the app",
+  description: "Access student and instructor tools from your phone.",
+  cta: {
+    label: "Open the App",
     href: "/app",
   },
-  secondaryCta: {
-    label: "Student login",
-    href: "/student-portal/login",
-  },
+} as const;
+
+export const HOME_PLATFORM_OVERVIEW = {
+  eyebrow: "Platform",
+  title: "Everything your academy runs on",
+  description:
+    "One connected system for admin teams, students and instructors — from records and bookings to retention and growth.",
 } as const;
 
 export const HOME_PLATFORM_SECTIONS: HomePlatformSection[] = [
   {
     id: "academy-management",
     eyebrow: "Academy management",
-    title: "Run every academy from one platform",
-    description:
-      "Centralise member records, memberships, agreements and access control across programmes and locations.",
+    title: "Academy Management",
+    description: "Members, memberships, agreements and access across programmes and locations.",
     features: [
       {
         title: "Student Records",
-        description:
-          "Keep profiles, contact details, belt history and academy information organised in one place.",
+        description: "Profiles, contact details, belt history and academy information.",
       },
       {
         title: "Membership Management",
-        description:
-          "Track active, inactive and pending memberships with clear status across your student base.",
+        description: "Active, inactive and pending membership status at a glance.",
       },
       {
         title: "Digital Training Agreements",
-        description:
-          "Issue, accept and store membership agreements digitally with downloadable PDF records.",
+        description: "Issue, accept and store membership agreements with PDF records.",
       },
       {
         title: "Programme Memberships",
-        description:
-          "Assign students to adult, kids and specialist programmes with programme-scoped access.",
+        description: "Adult, kids and specialist programmes with scoped access.",
       },
       {
         title: "Multi-Academy Support",
-        description:
-          "Operate separate academies with their own branding, timetables, portals and admin teams.",
+        description: "Separate branding, timetables, portals and admin teams per academy.",
       },
       {
         title: "Role-Based Access",
-        description:
-          "Separate permissions for students, instructors, club admins and super administrators.",
-      },
-    ],
-  },
-  {
-    id: "class-operations",
-    eyebrow: "Class operations",
-    title: "Keep classes running smoothly",
-    description:
-      "Manage timetables, bookings, attendance and session changes without spreadsheets or disconnected tools.",
-    features: [
-      {
-        title: "Class Booking",
-        description:
-          "Let students browse upcoming sessions and reserve places on the academy timetable.",
-      },
-      {
-        title: "Attendance Tracking",
-        description:
-          "Mark attendance from registers and maintain reliable participation records over time.",
-      },
-      {
-        title: "Instructor Registers",
-        description:
-          "Give instructors fast mobile-friendly registers for marking attendance on the mat.",
-      },
-      {
-        title: "Session Management",
-        description:
-          "Create, edit and manage one-off and recurring class sessions from a central schedule.",
-      },
-      {
-        title: "Capacity Management",
-        description:
-          "Set session limits and keep class sizes under control as bookings come in.",
-      },
-      {
-        title: "Booking Cancellation",
-        description:
-          "Cancel sessions and manage affected bookings when plans change.",
+        description: "Permissions for students, instructors, club admins and super admins.",
       },
     ],
   },
   {
     id: "student-experience",
     eyebrow: "Student experience",
-    title: "A portal students actually use",
-    description:
-      "Give members a clear, mobile-ready view of training, progress and academy communication.",
+    title: "Student Experience",
+    description: "A mobile-ready portal for training, progress and academy communication.",
     features: [
       {
         title: "Student Portal",
-        description:
-          "Secure sign-in for bookings, attendance history, grading and academy messages.",
+        description: "Bookings, attendance history, grading and academy messages.",
       },
       {
         title: "Attendance Cards",
-        description:
-          "Visual yearly attendance cards that make participation easy to understand at a glance.",
+        description: "Visual yearly cards that make participation easy to read.",
       },
       {
         title: "Belt Progression",
-        description:
-          "Show current rank and grading history so students can see progress over time.",
+        description: "Current rank and grading history in one place.",
       },
       {
         title: "Membership Status",
-        description:
-          "Keep students informed about their membership and programme access.",
+        description: "Clear view of membership and programme access.",
       },
       {
         title: "Agreement Downloads",
-        description:
-          "Let students access signed membership agreement PDFs from their portal.",
+        description: "Signed membership agreement PDFs from the portal.",
       },
       {
-        title: "Mobile App Access",
-        description:
-          "Install Dojo Director to the home screen for quick portal access in standalone mode.",
+        title: "Home Screen Access",
+        description: "Quick portal access from the Dojo Director app.",
+      },
+    ],
+  },
+  {
+    id: "class-operations",
+    eyebrow: "Class operations",
+    title: "Class Operations",
+    description: "Timetables, bookings, attendance and session management in one flow.",
+    features: [
+      {
+        title: "Class Booking",
+        description: "Students reserve places on the academy timetable.",
+      },
+      {
+        title: "Attendance Tracking",
+        description: "Reliable participation records over time.",
+      },
+      {
+        title: "Instructor Registers",
+        description: "Mobile-friendly registers for marking attendance on the mat.",
+      },
+      {
+        title: "Session Management",
+        description: "One-off and recurring sessions from a central schedule.",
+      },
+      {
+        title: "Capacity Management",
+        description: "Session limits as bookings come in.",
+      },
+      {
+        title: "Booking Cancellation",
+        description: "Cancel sessions and manage affected bookings.",
       },
     ],
   },
   {
     id: "instructor-tools",
     eyebrow: "Instructor tools",
-    title: "Built for coaches on the floor",
-    description:
-      "Help instructors see their classes, take attendance quickly and stay connected to the academy.",
+    title: "Instructor Tools",
+    description: "Coaching tools for classes, attendance and academy communication.",
     features: [
       {
         title: "Instructor Portal",
-        description:
-          "Dedicated sign-in for coaches with academy-specific tools and navigation.",
+        description: "Dedicated sign-in with academy-specific navigation.",
       },
       {
         title: "Today's Classes",
-        description:
-          "View upcoming sessions, cover assignments and the classes you are teaching.",
+        description: "Upcoming sessions, cover assignments and teaching schedule.",
       },
       {
         title: "Fast Attendance Registers",
-        description:
-          "Mark attendance session by session with a layout designed for phones and tablets.",
+        description: "Session-by-session attendance on phone or tablet.",
       },
       {
         title: "Class Roster Views",
-        description:
-          "See who is booked and checked in for each session directly from the register.",
+        description: "See who is booked and checked in for each session.",
       },
       {
         title: "Attendance Kiosk",
-        description:
-          "Open a self check-in kiosk for students arriving at today's classes.",
+        description: "Self check-in kiosk for students at today's classes.",
       },
       {
         title: "Portal Messages",
-        description:
-          "Receive academy notices and updates inside the instructor portal.",
+        description: "Academy notices inside the instructor portal.",
       },
     ],
   },
   {
     id: "retention-growth",
     eyebrow: "Retention and growth",
-    title: "Grow the academy and keep students training",
-    description:
-      "Spot risks early, follow up on enquiries and understand what is working across your classes.",
+    title: "Retention & Growth",
+    description: "Follow up on enquiries, spot risks and understand class performance.",
     features: [
       {
         title: "Student Retention Dashboard",
-        description:
-          "Monitor participation trends and identify students who may need a follow-up.",
+        description: "Participation trends and students who may need outreach.",
       },
       {
         title: "At-Risk Student Flags",
-        description:
-          "Highlight students by risk level so admins can prioritise outreach.",
+        description: "Risk levels to help admins prioritise follow-up.",
       },
       {
         title: "Suggested Actions",
-        description:
-          "Review practical follow-up prompts tied to each retention record.",
+        description: "Practical prompts tied to each retention record.",
       },
       {
         title: "Trial Enquiry Tracking",
-        description:
-          "Capture website trial enquiries and manage them through the admin leads workflow.",
+        description: "Website trial enquiries in the admin leads workflow.",
       },
       {
         title: "Lead Attribution",
-        description:
-          "See whether enquiries came from Google Ads, Meta, organic search, referral or direct traffic.",
+        description: "Google Ads, Meta, organic search, referral and direct traffic.",
       },
       {
         title: "Class Metrics",
-        description:
-          "Review attendance trends and class performance data to inform academy decisions.",
+        description: "Attendance trends and class performance data.",
       },
     ],
   },
 ];
+
+export const APP_INSTALL_GUIDANCE = {
+  title: "Install on your phone",
+  description:
+    "Add Dojo Director to your home screen for quick access in full-screen mode. No app store required.",
+  iosSteps: ["Open this page in Safari", "Tap Share", "Choose Add to Home Screen"],
+  androidSteps: ["Open this page in Chrome", "Tap the browser menu", "Choose Install app or Add to Home Screen"],
+  features: [
+    "Student and instructor login",
+    "Class booking and upcoming bookings",
+    "Attendance cards and grading progress",
+    "Instructor registers and portal messages",
+  ],
+} as const;

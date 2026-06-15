@@ -24,9 +24,8 @@ export function HomeHeroSection() {
             arts academies.
           </p>
           <p className="mt-4 text-sm leading-relaxed text-neutral-500 sm:text-base">
-            Students and instructors can install Dojo Director to their phone home
-            screen, while admins run multi-programme, multi-academy operations behind
-            the scenes.
+            Built for multi-programme, multi-academy martial arts schools that need
+            one platform for daily operations and member experience.
           </p>
 
           <HomeHeroActions />

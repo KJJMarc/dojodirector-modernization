@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DojoDirectorWordmark } from "@/components/layout/dojo-director-wordmark";
+import { APP_INSTALL_GUIDANCE } from "@/lib/home-platform-content";
 import { PWA_DESCRIPTION, PWA_NAME } from "@/lib/pwa.shared";
 
 export const metadata: Metadata = {
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function AppEntryPage() {
   return (
-    <main className="portal-page-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-3 py-8 sm:px-5">
+    <main className="portal-page-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-3 py-8 sm:max-w-lg sm:px-5">
       <div className="space-y-3 text-center">
         <div className="flex justify-center">
           <DojoDirectorWordmark className="text-4xl font-bold uppercase leading-none tracking-tight sm:text-5xl" />
@@ -41,6 +42,59 @@ export default function AppEntryPage() {
           </span>
         </Link>
       </div>
+
+      <section
+        aria-labelledby="app-install-heading"
+        className="rounded-xl border border-dojo-border bg-dojo-surface/80 px-5 py-5"
+      >
+        <h2
+          id="app-install-heading"
+          className="text-sm font-semibold uppercase tracking-wide text-dojo-red"
+        >
+          {APP_INSTALL_GUIDANCE.title}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-dojo-muted">
+          {APP_INSTALL_GUIDANCE.description}
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-dojo-white">
+              iPhone
+            </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-dojo-muted">
+              {APP_INSTALL_GUIDANCE.iosSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-dojo-white">
+              Android
+            </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-dojo-muted">
+              {APP_INSTALL_GUIDANCE.androidSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        </div>
+
+        <ul className="mt-4 grid gap-1.5 sm:grid-cols-2">
+          {APP_INSTALL_GUIDANCE.features.map((feature) => (
+            <li
+              key={feature}
+              className="flex items-start gap-2 text-sm text-dojo-muted"
+            >
+              <span
+                aria-hidden="true"
+                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-dojo-red"
+              />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }
