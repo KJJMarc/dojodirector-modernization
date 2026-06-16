@@ -91,24 +91,16 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
         ) : null}
       </div>
 
-      {lead.trialSessionMissed ? (
+      {lead.trialAttendancePending ? (
         <section
           className="rounded-xl border border-dojo-amber-500/40 bg-dojo-amber-500/10 px-4 py-3 text-sm text-dojo-white"
           role="status"
         >
           <p>
-            This trial session was in the past and no attendance was recorded. Update the
-            status to <span className="font-medium">Trial Missed</span> if they did not
-            attend.
+            The trial date has passed and attendance has not been marked on the register
+            yet. This lead will remain <span className="font-medium">Trial Booked</span>{" "}
+            until attendance is recorded as present or absent.
           </p>
-          <button
-            type="button"
-            disabled={isPending}
-            className="mt-3 inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-amber-400/60 bg-dojo-amber-500/20 px-3 py-1.5 text-sm font-semibold text-dojo-white transition hover:border-dojo-amber-300 hover:bg-dojo-amber-500/30 disabled:cursor-not-allowed"
-            onClick={() => setStatus("trial_missed")}
-          >
-            Set status to Trial Missed
-          </button>
         </section>
       ) : null}
 

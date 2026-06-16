@@ -12,12 +12,10 @@ import {
   computeLeadFollowUpStatus,
   formatLeadSourceLabel,
   formatLeadStatusLabel,
-  formatLeadDisplayStatusLabel,
-  isLeadTrialSessionMissed,
+  isLeadTrialAttendancePending,
   MANUAL_LEAD_SOURCE_OPTIONS,
   normalizeLeadStatus,
   parseLeadStatus,
-  resolveLeadDisplayStatus,
   resolveAdminEditableLeadSource,
   resolveTrialLeadAcademySlug,
   resolveTrialLeadAcademySlugForClub,
@@ -169,41 +167,11 @@ test("formatLeadStatusLabel uses simplified status labels", () => {
   assert.equal(formatLeadStatusLabel("unknown_status"), "New Enquiry");
 });
 
-test("resolveLeadDisplayStatus infers trial missed from past booked session", () => {
+test("isLeadTrialAttendancePending warns when trial date passed without attendance", () => {
   const pastSession = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   assert.equal(
-    resolveLeadDisplayStatus({
-      status: "trial_booked",
-      trialAttendedAt: null,
-      linkedTrialSessionStartsAt: pastSession,
-    }),
-    "trial_missed",
-  );
-  assert.equal(
-    resolveLeadDisplayStatus({
-      status: "trial_booked",
-      trialAttendedAt: new Date().toISOString(),
-      linkedTrialSessionStartsAt: pastSession,
-    }),
-    "trial_booked",
-  );
-});
-
-test("formatLeadDisplayStatusLabel never returns raw stored values", () => {
-  assert.equal(
-    formatLeadDisplayStatusLabel({
-      status: "new_enquiry",
-    }),
-    "New Enquiry",
-  );
-});
-
-test("isLeadTrialSessionMissed identifies overdue trial bookings", () => {
-  const pastSession = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-  assert.equal(
-    isLeadTrialSessionMissed({
+    isLeadTrialAttendancePending({
       status: "trial_booked",
       trialAttendedAt: null,
       linkedTrialSessionStartsAt: pastSession,
@@ -211,9 +179,17 @@ test("isLeadTrialSessionMissed identifies overdue trial bookings", () => {
     true,
   );
   assert.equal(
-    isLeadTrialSessionMissed({
+    isLeadTrialAttendancePending({
       status: "trial_missed",
       trialAttendedAt: null,
+      linkedTrialSessionStartsAt: pastSession,
+    }),
+    false,
+  );
+  assert.equal(
+    isLeadTrialAttendancePending({
+      status: "trial_booked",
+      trialAttendedAt: new Date().toISOString(),
       linkedTrialSessionStartsAt: pastSession,
     }),
     false,
@@ -229,13 +205,11 @@ test("buildAdminLeadsSummary counts new enquiries and follow-up separately", () 
   const leads = [
     {
       status: "new_enquiry",
-      displayStatus: "new_enquiry",
       followUpStatus: "needs_follow_up",
       joinedAt: null,
     },
     {
       status: "trial_booked",
-      displayStatus: "trial_booked",
       followUpStatus: "ok",
       joinedAt: null,
     },
@@ -259,7 +233,9 @@ test("computeLeadFollowUpStatus keeps trial missed leads actionable", () => {
     }),
     "needs_follow_up",
   );
+});
 
+test("computeLeadFollowUpStatus does not follow up on past trial dates alone", () => {
   const pastSession = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   assert.equal(
@@ -270,6 +246,6 @@ test("computeLeadFollowUpStatus keeps trial missed leads actionable", () => {
       trialAttendedAt: null,
       linkedTrialSessionStartsAt: pastSession,
     }),
-    "needs_follow_up",
+    "ok",
   );
 });

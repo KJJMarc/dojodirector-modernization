@@ -18,6 +18,7 @@
     "test:london-datetime": "npx --yes tsx --test src/lib/london-datetime.test.ts",
     "test:lead-attribution": "node --experimental-strip-types --test src/lib/lead-attribution.shared.test.ts",
     "test:leads-shared": "node --experimental-strip-types --import ./scripts/register-tsconfig-paths.mjs --test src/lib/leads.shared.test.ts",
+    "test:lead-status-tracking": "node --experimental-strip-types --import ./scripts/register-tsconfig-paths.mjs --test src/lib/lead-status-tracking.shared.test.ts",
     "generate:favicon": "node scripts/generate-favicon.mjs",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "verify:pwa": "node scripts/verify-pwa.mjs",

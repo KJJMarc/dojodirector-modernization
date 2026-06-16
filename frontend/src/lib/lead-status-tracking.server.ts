@@ -6,6 +6,11 @@ import {
   normalizeLeadMatchPhone,
 } from "@/lib/lead-guest-booking-match.shared";
 import { preserveStudentOriginalLeadSource } from "@/lib/lead-source-analytics.server";
+import {
+  resolveLeadStatusAfterAttendanceRegisterMark,
+  shouldUpdateLeadFromAttendanceRegisterMark,
+  type AttendanceRegisterLeadMark,
+} from "@/lib/lead-status-tracking.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface SupabaseErrorLike {
@@ -33,6 +38,29 @@ function isMissingLeadsTableError(error: SupabaseErrorLike) {
     message.includes('relation "leads" does not exist') ||
     message.includes('relation "public.leads" does not exist')
   );
+}
+
+async function findLeadById(
+  academyId: string,
+  leadId: string,
+): Promise<LeadTrackingRow | null> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id, email, phone, lead_source, status, notes, trial_attended_at, joined_at")
+    .eq("academy_id", academyId)
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingLeadsTableError(error)) {
+      return null;
+    }
+
+    throw new Error(`Failed to match lead by id: ${error.message}`);
+  }
+
+  return (data as LeadTrackingRow | null) ?? null;
 }
 
 async function findLeadByEmail(academyId: string, email: string): Promise<LeadTrackingRow | null> {
@@ -90,7 +118,16 @@ async function findLeadForMatch(input: {
   academyId: string;
   email: string;
   phone: string | null;
+  leadId?: string | null;
 }): Promise<LeadTrackingRow | null> {
+  if (input.leadId) {
+    const byId = await findLeadById(input.academyId, input.leadId);
+
+    if (byId) {
+      return byId;
+    }
+  }
+
   const normalizedEmail = normalizeLeadMatchEmail(input.email);
 
   if (normalizedEmail) {
@@ -194,13 +231,15 @@ export async function matchLeadOnStudentJoined(input: {
 }
 
 /**
- * When attendance is marked present for a member, match a trial-booked lead.
+ * When attendance is marked on the register, update the matched lead status.
  * Never throws — attendance marking must not depend on lead matching.
  */
-export async function matchLeadOnTrialAttendance(input: {
+export async function matchLeadOnAttendanceRegisterMark(input: {
   academyId: string;
+  attendanceStatus: AttendanceRegisterLeadMark;
   email: string;
   phone: string | null;
+  leadId?: string | null;
   className: string;
   sessionDateLabel: string;
 }): Promise<void> {
@@ -209,41 +248,53 @@ export async function matchLeadOnTrialAttendance(input: {
 
     if (
       !lead ||
-      lead.trial_attended_at ||
-      lead.status === "trial_attended" ||
-      lead.status === "joined" ||
-      lead.status === "trial_missed"
-    ) {
-      return;
-    }
-
-    if (
-      lead.status !== "trial_booked" &&
-      lead.status !== "new_enquiry" &&
-      lead.status !== "new" &&
-      lead.status !== "contacted"
+      !shouldUpdateLeadFromAttendanceRegisterMark(lead, input.attendanceStatus)
     ) {
       return;
     }
 
     const now = new Date().toISOString();
-    const noteEntry = `[${formatTrackingTimestamp(now)}] Trial attendance recorded: ${input.className.trim()} — ${input.sessionDateLabel.trim()}`;
+    const nextStatus = resolveLeadStatusAfterAttendanceRegisterMark(
+      input.attendanceStatus,
+    );
+    const notePrefix =
+      input.attendanceStatus === "present"
+        ? "Trial attendance recorded"
+        : "Trial missed on register";
+    const noteEntry = `[${formatTrackingTimestamp(now)}] ${notePrefix}: ${input.className.trim()} — ${input.sessionDateLabel.trim()}`;
 
     await updateLeadTracking({
       academyId: input.academyId,
       leadId: lead.id,
-      status: "trial_attended",
-      trialAttendedAt: now,
+      status: nextStatus,
+      ...(nextStatus === "trial_attended" && !lead.trial_attended_at
+        ? { trialAttendedAt: now }
+        : {}),
       noteEntry,
       existingNotes: lead.notes,
     });
   } catch (error) {
     console.error("[lead-status-tracking]", {
-      kind: "trial_attendance",
+      kind: "attendance_register",
       academyId: input.academyId,
+      attendanceStatus: input.attendanceStatus,
       message: error instanceof Error ? error.message : "Lead attendance matching failed.",
     });
   }
+}
+
+/** @deprecated Use matchLeadOnAttendanceRegisterMark with attendanceStatus: "present". */
+export async function matchLeadOnTrialAttendance(input: {
+  academyId: string;
+  email: string;
+  phone: string | null;
+  className: string;
+  sessionDateLabel: string;
+}): Promise<void> {
+  await matchLeadOnAttendanceRegisterMark({
+    ...input,
+    attendanceStatus: "present",
+  });
 }
 
 function formatTrackingTimestamp(iso: string) {

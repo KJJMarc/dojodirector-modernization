@@ -10,11 +10,10 @@ import {
   LEADS_NOT_CONFIGURED_MESSAGE,
   buildAdminLeadsSummary,
   computeLeadFollowUpStatus,
-  formatLeadDisplayStatusLabel,
-  isLeadTrialSessionMissed,
+  formatLeadStatusLabel,
+  isLeadTrialAttendancePending,
   parseLeadStatus,
   normalizeLeadStatus,
-  resolveLeadDisplayStatus,
   parseLeadSubmission,
   type AdminArchivedLeadListRow,
   type AdminLeadDetail,
@@ -389,14 +388,12 @@ function mapArchivedLeadListRow(row: LeadRecordRow): AdminArchivedLeadListRow {
   }
 
   const status = normalizeLeadStatus(row.status);
-  const displayStatus = resolveLeadDisplayStatus({ status });
 
   return {
     id: row.id,
     fullName: row.full_name,
     status,
-    displayStatus,
-    statusLabel: formatLeadDisplayStatusLabel({ status: displayStatus }),
+    statusLabel: formatLeadStatusLabel(status),
     programmeInterest:
       row.programme_interest as AdminArchivedLeadListRow["programmeInterest"],
     archivedAt,
@@ -419,11 +416,6 @@ function mapLeadListRow(
   const trialAttendedAt = row.trial_attended_at ?? null;
 
   const status = normalizeLeadStatus(row.status);
-  const displayStatus = resolveLeadDisplayStatus({
-    status,
-    trialAttendedAt,
-    linkedTrialSessionStartsAt,
-  });
 
   return {
     id: row.id,
@@ -435,8 +427,7 @@ function mapLeadListRow(
     leadSource: row.lead_source as AdminLeadListRow["leadSource"],
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     status,
-    displayStatus,
-    statusLabel: formatLeadDisplayStatusLabel({ status: displayStatus }),
+    statusLabel: formatLeadStatusLabel(status),
     createdAt: row.created_at,
     submittedAt,
     contactedAt: row.contacted_at ?? null,
@@ -461,11 +452,6 @@ function mapLeadDetail(
 ): AdminLeadDetail {
   const status = normalizeLeadStatus(row.status);
   const trialAttendedAt = row.trial_attended_at ?? null;
-  const displayStatus = resolveLeadDisplayStatus({
-    status,
-    trialAttendedAt,
-    linkedTrialSessionStartsAt,
-  });
 
   return {
     id: row.id,
@@ -479,9 +465,8 @@ function mapLeadDetail(
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     notes: row.notes,
     status,
-    displayStatus,
-    statusLabel: formatLeadDisplayStatusLabel({ status: displayStatus }),
-    trialSessionMissed: isLeadTrialSessionMissed({
+    statusLabel: formatLeadStatusLabel(status),
+    trialAttendancePending: isLeadTrialAttendancePending({
       status,
       trialAttendedAt,
       linkedTrialSessionStartsAt,

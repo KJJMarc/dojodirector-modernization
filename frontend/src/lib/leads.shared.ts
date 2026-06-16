@@ -180,7 +180,6 @@ export interface AdminArchivedLeadListRow {
   id: string;
   fullName: string;
   status: LeadStatus;
-  displayStatus: LeadStatus;
   statusLabel: string;
   programmeInterest: LeadProgrammeInterest;
   archivedAt: string;
@@ -195,7 +194,6 @@ export interface AdminLeadListRow {
   experienceLevel: LeadExperienceLevel;
   leadSource: StoredLeadSource;
   status: LeadStatus;
-  displayStatus: LeadStatus;
   statusLabel: string;
   createdAt: string;
   submittedAt: string;
@@ -220,9 +218,8 @@ export interface AdminLeadDetail {
   leadSource: StoredLeadSource;
   notes: string | null;
   status: LeadStatus;
-  displayStatus: LeadStatus;
   statusLabel: string;
-  trialSessionMissed: boolean;
+  trialAttendancePending: boolean;
   linkedTrialSessionStartsAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -313,52 +310,28 @@ export function formatLeadStatusLabel(status: LeadStatus | string) {
   return LEAD_STATUS_LABELS[normalizeLeadStatus(status)];
 }
 
-export function resolveLeadDisplayStatus(input: {
+export function isLeadTrialAttendancePending(input: {
   status: LeadStatus | string;
   trialAttendedAt?: string | null;
   linkedTrialSessionStartsAt?: string | null;
   now?: Date;
-}): LeadStatus {
+}) {
   const status = normalizeLeadStatus(input.status);
 
-  if (
-    status === "trial_booked" &&
-    !input.trialAttendedAt &&
-    input.linkedTrialSessionStartsAt
-  ) {
-    const sessionStart = new Date(input.linkedTrialSessionStartsAt);
-    const now = input.now ?? new Date();
-
-    if (
-      !Number.isNaN(sessionStart.getTime()) &&
-      now.getTime() > sessionStart.getTime()
-    ) {
-      return "trial_missed";
-    }
+  if (status !== "trial_booked" || input.trialAttendedAt) {
+    return false;
   }
 
-  return status;
-}
+  if (!input.linkedTrialSessionStartsAt) {
+    return false;
+  }
 
-export function formatLeadDisplayStatusLabel(input: {
-  status: LeadStatus | string;
-  trialAttendedAt?: string | null;
-  linkedTrialSessionStartsAt?: string | null;
-  now?: Date;
-}) {
-  return formatLeadStatusLabel(resolveLeadDisplayStatus(input));
-}
+  const sessionStart = new Date(input.linkedTrialSessionStartsAt);
+  const now = input.now ?? new Date();
 
-export function isLeadTrialSessionMissed(input: {
-  status: LeadStatus | string;
-  trialAttendedAt?: string | null;
-  linkedTrialSessionStartsAt?: string | null;
-  now?: Date;
-}) {
-  const storedStatus = normalizeLeadStatus(input.status);
-  const displayStatus = resolveLeadDisplayStatus(input);
-
-  return storedStatus === "trial_booked" && displayStatus === "trial_missed";
+  return (
+    !Number.isNaN(sessionStart.getTime()) && now.getTime() > sessionStart.getTime()
+  );
 }
 
 export function formatLeadSourceLabel(value: LeadSource | StoredLeadSource | string) {
@@ -469,18 +442,13 @@ export function computeLeadFollowUpStatus(input: {
   now?: Date;
 }): LeadFollowUpStatus {
   const now = input.now ?? new Date();
-  const displayStatus = resolveLeadDisplayStatus({
-    status: input.status,
-    trialAttendedAt: input.trialAttendedAt,
-    linkedTrialSessionStartsAt: input.linkedTrialSessionStartsAt,
-    now,
-  });
+  const status = normalizeLeadStatus(input.status);
 
-  if (displayStatus === "trial_missed") {
+  if (status === "trial_missed") {
     return "needs_follow_up";
   }
 
-  if (displayStatus === "new_enquiry") {
+  if (status === "new_enquiry") {
     const submitted = new Date(input.submittedAt);
 
     if (!Number.isNaN(submitted.getTime()) && now.getTime() - submitted.getTime() > TWO_DAYS_MS) {
@@ -508,7 +476,7 @@ export function buildAdminLeadsSummary(leads: AdminLeadListRow[]): AdminLeadsSum
   return {
     newLeads: leads.filter((lead) => lead.status === "new_enquiry").length,
     needsFollowUp: leads.filter((lead) => lead.followUpStatus === "needs_follow_up").length,
-    trialBooked: leads.filter((lead) => lead.displayStatus === "trial_booked").length,
+    trialBooked: leads.filter((lead) => lead.status === "trial_booked").length,
     joinedThisMonth: leads.filter((lead) => {
       if (lead.status !== "joined" || !lead.joinedAt) {
         return false;

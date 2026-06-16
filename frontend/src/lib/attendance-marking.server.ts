@@ -7,13 +7,14 @@ import {
   type SyncAttendanceStatus,
 } from "@/lib/attendance-records-sync";
 import { utcIsoToLondonDate } from "@/lib/london-datetime";
-import { matchLeadOnTrialAttendance } from "@/lib/lead-status-tracking.server";
+import { matchLeadOnAttendanceRegisterMark } from "@/lib/lead-status-tracking.server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface SessionAttendeeMarkingRow {
   id: string;
   user_id: string | null;
+  guest_booking_id: string | null;
   class_session_id: string;
   attendance_status: string | null;
 }
@@ -25,13 +26,19 @@ interface ClassSessionMarkingRow {
   classes: { name: string | null } | { name: string | null }[] | null;
 }
 
+interface GuestBookingLeadMatchRow {
+  email: string;
+  phone: string | null;
+  lead_id: string | null;
+}
+
 async function loadSessionAttendeeForMarking(
   supabase: SupabaseClient,
   attendeeId: string,
 ): Promise<SessionAttendeeMarkingRow> {
   const { data, error } = await supabase
     .from("session_attendees")
-    .select("id, user_id, class_session_id, attendance_status")
+    .select("id, user_id, guest_booking_id, class_session_id, attendance_status")
     .eq("id", attendeeId)
     .maybeSingle();
 
@@ -69,9 +76,79 @@ async function loadClassSessionForMarking(
   return data as ClassSessionMarkingRow;
 }
 
+async function loadGuestBookingForLeadMatch(
+  supabase: SupabaseClient,
+  guestBookingId: string,
+): Promise<GuestBookingLeadMatchRow | null> {
+  const { data, error } = await supabase
+    .from("guest_bookings")
+    .select("email, phone, lead_id")
+    .eq("id", guestBookingId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to load guest booking for lead match: ${error.message}`);
+  }
+
+  return (data as GuestBookingLeadMatchRow | null) ?? null;
+}
+
 function resolveClassName(classes: ClassSessionMarkingRow["classes"]) {
   const classRow = Array.isArray(classes) ? classes[0] : classes;
   return classRow?.name?.trim() || "Class";
+}
+
+async function syncLeadStatusFromAttendanceRegister(input: {
+  supabase: SupabaseClient;
+  attendee: SessionAttendeeMarkingRow;
+  classSession: ClassSessionMarkingRow;
+  nextStatus: Extract<SyncAttendanceStatus, "present" | "absent">;
+}) {
+  const sessionDateLabel = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+  }).format(new Date(input.classSession.starts_at));
+  const className = resolveClassName(input.classSession.classes);
+
+  if (input.attendee.user_id) {
+    const { data: userRow } = await input.supabase
+      .from("users")
+      .select("email, phone")
+      .eq("id", input.attendee.user_id)
+      .maybeSingle();
+
+    void matchLeadOnAttendanceRegisterMark({
+      academyId: input.classSession.club_id,
+      attendanceStatus: input.nextStatus,
+      email: userRow?.email?.trim() ?? "",
+      phone: userRow?.phone?.trim() ?? null,
+      className,
+      sessionDateLabel,
+    });
+    return;
+  }
+
+  if (!input.attendee.guest_booking_id) {
+    return;
+  }
+
+  const guestBooking = await loadGuestBookingForLeadMatch(
+    input.supabase,
+    input.attendee.guest_booking_id,
+  );
+
+  if (!guestBooking) {
+    return;
+  }
+
+  void matchLeadOnAttendanceRegisterMark({
+    academyId: input.classSession.club_id,
+    attendanceStatus: input.nextStatus,
+    email: guestBooking.email.trim(),
+    phone: guestBooking.phone?.trim() ?? null,
+    leadId: guestBooking.lead_id,
+    className,
+    sessionDateLabel,
+  });
 }
 
 export async function applySessionAttendeeAttendanceStatus(
@@ -98,49 +175,42 @@ export async function applySessionAttendeeAttendanceStatus(
     throw new Error(`Unable to update attendance: ${error.message}`);
   }
 
-  if (!attendee.user_id) {
-    return attendee.class_session_id;
+  if (attendee.user_id) {
+    if (!classSession.club_id || !classSession.starts_at) {
+      throw new Error("Unable to resolve class session details for attendance sync.");
+    }
+
+    const attendedOn = utcIsoToLondonDate(classSession.starts_at);
+
+    await syncAttendanceRecordForStatus(
+      supabase,
+      {
+        userId: attendee.user_id,
+        clubId: classSession.club_id,
+        classSessionId: attendee.class_session_id,
+        attendedOn,
+      },
+      nextStatus,
+    );
   }
 
-  if (!classSession.club_id || !classSession.starts_at) {
-    throw new Error("Unable to resolve class session details for attendance sync.");
-  }
-
-  const attendedOn = utcIsoToLondonDate(classSession.starts_at);
-
-  await syncAttendanceRecordForStatus(
-    supabase,
-    {
-      userId: attendee.user_id,
-      clubId: classSession.club_id,
-      classSessionId: attendee.class_session_id,
-      attendedOn,
-    },
-    nextStatus,
-  );
-
-  if (nextStatus === "present") {
-    const { data: userRow } = await supabase
-      .from("users")
-      .select("email, phone")
-      .eq("id", attendee.user_id)
-      .maybeSingle();
-
-    const sessionDateLabel = new Intl.DateTimeFormat("en-GB", {
-      dateStyle: "medium",
-    }).format(new Date(classSession.starts_at));
-
-    void matchLeadOnTrialAttendance({
-      academyId: classSession.club_id,
-      email: userRow?.email?.trim() ?? "",
-      phone: userRow?.phone?.trim() ?? null,
-      className: resolveClassName(classSession.classes),
-      sessionDateLabel,
+  if (
+    (nextStatus === "present" || nextStatus === "absent") &&
+    classSession.club_id &&
+    classSession.starts_at
+  ) {
+    await syncLeadStatusFromAttendanceRegister({
+      supabase,
+      attendee,
+      classSession,
+      nextStatus,
     });
   }
 
-  const clubSlug = await getClubSlugById(classSession.club_id);
-  revalidateAttendanceImpactPaths(clubSlug, attendee.user_id);
+  if (attendee.user_id && classSession.club_id) {
+    const clubSlug = await getClubSlugById(classSession.club_id);
+    revalidateAttendanceImpactPaths(clubSlug, attendee.user_id);
+  }
 
   return attendee.class_session_id;
 }
