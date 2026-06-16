@@ -26,7 +26,57 @@ function chunkIds<T>(ids: T[], batchSize = SUPABASE_IN_BATCH_SIZE): T[][] {
 
 const SUPABASE_PAGE_SIZE = 1000;
 
-async function loadAllAttendanceRecordRowsForClub(
+const SESSION_LESS_ATTENDANCE_SELECT =
+  "id, user_id, attended_on, class_session_id, source";
+
+async function loadSessionLessAttendanceRecordRowsForClub(
+  userIds: string[],
+  clubId: string,
+  dateRange?: { startDate: string; endDate: string },
+): Promise<AttendanceRecordRow[]> {
+  const supabase = getSupabaseAdminClient();
+  const allRecords: AttendanceRecordRow[] = [];
+
+  for (const userIdBatch of chunkIds(userIds)) {
+    let from = 0;
+
+    while (true) {
+      let query = supabase
+        .from("attendance_records")
+        .select(SESSION_LESS_ATTENDANCE_SELECT)
+        .in("user_id", userIdBatch)
+        .eq("club_id", clubId)
+        .is("class_session_id", null)
+        .order("attended_on", { ascending: false })
+        .range(from, from + SUPABASE_PAGE_SIZE - 1);
+
+      if (dateRange) {
+        query = query
+          .gte("attended_on", dateRange.startDate)
+          .lte("attended_on", dateRange.endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Failed to load session-less attendance records: ${error.message}`);
+      }
+
+      const page = (data ?? []) as AttendanceRecordRow[];
+      allRecords.push(...page);
+
+      if (page.length < SUPABASE_PAGE_SIZE) {
+        break;
+      }
+
+      from += SUPABASE_PAGE_SIZE;
+    }
+  }
+
+  return allRecords;
+}
+
+async function loadSessionLinkedBjjAttendanceRecordRowsForClub(
   userIds: string[],
   clubId: string,
   dateRange?: { startDate: string; endDate: string },
@@ -43,6 +93,8 @@ async function loadAllAttendanceRecordRowsForClub(
         .select(ATTENDANCE_RECORDS_BJJ_BULK_SELECT)
         .in("user_id", userIdBatch)
         .eq("club_id", clubId)
+        .not("class_session_id", "is", null)
+        .eq("class_sessions.classes.programme_type", "bjj")
         .order("attended_on", { ascending: false })
         .range(from, from + SUPABASE_PAGE_SIZE - 1);
 
@@ -55,7 +107,7 @@ async function loadAllAttendanceRecordRowsForClub(
       const { data, error } = await query;
 
       if (error) {
-        throw new Error(`Failed to load attendance records: ${error.message}`);
+        throw new Error(`Failed to load BJJ attendance records: ${error.message}`);
       }
 
       const page = (data ?? []) as AttendanceRecordRow[];
@@ -70,6 +122,19 @@ async function loadAllAttendanceRecordRowsForClub(
   }
 
   return allRecords;
+}
+
+async function loadAllAttendanceRecordRowsForClub(
+  userIds: string[],
+  clubId: string,
+  dateRange?: { startDate: string; endDate: string },
+): Promise<AttendanceRecordRow[]> {
+  const [sessionLessRecords, sessionLinkedBjjRecords] = await Promise.all([
+    loadSessionLessAttendanceRecordRowsForClub(userIds, clubId, dateRange),
+    loadSessionLinkedBjjAttendanceRecordRowsForClub(userIds, clubId, dateRange),
+  ]);
+
+  return [...sessionLessRecords, ...sessionLinkedBjjRecords];
 }
 
 interface AttendanceRecordRow extends AttendanceRecordWithJoinRow {

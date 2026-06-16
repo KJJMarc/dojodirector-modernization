@@ -7,7 +7,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import Link from "next/link";
 import { clubLeadsAdminPath, clubLeadsListAdminPath } from "@/lib/leads.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { LEADS_NOT_CONFIGURED_MESSAGE, loadAdminLeadDetail, loadAdminLeads } from "@/lib/leads.server";
+import { LEADS_NOT_CONFIGURED_MESSAGE, getLeadsTableAvailable, loadAdminLeadDetail } from "@/lib/leads.server";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: LeadDetailPageProps): Promise
 
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const { leadsTableAvailable } = await loadAdminLeads(club.id);
+  const leadsTableAvailable = await getLeadsTableAvailable();
 
   if (!leadsTableAvailable) {
     return (

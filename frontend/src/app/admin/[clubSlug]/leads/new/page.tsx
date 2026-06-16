@@ -5,7 +5,7 @@ import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-n
 import { AddLeadForm } from "@/components/admin/add-lead-form";
 import { AppHeader } from "@/components/layout/app-header";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { LEADS_NOT_CONFIGURED_MESSAGE, loadAdminLeads } from "@/lib/leads.server";
+import { LEADS_NOT_CONFIGURED_MESSAGE, getLeadsTableAvailable } from "@/lib/leads.server";
 import { clubLeadsAdminPath } from "@/lib/leads.shared";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: AddLeadPageProps): Promise<Me
 
 export default async function AddLeadPage({ params }: AddLeadPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const { leadsTableAvailable } = await loadAdminLeads(club.id);
+  const leadsTableAvailable = await getLeadsTableAvailable();
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">

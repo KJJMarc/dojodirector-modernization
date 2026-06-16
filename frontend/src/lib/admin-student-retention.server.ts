@@ -28,27 +28,14 @@ interface AttendanceRecordRow {
   attended_on: string;
 }
 
-interface SessionAttendeeBookingRow {
-  user_id: string;
-  booking_status: string | null;
-  class_sessions:
-    | {
-        starts_at: string;
-        status: string | null;
-        club_id: string;
-      }
-    | {
-        starts_at: string;
-        status: string | null;
-        club_id: string;
-      }[]
-    | null;
-}
-
 interface BeltLevelRow {
   id: string;
   name: string;
   stripe_count: number | null;
+}
+
+interface SessionAttendeeBookingRow {
+  user_id: string;
 }
 
 function chunkIds<T>(ids: T[], batchSize = SUPABASE_IN_BATCH_SIZE): T[][] {
@@ -74,21 +61,13 @@ function daysBetweenDateKeys(fromKey: string, toKey: string) {
   return Math.max(0, Math.floor(diffMs / 86_400_000));
 }
 
-function normalizeClassSession(
-  session: SessionAttendeeBookingRow["class_sessions"],
-) {
-  if (!session) {
-    return null;
-  }
-
-  return Array.isArray(session) ? (session[0] ?? null) : session;
-}
-
 async function loadAttendanceDatesByUserId(
   userIds: string[],
   clubId: string,
 ): Promise<Map<string, string[]>> {
   const datesByUserId = new Map<string, string[]>();
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgoKey = subtractDaysFromDateKey(todayKey, 30);
 
   if (userIds.length === 0) {
     return datesByUserId;
@@ -98,7 +77,9 @@ async function loadAttendanceDatesByUserId(
     const supabase = getSupabaseAdminClient();
 
     for (const userIdBatch of chunkIds(userIds)) {
+      const usersAwaitingFirstAttendance = new Set(userIdBatch);
       let from = 0;
+      let recentWindowComplete = false;
 
       while (true) {
         const { data, error } = await supabase
@@ -117,6 +98,7 @@ async function loadAttendanceDatesByUserId(
         }
 
         const page = (data ?? []) as AttendanceRecordRow[];
+        let oldestOnPage: string | null = null;
 
         for (const record of page) {
           const dateKey = normalizeToDateKey(record.attended_on);
@@ -125,12 +107,26 @@ async function loadAttendanceDatesByUserId(
             continue;
           }
 
+          usersAwaitingFirstAttendance.delete(record.user_id);
+
           const existing = datesByUserId.get(record.user_id) ?? [];
           existing.push(dateKey);
           datesByUserId.set(record.user_id, existing);
+
+          if (!oldestOnPage || dateKey < oldestOnPage) {
+            oldestOnPage = dateKey;
+          }
         }
 
         if (page.length < ATTENDANCE_PAGE_SIZE) {
+          break;
+        }
+
+        if (oldestOnPage && oldestOnPage < thirtyDaysAgoKey) {
+          recentWindowComplete = true;
+        }
+
+        if (recentWindowComplete && usersAwaitingFirstAttendance.size === 0) {
           break;
         }
 
@@ -173,7 +169,7 @@ async function loadFutureBookingCountsByUserId(
           `
           user_id,
           booking_status,
-          class_sessions (
+          class_sessions!inner (
             starts_at,
             status,
             club_id
@@ -181,7 +177,10 @@ async function loadFutureBookingCountsByUserId(
         `,
         )
         .in("user_id", userIdBatch)
-        .in("booking_status", ["booked", "waitlisted"]);
+        .in("booking_status", ["booked", "waitlisted"])
+        .eq("class_sessions.club_id", clubId)
+        .gte("class_sessions.starts_at", nowIso)
+        .neq("class_sessions.status", "cancelled");
 
       if (error) {
         console.error(
@@ -191,16 +190,6 @@ async function loadFutureBookingCountsByUserId(
       }
 
       for (const row of (data ?? []) as unknown as SessionAttendeeBookingRow[]) {
-        const session = normalizeClassSession(row.class_sessions);
-
-        if (!session || session.club_id !== clubId) {
-          continue;
-        }
-
-        if (session.status === "cancelled" || session.starts_at < nowIso) {
-          continue;
-        }
-
         countsByUserId.set(
           row.user_id,
           (countsByUserId.get(row.user_id) ?? 0) + 1,

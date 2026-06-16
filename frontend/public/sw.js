@@ -10,11 +10,43 @@ const STATIC_ASSETS = [
   "/pwa/icon-maskable-512.png",
 ];
 
+function isStaticAsset(pathname) {
+  return STATIC_ASSETS.includes(pathname);
+}
+
+function shouldBypassServiceWorker(request, requestUrl) {
+  if (request.method !== "GET") {
+    return true;
+  }
+
+  if (request.mode === "navigate") {
+    return true;
+  }
+
+  if (requestUrl.pathname.startsWith("/api/")) {
+    return true;
+  }
+
+  if (requestUrl.pathname.startsWith("/_next/")) {
+    return true;
+  }
+
+  return false;
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then((cache) =>
+        Promise.allSettled(
+          STATIC_ASSETS.map((asset) =>
+            cache.add(asset).catch((error) => {
+              console.warn("[PWA] Failed to cache static asset:", asset, error);
+            }),
+          ),
+        ),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -35,24 +67,20 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") {
-    return;
-  }
-
   const requestUrl = new URL(event.request.url);
 
   if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
-  if (STATIC_ASSETS.includes(requestUrl.pathname)) {
+  if (shouldBypassServiceWorker(event.request, requestUrl)) {
+    return;
+  }
+
+  if (isStaticAsset(requestUrl.pathname)) {
     event.respondWith(
       caches.match(event.request).then((cached) => cached ?? fetch(event.request)),
     );
     return;
   }
-
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request)),
-  );
 });

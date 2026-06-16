@@ -577,6 +577,10 @@ export interface AdminLeadsLoadResult {
   summary: AdminLeadsSummary;
 }
 
+export async function getLeadsTableAvailable(): Promise<boolean> {
+  return checkLeadsTableAvailable();
+}
+
 export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadResult> {
   const tableAvailable = await checkLeadsTableAvailable();
 
