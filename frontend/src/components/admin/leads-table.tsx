@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LeadRowActions } from "@/components/admin/lead-row-actions";
+import { LeadStatusLabel } from "@/components/admin/lead-status-label";
 import {
   clubLeadDetailAdminPath,
   formatAdminLeadDate,
@@ -50,7 +51,12 @@ export function LeadsTable({ clubSlug, leads }: LeadsTableProps) {
                 </Link>
               </td>
               <td className="px-3 py-3 text-dojo-muted">{lead.leadSourceLabel}</td>
-              <td className="px-3 py-3">{lead.statusLabel}</td>
+              <td className="px-3 py-3">
+                <LeadStatusLabel
+                  statusLabel={lead.statusLabel}
+                  showTrialAttendancePendingWarning={lead.trialAttendancePending}
+                />
+              </td>
               <td className="px-3 py-3">
                 {formatLeadProgrammeInterestLabel(lead.programmeInterest)}
               </td>

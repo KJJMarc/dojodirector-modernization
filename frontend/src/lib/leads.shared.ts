@@ -28,6 +28,9 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   joined: "Joined",
 };
 
+export const LEAD_TRIAL_ATTENDANCE_PENDING_TOOLTIP =
+  "Trial date has passed but attendance has not been recorded.";
+
 const LEGACY_LEAD_STATUS_MAP: Record<string, LeadStatus> = {
   new: "new_enquiry",
   contacted: "new_enquiry",
@@ -195,6 +198,7 @@ export interface AdminLeadListRow {
   leadSource: StoredLeadSource;
   status: LeadStatus;
   statusLabel: string;
+  trialAttendancePending: boolean;
   createdAt: string;
   submittedAt: string;
   contactedAt: string | null;

@@ -428,6 +428,11 @@ function mapLeadListRow(
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     status,
     statusLabel: formatLeadStatusLabel(status),
+    trialAttendancePending: isLeadTrialAttendancePending({
+      status,
+      trialAttendedAt,
+      linkedTrialSessionStartsAt,
+    }),
     createdAt: row.created_at,
     submittedAt,
     contactedAt: row.contacted_at ?? null,

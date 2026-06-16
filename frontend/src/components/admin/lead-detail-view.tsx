@@ -14,6 +14,7 @@ import {
   LEAD_PROGRAMME_INTERESTS,
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
+  LEAD_TRIAL_ATTENDANCE_PENDING_TOOLTIP,
   clubLeadsAdminPath,
   clubLeadsListAdminPath,
   formatAdminLeadDateTime,
@@ -97,9 +98,9 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
           role="status"
         >
           <p>
-            The trial date has passed and attendance has not been marked on the register
-            yet. This lead will remain <span className="font-medium">Trial Booked</span>{" "}
-            until attendance is recorded as present or absent.
+            {LEAD_TRIAL_ATTENDANCE_PENDING_TOOLTIP} This lead will remain{" "}
+            <span className="font-medium">Trial Booked</span> until attendance is
+            recorded as present or absent on the register.
           </p>
         </section>
       ) : null}
