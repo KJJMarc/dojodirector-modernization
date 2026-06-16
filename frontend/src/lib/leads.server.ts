@@ -11,6 +11,7 @@ import {
   buildAdminLeadsSummary,
   computeLeadFollowUpStatus,
   parseLeadStatus,
+  normalizeLeadStatus,
   parseLeadSubmission,
   type AdminArchivedLeadListRow,
   type AdminLeadDetail,
@@ -387,7 +388,7 @@ function mapArchivedLeadListRow(row: LeadRecordRow): AdminArchivedLeadListRow {
   return {
     id: row.id,
     fullName: row.full_name,
-    status: row.status as AdminArchivedLeadListRow["status"],
+    status: normalizeLeadStatus(row.status),
     programmeInterest:
       row.programme_interest as AdminArchivedLeadListRow["programmeInterest"],
     archivedAt,
@@ -409,6 +410,8 @@ function mapLeadListRow(
   const submittedAt = resolveSubmittedAt(row);
   const trialAttendedAt = row.trial_attended_at ?? null;
 
+  const status = normalizeLeadStatus(row.status);
+
   return {
     id: row.id,
     fullName: row.full_name,
@@ -418,7 +421,7 @@ function mapLeadListRow(
     experienceLevel: row.experience_level as AdminLeadListRow["experienceLevel"],
     leadSource: row.lead_source as AdminLeadListRow["leadSource"],
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
-    status: row.status as AdminLeadListRow["status"],
+    status,
     createdAt: row.created_at,
     submittedAt,
     contactedAt: row.contacted_at ?? null,
@@ -428,7 +431,7 @@ function mapLeadListRow(
     lastActivityAt: resolveLastActivityAt(row),
     linkedTrialSessionStartsAt,
     followUpStatus: computeLeadFollowUpStatus({
-      status: row.status as AdminLeadListRow["status"],
+      status,
       submittedAt,
       contactedAt: row.contacted_at ?? null,
       trialAttendedAt,
@@ -449,7 +452,7 @@ function mapLeadDetail(row: LeadRecordRow): AdminLeadDetail {
     leadSource: row.lead_source as AdminLeadDetail["leadSource"],
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     notes: row.notes,
-    status: row.status as AdminLeadDetail["status"],
+    status: normalizeLeadStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     submittedAt: resolveSubmittedAt(row),
@@ -477,10 +480,6 @@ function buildStatusTimestampUpdates(
   }
 
   updates.last_activity_at = now;
-
-  if (status === "contacted" && !existing.contacted_at) {
-    updates.contacted_at = now;
-  }
 
   if (status === "trial_booked" && !existing.trial_booked_at) {
     updates.trial_booked_at = now;
@@ -804,7 +803,7 @@ export async function submitLead(input: {
         experience_level: submission.experienceLevel,
         lead_source: submission.leadSource,
         notes: submission.notes || null,
-        status: "new",
+        status: "new_enquiry",
       },
       now,
       trackingAvailable,
@@ -873,12 +872,11 @@ export async function createAdminLead(
   }
 
   const submission = parseLeadSubmission(input);
-  const status = input.status ? parseLeadStatus(input.status) : "new";
+  const status = input.status ? parseLeadStatus(input.status) : "new_enquiry";
   const now = new Date().toISOString();
   const trackingAvailable = await checkLeadTrackingColumnsAvailable();
   const statusTimestamps = trackingAvailable
     ? {
-        ...(status === "contacted" ? { contacted_at: now } : {}),
         ...(status === "trial_booked" ? { trial_booked_at: now } : {}),
         ...(status === "trial_attended" ? { trial_attended_at: now } : {}),
         ...(status === "joined" ? { joined_at: now } : {}),

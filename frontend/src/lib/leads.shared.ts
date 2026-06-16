@@ -11,15 +11,30 @@ import {
 import type { LeadAttribution } from "@/lib/lead-attribution.shared";
 
 export const LEAD_STATUSES = [
-  "new",
-  "contacted",
+  "new_enquiry",
   "trial_booked",
   "trial_attended",
+  "trial_missed",
   "joined",
-  "closed",
 ] as const;
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+const LEGACY_LEAD_STATUS_MAP: Record<string, LeadStatus> = {
+  new: "new_enquiry",
+  contacted: "new_enquiry",
+  trial_booked: "trial_booked",
+  trial_attended: "trial_attended",
+  trial_missed: "trial_missed",
+  joined: "joined",
+  converted: "joined",
+  closed: "trial_missed",
+  trial_did_not_show: "trial_missed",
+  did_not_attend: "trial_missed",
+  did_not_show: "trial_missed",
+  no_show: "trial_missed",
+  missed_trial: "trial_missed",
+};
 
 export const LEAD_SOURCES = [
   "website",
@@ -268,20 +283,28 @@ export function clubLeadDetailAdminPath(clubSlug: string, leadId: string) {
   return clubAdminPath(clubSlug, `leads/${leadId}`);
 }
 
+export function normalizeLeadStatus(value: string): LeadStatus {
+  const normalized = value.trim().toLowerCase();
+
+  if (LEAD_STATUSES.includes(normalized as LeadStatus)) {
+    return normalized as LeadStatus;
+  }
+
+  return LEGACY_LEAD_STATUS_MAP[normalized] ?? "new_enquiry";
+}
+
 export function formatLeadStatusLabel(status: LeadStatus | string) {
-  switch (status) {
-    case "new":
-      return "New";
-    case "contacted":
-      return "Contacted";
+  switch (normalizeLeadStatus(status)) {
+    case "new_enquiry":
+      return "New Enquiry";
     case "trial_booked":
       return "Trial Booked";
     case "trial_attended":
       return "Trial Attended";
+    case "trial_missed":
+      return "Trial Missed";
     case "joined":
       return "Joined";
-    case "closed":
-      return "Closed";
     default:
       return status;
   }
@@ -396,15 +419,13 @@ export function computeLeadFollowUpStatus(input: {
 }): LeadFollowUpStatus {
   const now = input.now ?? new Date();
 
-  if (input.status === "new") {
+  if (input.status === "new_enquiry") {
     const submitted = new Date(input.submittedAt);
 
     if (!Number.isNaN(submitted.getTime()) && now.getTime() - submitted.getTime() > TWO_DAYS_MS) {
       return "needs_follow_up";
     }
-  }
 
-  if (input.status === "contacted") {
     const contacted = input.contactedAt ? new Date(input.contactedAt) : null;
 
     if (
@@ -414,6 +435,10 @@ export function computeLeadFollowUpStatus(input: {
     ) {
       return "needs_follow_up";
     }
+  }
+
+  if (input.status === "trial_missed") {
+    return "needs_follow_up";
   }
 
   if (input.status === "trial_booked" && !input.trialAttendedAt) {
@@ -438,7 +463,7 @@ export function buildAdminLeadsSummary(leads: AdminLeadListRow[]): AdminLeadsSum
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   return {
-    newLeads: leads.filter((lead) => lead.status === "new").length,
+    newLeads: leads.filter((lead) => lead.status === "new_enquiry").length,
     needsFollowUp: leads.filter((lead) => lead.followUpStatus === "needs_follow_up").length,
     trialBooked: leads.filter((lead) => lead.status === "trial_booked").length,
     joinedThisMonth: leads.filter((lead) => {
@@ -570,11 +595,17 @@ export function parseLeadExperienceLevel(value: string): LeadExperienceLevel {
 }
 
 export function parseLeadStatus(value: string): LeadStatus {
-  if (!LEAD_STATUSES.includes(value as LeadStatus)) {
-    throw new Error("Select a valid status.");
+  const normalized = value.trim().toLowerCase();
+
+  if (LEAD_STATUSES.includes(normalized as LeadStatus)) {
+    return normalized as LeadStatus;
   }
 
-  return value as LeadStatus;
+  if (normalized in LEGACY_LEAD_STATUS_MAP) {
+    return LEGACY_LEAD_STATUS_MAP[normalized];
+  }
+
+  throw new Error("Select a valid status.");
 }
 
 export function parseLeadSubmission(input: LeadSubmission): LeadSubmission {

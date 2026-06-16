@@ -164,7 +164,7 @@ export async function matchLeadOnStudentJoined(input: {
   try {
     const lead = await findLeadForMatch(input);
 
-    if (!lead || lead.status === "joined" || lead.status === "closed") {
+    if (!lead || lead.status === "joined" || lead.status === "trial_missed") {
       return;
     }
 
@@ -212,12 +212,17 @@ export async function matchLeadOnTrialAttendance(input: {
       lead.trial_attended_at ||
       lead.status === "trial_attended" ||
       lead.status === "joined" ||
-      lead.status === "closed"
+      lead.status === "trial_missed"
     ) {
       return;
     }
 
-    if (lead.status !== "trial_booked" && lead.status !== "contacted" && lead.status !== "new") {
+    if (
+      lead.status !== "trial_booked" &&
+      lead.status !== "new_enquiry" &&
+      lead.status !== "new" &&
+      lead.status !== "contacted"
+    ) {
       return;
     }
 

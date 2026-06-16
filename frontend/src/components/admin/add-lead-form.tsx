@@ -122,7 +122,7 @@ export function AddLeadForm({ clubSlug }: AddLeadFormProps) {
 
         <label className="block space-y-1 sm:col-span-2">
           <span className={labelClassName}>Status</span>
-          <select name="status" className={inputClassName} defaultValue="new">
+          <select name="status" className={inputClassName} defaultValue="new_enquiry">
             {LEAD_STATUSES.map((value) => (
               <option key={value} value={value}>
                 {formatLeadStatusLabel(value)}

@@ -7,13 +7,19 @@ import {
 } from "@/lib/clubs.shared";
 import {
   ADMIN_EDIT_LEAD_SOURCE_OPTIONS,
+  buildAdminLeadsSummary,
   buildTrialEnquiryProgrammeInterests,
+  computeLeadFollowUpStatus,
   formatLeadSourceLabel,
+  formatLeadStatusLabel,
   MANUAL_LEAD_SOURCE_OPTIONS,
+  normalizeLeadStatus,
+  parseLeadStatus,
   resolveAdminEditableLeadSource,
   resolveTrialLeadAcademySlug,
   resolveTrialLeadAcademySlugForClub,
   TRIAL_ENQUIRY_PROGRAMME_INTERESTS,
+  type AdminLeadListRow,
 } from "@/lib/leads.shared";
 
 test("resolveTrialLeadAcademySlug routes Kingston adult enquiries to Kingston", () => {
@@ -142,4 +148,58 @@ test("formatLeadSourceLabel still displays legacy stored values correctly", () =
   assert.equal(formatLeadSourceLabel("google"), "Organic Search");
   assert.equal(formatLeadSourceLabel("facebook"), "Meta Ads");
   assert.equal(formatLeadSourceLabel("google_ads"), "Google Ads");
+});
+
+test("normalizeLeadStatus maps legacy pipeline values to simplified statuses", () => {
+  assert.equal(normalizeLeadStatus("new"), "new_enquiry");
+  assert.equal(normalizeLeadStatus("contacted"), "new_enquiry");
+  assert.equal(normalizeLeadStatus("closed"), "trial_missed");
+  assert.equal(normalizeLeadStatus("no_show"), "trial_missed");
+  assert.equal(normalizeLeadStatus("converted"), "joined");
+  assert.equal(normalizeLeadStatus("trial_booked"), "trial_booked");
+});
+
+test("formatLeadStatusLabel uses simplified status labels", () => {
+  assert.equal(formatLeadStatusLabel("new_enquiry"), "New Enquiry");
+  assert.equal(formatLeadStatusLabel("trial_missed"), "Trial Missed");
+  assert.equal(formatLeadStatusLabel("new"), "New Enquiry");
+});
+
+test("parseLeadStatus accepts canonical and legacy values", () => {
+  assert.equal(parseLeadStatus("new_enquiry"), "new_enquiry");
+  assert.equal(parseLeadStatus("contacted"), "new_enquiry");
+});
+
+test("buildAdminLeadsSummary counts new enquiries and follow-up separately", () => {
+  const leads = [
+    {
+      status: "new_enquiry",
+      followUpStatus: "needs_follow_up",
+      joinedAt: null,
+    },
+    {
+      status: "trial_booked",
+      followUpStatus: "ok",
+      joinedAt: null,
+    },
+  ] as AdminLeadListRow[];
+
+  const summary = buildAdminLeadsSummary(leads);
+
+  assert.equal(summary.newLeads, 1);
+  assert.equal(summary.needsFollowUp, 1);
+  assert.equal(summary.trialBooked, 1);
+});
+
+test("computeLeadFollowUpStatus keeps trial missed leads actionable", () => {
+  assert.equal(
+    computeLeadFollowUpStatus({
+      status: "trial_missed",
+      submittedAt: new Date().toISOString(),
+      contactedAt: null,
+      trialAttendedAt: null,
+      linkedTrialSessionStartsAt: null,
+    }),
+    "needs_follow_up",
+  );
 });

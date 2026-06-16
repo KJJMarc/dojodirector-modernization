@@ -47,7 +47,7 @@ export async function createLeadAction(clubSlug: string, formData: FormData) {
     ),
     leadSource: parseManualLeadSource(String(formData.get("leadSource") ?? "other")),
     notes: String(formData.get("notes") ?? ""),
-    status: parseLeadStatus(String(formData.get("status") ?? "new")),
+    status: parseLeadStatus(String(formData.get("status") ?? "new_enquiry")),
   });
 
   revalidateLeadAdminPaths(club.slug);
