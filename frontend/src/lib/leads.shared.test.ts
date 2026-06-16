@@ -12,9 +12,12 @@ import {
   computeLeadFollowUpStatus,
   formatLeadSourceLabel,
   formatLeadStatusLabel,
+  formatLeadDisplayStatusLabel,
+  isLeadTrialSessionMissed,
   MANUAL_LEAD_SOURCE_OPTIONS,
   normalizeLeadStatus,
   parseLeadStatus,
+  resolveLeadDisplayStatus,
   resolveAdminEditableLeadSource,
   resolveTrialLeadAcademySlug,
   resolveTrialLeadAcademySlugForClub,
@@ -163,6 +166,58 @@ test("formatLeadStatusLabel uses simplified status labels", () => {
   assert.equal(formatLeadStatusLabel("new_enquiry"), "New Enquiry");
   assert.equal(formatLeadStatusLabel("trial_missed"), "Trial Missed");
   assert.equal(formatLeadStatusLabel("new"), "New Enquiry");
+  assert.equal(formatLeadStatusLabel("unknown_status"), "New Enquiry");
+});
+
+test("resolveLeadDisplayStatus infers trial missed from past booked session", () => {
+  const pastSession = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  assert.equal(
+    resolveLeadDisplayStatus({
+      status: "trial_booked",
+      trialAttendedAt: null,
+      linkedTrialSessionStartsAt: pastSession,
+    }),
+    "trial_missed",
+  );
+  assert.equal(
+    resolveLeadDisplayStatus({
+      status: "trial_booked",
+      trialAttendedAt: new Date().toISOString(),
+      linkedTrialSessionStartsAt: pastSession,
+    }),
+    "trial_booked",
+  );
+});
+
+test("formatLeadDisplayStatusLabel never returns raw stored values", () => {
+  assert.equal(
+    formatLeadDisplayStatusLabel({
+      status: "new_enquiry",
+    }),
+    "New Enquiry",
+  );
+});
+
+test("isLeadTrialSessionMissed identifies overdue trial bookings", () => {
+  const pastSession = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  assert.equal(
+    isLeadTrialSessionMissed({
+      status: "trial_booked",
+      trialAttendedAt: null,
+      linkedTrialSessionStartsAt: pastSession,
+    }),
+    true,
+  );
+  assert.equal(
+    isLeadTrialSessionMissed({
+      status: "trial_missed",
+      trialAttendedAt: null,
+      linkedTrialSessionStartsAt: pastSession,
+    }),
+    false,
+  );
 });
 
 test("parseLeadStatus accepts canonical and legacy values", () => {
@@ -174,11 +229,13 @@ test("buildAdminLeadsSummary counts new enquiries and follow-up separately", () 
   const leads = [
     {
       status: "new_enquiry",
+      displayStatus: "new_enquiry",
       followUpStatus: "needs_follow_up",
       joinedAt: null,
     },
     {
       status: "trial_booked",
+      displayStatus: "trial_booked",
       followUpStatus: "ok",
       joinedAt: null,
     },
@@ -199,6 +256,19 @@ test("computeLeadFollowUpStatus keeps trial missed leads actionable", () => {
       contactedAt: null,
       trialAttendedAt: null,
       linkedTrialSessionStartsAt: null,
+    }),
+    "needs_follow_up",
+  );
+
+  const pastSession = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  assert.equal(
+    computeLeadFollowUpStatus({
+      status: "trial_booked",
+      submittedAt: new Date().toISOString(),
+      contactedAt: null,
+      trialAttendedAt: null,
+      linkedTrialSessionStartsAt: pastSession,
     }),
     "needs_follow_up",
   );

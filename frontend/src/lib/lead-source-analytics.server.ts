@@ -11,7 +11,7 @@ import {
   type LeadSourceFunnelRow,
   type LeadSourceStudentQualityRow,
 } from "@/lib/lead-source-analytics.shared";
-import { formatLeadStatusLabel } from "@/lib/leads.shared";
+import { formatLeadStatusLabel, normalizeLeadStatus } from "@/lib/leads.shared";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -271,7 +271,7 @@ function buildLeadAttributionRecord(row: LeadSearchRow): LeadSourceAttributionRe
     email: row.email?.trim() || null,
     originalLeadSource,
     originalLeadSourceLabel: formatAnalyticsLeadSourceLabel(originalLeadSource),
-    statusLabel: formatLeadStatusLabel(row.status),
+    statusLabel: formatLeadStatusLabel(normalizeLeadStatus(row.status)),
   };
 }
 

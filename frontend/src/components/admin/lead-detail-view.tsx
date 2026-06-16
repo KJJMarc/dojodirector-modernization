@@ -13,13 +13,13 @@ import {
   LEAD_EXPERIENCE_LEVELS,
   LEAD_PROGRAMME_INTERESTS,
   LEAD_STATUSES,
+  LEAD_STATUS_LABELS,
   clubLeadsAdminPath,
   clubLeadsListAdminPath,
   formatAdminLeadDateTime,
   formatLeadExperienceLevelLabel,
   formatLeadProgrammeInterestLabel,
   formatLeadSourceLabel,
-  formatLeadStatusLabel,
   resolveAdminEditableLeadSource,
   type AdminLeadDetail,
 } from "@/lib/leads.shared";
@@ -55,6 +55,9 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
     <div className={`space-y-4 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
       <div className="grid gap-2 rounded-xl border border-dojo-border bg-dojo-surface p-4 text-sm text-dojo-muted sm:grid-cols-2">
         <p>
+          <span className="font-medium text-dojo-white">Status:</span> {lead.statusLabel}
+        </p>
+        <p>
           <span className="font-medium text-dojo-white">Submitted:</span>{" "}
           {formatAdminLeadDateTime(lead.submittedAt)}
         </p>
@@ -87,6 +90,27 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
           </p>
         ) : null}
       </div>
+
+      {lead.trialSessionMissed ? (
+        <section
+          className="rounded-xl border border-dojo-amber-500/40 bg-dojo-amber-500/10 px-4 py-3 text-sm text-dojo-white"
+          role="status"
+        >
+          <p>
+            This trial session was in the past and no attendance was recorded. Update the
+            status to <span className="font-medium">Trial Missed</span> if they did not
+            attend.
+          </p>
+          <button
+            type="button"
+            disabled={isPending}
+            className="mt-3 inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-amber-400/60 bg-dojo-amber-500/20 px-3 py-1.5 text-sm font-semibold text-dojo-white transition hover:border-dojo-amber-300 hover:bg-dojo-amber-500/30 disabled:cursor-not-allowed"
+            onClick={() => setStatus("trial_missed")}
+          >
+            Set status to Trial Missed
+          </button>
+        </section>
+      ) : null}
 
       <LeadAttributionPanel
         attribution={lead.attribution}
@@ -215,7 +239,7 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
             >
               {LEAD_STATUSES.map((value) => (
                 <option key={value} value={value}>
-                  {formatLeadStatusLabel(value)}
+                  {LEAD_STATUS_LABELS[value]}
                 </option>
               ))}
             </select>

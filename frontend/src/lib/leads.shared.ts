@@ -20,6 +20,14 @@ export const LEAD_STATUSES = [
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
+export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+  new_enquiry: "New Enquiry",
+  trial_booked: "Trial Booked",
+  trial_attended: "Trial Attended",
+  trial_missed: "Trial Missed",
+  joined: "Joined",
+};
+
 const LEGACY_LEAD_STATUS_MAP: Record<string, LeadStatus> = {
   new: "new_enquiry",
   contacted: "new_enquiry",
@@ -172,6 +180,8 @@ export interface AdminArchivedLeadListRow {
   id: string;
   fullName: string;
   status: LeadStatus;
+  displayStatus: LeadStatus;
+  statusLabel: string;
   programmeInterest: LeadProgrammeInterest;
   archivedAt: string;
 }
@@ -185,6 +195,8 @@ export interface AdminLeadListRow {
   experienceLevel: LeadExperienceLevel;
   leadSource: StoredLeadSource;
   status: LeadStatus;
+  displayStatus: LeadStatus;
+  statusLabel: string;
   createdAt: string;
   submittedAt: string;
   contactedAt: string | null;
@@ -208,6 +220,10 @@ export interface AdminLeadDetail {
   leadSource: StoredLeadSource;
   notes: string | null;
   status: LeadStatus;
+  displayStatus: LeadStatus;
+  statusLabel: string;
+  trialSessionMissed: boolean;
+  linkedTrialSessionStartsAt: string | null;
   createdAt: string;
   updatedAt: string;
   submittedAt: string;
@@ -294,20 +310,55 @@ export function normalizeLeadStatus(value: string): LeadStatus {
 }
 
 export function formatLeadStatusLabel(status: LeadStatus | string) {
-  switch (normalizeLeadStatus(status)) {
-    case "new_enquiry":
-      return "New Enquiry";
-    case "trial_booked":
-      return "Trial Booked";
-    case "trial_attended":
-      return "Trial Attended";
-    case "trial_missed":
-      return "Trial Missed";
-    case "joined":
-      return "Joined";
-    default:
-      return status;
+  return LEAD_STATUS_LABELS[normalizeLeadStatus(status)];
+}
+
+export function resolveLeadDisplayStatus(input: {
+  status: LeadStatus | string;
+  trialAttendedAt?: string | null;
+  linkedTrialSessionStartsAt?: string | null;
+  now?: Date;
+}): LeadStatus {
+  const status = normalizeLeadStatus(input.status);
+
+  if (
+    status === "trial_booked" &&
+    !input.trialAttendedAt &&
+    input.linkedTrialSessionStartsAt
+  ) {
+    const sessionStart = new Date(input.linkedTrialSessionStartsAt);
+    const now = input.now ?? new Date();
+
+    if (
+      !Number.isNaN(sessionStart.getTime()) &&
+      now.getTime() > sessionStart.getTime()
+    ) {
+      return "trial_missed";
+    }
   }
+
+  return status;
+}
+
+export function formatLeadDisplayStatusLabel(input: {
+  status: LeadStatus | string;
+  trialAttendedAt?: string | null;
+  linkedTrialSessionStartsAt?: string | null;
+  now?: Date;
+}) {
+  return formatLeadStatusLabel(resolveLeadDisplayStatus(input));
+}
+
+export function isLeadTrialSessionMissed(input: {
+  status: LeadStatus | string;
+  trialAttendedAt?: string | null;
+  linkedTrialSessionStartsAt?: string | null;
+  now?: Date;
+}) {
+  const storedStatus = normalizeLeadStatus(input.status);
+  const displayStatus = resolveLeadDisplayStatus(input);
+
+  return storedStatus === "trial_booked" && displayStatus === "trial_missed";
 }
 
 export function formatLeadSourceLabel(value: LeadSource | StoredLeadSource | string) {
@@ -418,8 +469,18 @@ export function computeLeadFollowUpStatus(input: {
   now?: Date;
 }): LeadFollowUpStatus {
   const now = input.now ?? new Date();
+  const displayStatus = resolveLeadDisplayStatus({
+    status: input.status,
+    trialAttendedAt: input.trialAttendedAt,
+    linkedTrialSessionStartsAt: input.linkedTrialSessionStartsAt,
+    now,
+  });
 
-  if (input.status === "new_enquiry") {
+  if (displayStatus === "trial_missed") {
+    return "needs_follow_up";
+  }
+
+  if (displayStatus === "new_enquiry") {
     const submitted = new Date(input.submittedAt);
 
     if (!Number.isNaN(submitted.getTime()) && now.getTime() - submitted.getTime() > TWO_DAYS_MS) {
@@ -437,24 +498,6 @@ export function computeLeadFollowUpStatus(input: {
     }
   }
 
-  if (input.status === "trial_missed") {
-    return "needs_follow_up";
-  }
-
-  if (input.status === "trial_booked" && !input.trialAttendedAt) {
-    const sessionStart = input.linkedTrialSessionStartsAt
-      ? new Date(input.linkedTrialSessionStartsAt)
-      : null;
-
-    if (
-      sessionStart &&
-      !Number.isNaN(sessionStart.getTime()) &&
-      now.getTime() > sessionStart.getTime()
-    ) {
-      return "needs_follow_up";
-    }
-  }
-
   return "ok";
 }
 
@@ -465,7 +508,7 @@ export function buildAdminLeadsSummary(leads: AdminLeadListRow[]): AdminLeadsSum
   return {
     newLeads: leads.filter((lead) => lead.status === "new_enquiry").length,
     needsFollowUp: leads.filter((lead) => lead.followUpStatus === "needs_follow_up").length,
-    trialBooked: leads.filter((lead) => lead.status === "trial_booked").length,
+    trialBooked: leads.filter((lead) => lead.displayStatus === "trial_booked").length,
     joinedThisMonth: leads.filter((lead) => {
       if (lead.status !== "joined" || !lead.joinedAt) {
         return false;

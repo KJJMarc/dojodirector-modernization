@@ -10,8 +10,11 @@ import {
   LEADS_NOT_CONFIGURED_MESSAGE,
   buildAdminLeadsSummary,
   computeLeadFollowUpStatus,
+  formatLeadDisplayStatusLabel,
+  isLeadTrialSessionMissed,
   parseLeadStatus,
   normalizeLeadStatus,
+  resolveLeadDisplayStatus,
   parseLeadSubmission,
   type AdminArchivedLeadListRow,
   type AdminLeadDetail,
@@ -385,10 +388,15 @@ function mapArchivedLeadListRow(row: LeadRecordRow): AdminArchivedLeadListRow {
     throw new Error("Archived lead is missing archived_at.");
   }
 
+  const status = normalizeLeadStatus(row.status);
+  const displayStatus = resolveLeadDisplayStatus({ status });
+
   return {
     id: row.id,
     fullName: row.full_name,
-    status: normalizeLeadStatus(row.status),
+    status,
+    displayStatus,
+    statusLabel: formatLeadDisplayStatusLabel({ status: displayStatus }),
     programmeInterest:
       row.programme_interest as AdminArchivedLeadListRow["programmeInterest"],
     archivedAt,
@@ -411,6 +419,11 @@ function mapLeadListRow(
   const trialAttendedAt = row.trial_attended_at ?? null;
 
   const status = normalizeLeadStatus(row.status);
+  const displayStatus = resolveLeadDisplayStatus({
+    status,
+    trialAttendedAt,
+    linkedTrialSessionStartsAt,
+  });
 
   return {
     id: row.id,
@@ -422,6 +435,8 @@ function mapLeadListRow(
     leadSource: row.lead_source as AdminLeadListRow["leadSource"],
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     status,
+    displayStatus,
+    statusLabel: formatLeadDisplayStatusLabel({ status: displayStatus }),
     createdAt: row.created_at,
     submittedAt,
     contactedAt: row.contacted_at ?? null,
@@ -440,7 +455,18 @@ function mapLeadListRow(
   };
 }
 
-function mapLeadDetail(row: LeadRecordRow): AdminLeadDetail {
+function mapLeadDetail(
+  row: LeadRecordRow,
+  linkedTrialSessionStartsAt: string | null = null,
+): AdminLeadDetail {
+  const status = normalizeLeadStatus(row.status);
+  const trialAttendedAt = row.trial_attended_at ?? null;
+  const displayStatus = resolveLeadDisplayStatus({
+    status,
+    trialAttendedAt,
+    linkedTrialSessionStartsAt,
+  });
+
   return {
     id: row.id,
     academyId: row.academy_id,
@@ -452,7 +478,15 @@ function mapLeadDetail(row: LeadRecordRow): AdminLeadDetail {
     leadSource: row.lead_source as AdminLeadDetail["leadSource"],
     leadSourceLabel: formatStoredLeadSourceLabel(row.lead_source),
     notes: row.notes,
-    status: normalizeLeadStatus(row.status),
+    status,
+    displayStatus,
+    statusLabel: formatLeadDisplayStatusLabel({ status: displayStatus }),
+    trialSessionMissed: isLeadTrialSessionMissed({
+      status,
+      trialAttendedAt,
+      linkedTrialSessionStartsAt,
+    }),
+    linkedTrialSessionStartsAt,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     submittedAt: resolveSubmittedAt(row),
@@ -774,7 +808,10 @@ export async function loadAdminLeadDetail(
     return null;
   }
 
-  return mapLeadDetail(data as unknown as LeadRecordRow);
+  const linkedSessions = await loadLinkedTrialSessionStartsAtByLeadId([leadId]);
+  const linkedTrialSessionStartsAt = linkedSessions.get(leadId) ?? null;
+
+  return mapLeadDetail(data as unknown as LeadRecordRow, linkedTrialSessionStartsAt);
 }
 
 export async function submitLead(input: {

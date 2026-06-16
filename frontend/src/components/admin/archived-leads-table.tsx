@@ -4,7 +4,6 @@ import {
   clubLeadDetailAdminPath,
   formatAdminLeadDateTime,
   formatLeadProgrammeInterestLabel,
-  formatLeadStatusLabel,
   type AdminArchivedLeadListRow,
 } from "@/lib/leads.shared";
 
@@ -45,7 +44,7 @@ export function ArchivedLeadsTable({ clubSlug, leads }: ArchivedLeadsTableProps)
                   {lead.fullName}
                 </Link>
               </td>
-              <td className="px-3 py-3">{formatLeadStatusLabel(lead.status)}</td>
+              <td className="px-3 py-3">{lead.statusLabel}</td>
               <td className="px-3 py-3">
                 {formatLeadProgrammeInterestLabel(lead.programmeInterest)}
               </td>

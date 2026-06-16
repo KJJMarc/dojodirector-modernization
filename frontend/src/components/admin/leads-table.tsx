@@ -6,7 +6,6 @@ import {
   formatAdminLeadDateTime,
   formatLeadFollowUpStatusLabel,
   formatLeadProgrammeInterestLabel,
-  formatLeadStatusLabel,
   type AdminLeadListRow,
 } from "@/lib/leads.shared";
 
@@ -51,7 +50,7 @@ export function LeadsTable({ clubSlug, leads }: LeadsTableProps) {
                 </Link>
               </td>
               <td className="px-3 py-3 text-dojo-muted">{lead.leadSourceLabel}</td>
-              <td className="px-3 py-3">{formatLeadStatusLabel(lead.status)}</td>
+              <td className="px-3 py-3">{lead.statusLabel}</td>
               <td className="px-3 py-3">
                 {formatLeadProgrammeInterestLabel(lead.programmeInterest)}
               </td>

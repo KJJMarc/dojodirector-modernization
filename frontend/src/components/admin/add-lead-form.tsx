@@ -14,7 +14,7 @@ import {
   formatLeadExperienceLevelLabel,
   formatLeadProgrammeInterestLabel,
   formatLeadSourceLabel,
-  formatLeadStatusLabel,
+  LEAD_STATUS_LABELS,
 } from "@/lib/leads.shared";
 
 interface AddLeadFormProps {
@@ -125,7 +125,7 @@ export function AddLeadForm({ clubSlug }: AddLeadFormProps) {
           <select name="status" className={inputClassName} defaultValue="new_enquiry">
             {LEAD_STATUSES.map((value) => (
               <option key={value} value={value}>
-                {formatLeadStatusLabel(value)}
+                {LEAD_STATUS_LABELS[value]}
               </option>
             ))}
           </select>
