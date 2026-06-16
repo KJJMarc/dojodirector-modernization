@@ -12,7 +12,7 @@ const cards: {
   { key: "todaysSessions", label: "Today's Sessions" },
   { key: "bookedToday", label: "Booked Today" },
   { key: "presentToday", label: "Present Today", valueClass: "text-green-500" },
-  { key: "studentsTotal", label: "Total Students" },
+  { key: "studentsTotal", label: "Active Students" },
 ];
 
 export function AdminSummaryCards({ stats }: AdminSummaryCardsProps) {

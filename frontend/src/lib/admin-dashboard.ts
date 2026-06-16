@@ -1,10 +1,8 @@
 import "server-only";
 
 import { getLondonTodayRangeForAttendance } from "@/lib/attendance";
-import {
-  countUniqueActiveProgrammeStudentsForClub,
-  loadActiveAdminAreaClassIdsForClub,
-} from "@/lib/admin-programmes.server";
+import { countActiveStudentMemberships } from "@/lib/admin-club-memberships.server";
+import { loadActiveAdminAreaClassIdsForClub } from "@/lib/admin-programmes.server";
 import { countsAsAttendanceRegisterAttendee } from "@/lib/attendance-register-booking.shared";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import { fetchSessionAttendeesForScheduleCounts } from "@/lib/session-attendees.server";
@@ -36,7 +34,7 @@ export async function getAdminDashboardStats(
   const { startIso, endIso } = getLondonTodayRangeForAttendance();
   const adminAreaClassIds = await loadActiveAdminAreaClassIdsForClub(clubId);
   const classIdList = Array.from(adminAreaClassIds);
-  const studentsTotal = await countUniqueActiveProgrammeStudentsForClub(clubId);
+  const studentsTotal = await countActiveStudentMemberships(clubId);
 
   if (classIdList.length === 0) {
     return {
