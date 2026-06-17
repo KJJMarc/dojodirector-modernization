@@ -31,15 +31,23 @@ export function shouldUpdateLeadFromAttendanceRegisterMark(
     return false;
   }
 
-  if (lead.trial_attended_at || status === "trial_attended") {
-    return false;
-  }
-
   if (mark === "present") {
+    if (lead.trial_attended_at) {
+      return false;
+    }
+
+    if (status === "trial_attended") {
+      return true;
+    }
+
     return (
       ATTENDANCE_ELIGIBLE_STATUSES.has(status) ||
       LEGACY_ATTENDANCE_ELIGIBLE_STATUSES.has(lead.status.trim().toLowerCase())
     );
+  }
+
+  if (lead.trial_attended_at || status === "trial_attended") {
+    return false;
   }
 
   if (status === "trial_missed") {

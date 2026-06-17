@@ -28,6 +28,9 @@ WITH register_attendance AS (
       )
     ) AS member_email_norm,
     regexp_replace(COALESCE(u.phone, ''), '\D', '', 'g') AS member_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
+    ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
     regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
   FROM public.session_attendees sa
@@ -77,6 +80,11 @@ lead_register_match AS (
         AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
         AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
       )
+      OR (
+        ra.member_name_norm IS NOT NULL
+        AND ra.member_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+      )
     )
   ORDER BY l.id, ra.attendance_status, ra.marked_at DESC
 )
@@ -91,14 +99,8 @@ SELECT
   lead_id
 FROM lead_register_match
 WHERE attendance_status = 'present'
-  AND current_status IN (
-    'new_enquiry',
-    'trial_booked',
-    'trial_missed',
-    'new',
-    'contacted'
-  )
   AND trial_attended_at IS NULL
+  AND current_status <> 'joined'
 ORDER BY marked_at DESC;
 
 -- ---------------------------------------------------------------------------
@@ -121,6 +123,9 @@ WITH register_attendance AS (
       )
     ) AS member_email_norm,
     regexp_replace(COALESCE(u.phone, ''), '\D', '', 'g') AS member_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
+    ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
     regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
   FROM public.session_attendees sa
@@ -167,6 +172,11 @@ lead_register_match AS (
         length(ra.guest_phone_digits) >= 7
         AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
         AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
+      )
+      OR (
+        ra.member_name_norm IS NOT NULL
+        AND ra.member_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
       )
     )
   ORDER BY l.id, ra.attendance_status, ra.marked_at DESC
@@ -217,6 +227,9 @@ WITH register_attendance AS (
       )
     ) AS member_email_norm,
     regexp_replace(COALESCE(u.phone, ''), '\D', '', 'g') AS member_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
+    ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
     regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
   FROM public.session_attendees sa
@@ -268,6 +281,11 @@ present_lead_updates AS (
         AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
         AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
       )
+      OR (
+        ra.member_name_norm IS NOT NULL
+        AND ra.member_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+      )
     )
   ORDER BY l.id, ra.marked_at DESC
 )
@@ -315,6 +333,9 @@ WITH register_attendance AS (
       )
     ) AS member_email_norm,
     regexp_replace(COALESCE(u.phone, ''), '\D', '', 'g') AS member_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
+    ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
     regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
   FROM public.session_attendees sa
@@ -366,6 +387,11 @@ lead_register_match AS (
         length(ra.guest_phone_digits) >= 7
         AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
         AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
+      )
+      OR (
+        ra.member_name_norm IS NOT NULL
+        AND ra.member_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
       )
     )
   ORDER BY l.id, ra.attendance_status, ra.marked_at DESC

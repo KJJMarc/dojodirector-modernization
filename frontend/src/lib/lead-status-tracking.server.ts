@@ -20,6 +20,7 @@ interface SupabaseErrorLike {
 
 interface LeadTrackingRow {
   id: string;
+  full_name?: string;
   email: string;
   phone: string | null;
   lead_source: string | null;
@@ -27,6 +28,37 @@ interface LeadTrackingRow {
   notes: string | null;
   trial_attended_at: string | null;
   joined_at: string | null;
+}
+
+const LEAD_TRACKING_SELECT =
+  "id, full_name, email, phone, lead_source, status, notes, trial_attended_at, joined_at";
+
+function normalizeLeadMatchFullName(fullName: string | null | undefined): string | null {
+  const normalized = fullName?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+
+  return normalized.length >= 3 ? normalized : null;
+}
+
+function leadMatchPriority(status: string): number {
+  const normalized = status.trim().toLowerCase();
+
+  if (normalized === "trial_booked") {
+    return 0;
+  }
+
+  if (normalized === "new_enquiry" || normalized === "new" || normalized === "contacted") {
+    return 1;
+  }
+
+  if (normalized === "trial_missed") {
+    return 2;
+  }
+
+  if (normalized === "trial_attended") {
+    return 3;
+  }
+
+  return 4;
 }
 
 function isMissingLeadsTableError(error: SupabaseErrorLike) {
@@ -47,7 +79,7 @@ async function findLeadById(
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, email, phone, lead_source, status, notes, trial_attended_at, joined_at")
+    .select(LEAD_TRACKING_SELECT)
     .eq("academy_id", academyId)
     .eq("id", leadId)
     .maybeSingle();
@@ -67,7 +99,7 @@ async function findLeadByEmail(academyId: string, email: string): Promise<LeadTr
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, email, phone, lead_source, status, notes, trial_attended_at, joined_at")
+    .select(LEAD_TRACKING_SELECT)
     .eq("academy_id", academyId)
     .ilike("email", email)
     .order("created_at", { ascending: false })
@@ -92,7 +124,7 @@ async function findLeadByPhone(
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, email, phone, lead_source, status, notes, trial_attended_at, joined_at")
+    .select(LEAD_TRACKING_SELECT)
     .eq("academy_id", academyId)
     .not("phone", "is", null)
     .order("created_at", { ascending: false });
@@ -114,10 +146,52 @@ async function findLeadByPhone(
   return null;
 }
 
+async function findLeadByFullName(
+  academyId: string,
+  fullName: string,
+): Promise<LeadTrackingRow | null> {
+  const normalizedFullName = normalizeLeadMatchFullName(fullName);
+
+  if (!normalizedFullName) {
+    return null;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("leads")
+    .select(LEAD_TRACKING_SELECT)
+    .eq("academy_id", academyId)
+    .is("archived_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    if (isMissingLeadsTableError(error)) {
+      return null;
+    }
+
+    throw new Error(`Failed to match lead by name: ${error.message}`);
+  }
+
+  const matches = ((data ?? []) as LeadTrackingRow[]).filter(
+    (row) => normalizeLeadMatchFullName(row.full_name) === normalizedFullName,
+  );
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  matches.sort(
+    (left, right) => leadMatchPriority(left.status) - leadMatchPriority(right.status),
+  );
+
+  return matches[0] ?? null;
+}
+
 async function findLeadForMatch(input: {
   academyId: string;
   email: string;
   phone: string | null;
+  fullName?: string | null;
   leadId?: string | null;
 }): Promise<LeadTrackingRow | null> {
   if (input.leadId) {
@@ -141,7 +215,15 @@ async function findLeadForMatch(input: {
   const normalizedPhone = normalizeLeadMatchPhone(input.phone);
 
   if (normalizedPhone) {
-    return findLeadByPhone(input.academyId, normalizedPhone);
+    const byPhone = await findLeadByPhone(input.academyId, normalizedPhone);
+
+    if (byPhone) {
+      return byPhone;
+    }
+  }
+
+  if (input.fullName) {
+    return findLeadByFullName(input.academyId, input.fullName);
   }
 
   return null;
@@ -239,9 +321,11 @@ export async function matchLeadOnAttendanceRegisterMark(input: {
   attendanceStatus: AttendanceRegisterLeadMark;
   email: string;
   phone: string | null;
+  fullName?: string | null;
   leadId?: string | null;
   className: string;
   sessionDateLabel: string;
+  markedAtIso?: string | null;
 }): Promise<void> {
   try {
     const lead = await findLeadForMatch(input);
@@ -254,6 +338,10 @@ export async function matchLeadOnAttendanceRegisterMark(input: {
     }
 
     const now = new Date().toISOString();
+    const attendedAt =
+      input.attendanceStatus === "present"
+        ? input.markedAtIso?.trim() || now
+        : now;
     const nextStatus = resolveLeadStatusAfterAttendanceRegisterMark(
       input.attendanceStatus,
     );
@@ -268,7 +356,7 @@ export async function matchLeadOnAttendanceRegisterMark(input: {
       leadId: lead.id,
       status: nextStatus,
       ...(nextStatus === "trial_attended" && !lead.trial_attended_at
-        ? { trialAttendedAt: now }
+        ? { trialAttendedAt: attendedAt }
         : {}),
       noteEntry,
       existingNotes: lead.notes,

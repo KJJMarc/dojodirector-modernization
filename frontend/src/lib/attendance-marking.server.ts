@@ -1,6 +1,7 @@
 import "server-only";
 
 import { revalidateAttendanceImpactPaths } from "@/lib/admin-revalidate.server";
+import { getStudentFullName } from "@/lib/attendance";
 import { getClubSlugById } from "@/lib/attendance-card-manual.server";
 import {
   syncAttendanceRecordForStatus,
@@ -113,7 +114,7 @@ async function syncLeadStatusFromAttendanceRegister(input: {
   if (input.attendee.user_id) {
     const { data: userRow } = await adminSupabase
       .from("users")
-      .select("email, phone, portal_login_email")
+      .select("first_name, last_name, email, phone, portal_login_email")
       .eq("id", input.attendee.user_id)
       .maybeSingle();
 
@@ -125,8 +126,10 @@ async function syncLeadStatusFromAttendanceRegister(input: {
       attendanceStatus: input.nextStatus,
       email,
       phone: userRow?.phone?.trim() ?? null,
+      fullName: getStudentFullName(userRow?.first_name ?? null, userRow?.last_name ?? null),
       className,
       sessionDateLabel,
+      markedAtIso: input.classSession.starts_at,
     });
     return;
   }
@@ -152,6 +155,7 @@ async function syncLeadStatusFromAttendanceRegister(input: {
     leadId: guestBooking.lead_id,
     className,
     sessionDateLabel,
+    markedAtIso: input.classSession.starts_at,
   });
 }
 

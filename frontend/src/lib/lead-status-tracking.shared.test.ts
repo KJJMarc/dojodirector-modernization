@@ -38,9 +38,26 @@ test("shouldUpdateLeadFromAttendanceRegisterMark skips joined and attended leads
   assert.equal(
     shouldUpdateLeadFromAttendanceRegisterMark(
       { status: "trial_attended", trial_attended_at: "2026-06-01T10:00:00.000Z" },
+      "present",
+    ),
+    false,
+  );
+  assert.equal(
+    shouldUpdateLeadFromAttendanceRegisterMark(
+      { status: "trial_attended", trial_attended_at: "2026-06-01T10:00:00.000Z" },
       "absent",
     ),
     false,
+  );
+});
+
+test("shouldUpdateLeadFromAttendanceRegisterMark backfills missing attended timestamp", () => {
+  assert.equal(
+    shouldUpdateLeadFromAttendanceRegisterMark(
+      { status: "trial_attended", trial_attended_at: null },
+      "present",
+    ),
+    true,
   );
 });
 
