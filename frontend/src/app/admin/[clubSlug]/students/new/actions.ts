@@ -1,5 +1,6 @@
 "use server";
 
+import { isRedirectError } from "next/dist/client/components/redirect";
 import { redirect } from "next/navigation";
 import { revalidateStudentAdminPaths } from "@/lib/admin-revalidate.server";
 import { createAdminStudent } from "@/lib/admin-create-student.server";
@@ -10,47 +11,70 @@ import {
   parseProgrammeMembershipTypes,
   programmeStudentsAdminPath,
 } from "@/lib/admin-programmes.shared";
+import {
+  mapAdminStudentSaveError,
+  type AdminStudentSaveActionResult,
+} from "@/lib/admin-student-form.shared";
 import { clubAdminPath, parseClubSlugFromForm } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { revalidatePath } from "next/cache";
 
-export async function createAdminStudentAction(formData: FormData) {
+export async function createAdminStudentAction(
+  formData: FormData,
+): Promise<AdminStudentSaveActionResult | void> {
   const clubSlug = parseClubSlugFromForm(formData);
   const programmeSlug = String(formData.get("programmeSlug") ?? "").trim() || undefined;
-  const club = await requireClubBySlug(clubSlug);
-  const input: CreateAdminStudentInput = {
-    firstName: String(formData.get("firstName") ?? ""),
-    lastName: String(formData.get("lastName") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    phone: String(formData.get("phone") ?? ""),
-    dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
-    notes: String(formData.get("notes") ?? ""),
-    role: String(formData.get("role") ?? "student") as CreateAdminStudentInput["role"],
-    membershipStatus: String(
-      formData.get("membershipStatus") ?? "active",
-    ) as CreateAdminStudentInput["membershipStatus"],
-  };
 
-  const programmeMembershipTypes = parseProgrammeMembershipTypes(
-    formData.getAll("programmeMembershipTypes").map(String),
-  );
-  const bookingAccessTypes = parseBookingAccessProgrammeTypes(
-    formData.getAll("bookingAccessTypes").map(String),
-  );
+  try {
+    const club = await requireClubBySlug(clubSlug);
+    const input: CreateAdminStudentInput = {
+      firstName: String(formData.get("firstName") ?? ""),
+      lastName: String(formData.get("lastName") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+      dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
+      notes: String(formData.get("notes") ?? ""),
+      role: String(formData.get("role") ?? "student") as CreateAdminStudentInput["role"],
+      membershipStatus: String(
+        formData.get("membershipStatus") ?? "active",
+      ) as CreateAdminStudentInput["membershipStatus"],
+    };
 
-  const { userId } = await createAdminStudent(input, club.id, {
-    programmeSlug,
-    programmeMembershipTypes,
-    bookingAccessTypes,
-  });
+    const programmeMembershipTypes = parseProgrammeMembershipTypes(
+      formData.getAll("programmeMembershipTypes").map(String),
+    );
+    const bookingAccessTypes = parseBookingAccessProgrammeTypes(
+      formData.getAll("bookingAccessTypes").map(String),
+    );
 
-  revalidateStudentAdminPaths(clubSlug, userId);
+    const { userId } = await createAdminStudent(input, club.id, {
+      programmeSlug,
+      programmeMembershipTypes,
+      bookingAccessTypes,
+    });
 
-  if (programmeSlug) {
-    revalidatePath(programmeStudentsAdminPath(clubSlug, programmeSlug));
-    revalidatePath(clubProgrammeStudentAreasPath(clubSlug));
-    redirect(programmeStudentsAdminPath(clubSlug, programmeSlug));
+    revalidateStudentAdminPaths(clubSlug, userId);
+
+    if (programmeSlug) {
+      revalidatePath(programmeStudentsAdminPath(clubSlug, programmeSlug));
+      revalidatePath(clubProgrammeStudentAreasPath(clubSlug));
+      redirect(programmeStudentsAdminPath(clubSlug, programmeSlug));
+    }
+
+    redirect(clubAdminPath(clubSlug, `students/${userId}/profile`));
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    console.error("[createAdminStudentAction] failed", {
+      clubSlug,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      ok: false,
+      alert: mapAdminStudentSaveError(error),
+    };
   }
-
-  redirect(clubAdminPath(clubSlug, `students/${userId}/profile`));
 }

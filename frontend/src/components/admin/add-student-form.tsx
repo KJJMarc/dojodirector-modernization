@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { createAdminStudentAction } from "@/app/admin/[clubSlug]/students/new/actions";
+import { AdminStudentFormAlert } from "@/components/admin/admin-student-form-alert";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   MEMBERSHIP_ROLE_OPTIONS,
   MEMBERSHIP_STATUS_OPTIONS,
 } from "@/lib/admin-create-student.shared";
+import type { AdminStudentFormAlertContent } from "@/lib/admin-student-form.shared";
 import type { ProgrammeTypeValue } from "@/lib/admin-programmes.shared";
 import {
   buildAddStudentProgrammeAccessOptionsFromRows,
@@ -32,7 +34,9 @@ export function AddStudentForm({
   cancelHref,
 }: AddStudentFormProps) {
   const [isPending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [formAlert, setFormAlert] = useState<AdminStudentFormAlertContent | null>(
+    null,
+  );
   const { programmeMembershipOptions, bookingAccessOptions } = useMemo(
     () =>
       programmes.length > 0
@@ -88,15 +92,21 @@ export function AddStudentForm({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage(null);
+    setFormAlert(null);
 
     if (selectedMembership.size === 0) {
-      setErrorMessage("Select at least one programme student area.");
+      setFormAlert({
+        title: "Programme selection required",
+        paragraphs: ["Select at least one programme student area."],
+      });
       return;
     }
 
     if (selectedBooking.size === 0) {
-      setErrorMessage("Select at least one programme for booking access.");
+      setFormAlert({
+        title: "Booking access required",
+        paragraphs: ["Select at least one programme for booking access."],
+      });
       return;
     }
 
@@ -111,14 +121,10 @@ export function AddStudentForm({
     }
 
     startTransition(async () => {
-      try {
-        await createAdminStudentAction(formData);
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to add student.",
-        );
+      const result = await createAdminStudentAction(formData);
+
+      if (result?.ok === false) {
+        setFormAlert(result.alert);
       }
     });
   };
@@ -173,11 +179,7 @@ export function AddStudentForm({
       {programmeSlug ? (
         <input type="hidden" name="programmeSlug" value={programmeSlug} />
       ) : null}
-      {errorMessage ? (
-        <p className="rounded-md border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-red">
-          {errorMessage}
-        </p>
-      ) : null}
+      {formAlert ? <AdminStudentFormAlert alert={formAlert} /> : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
@@ -219,7 +221,12 @@ export function AddStudentForm({
           type="email"
           required
           autoComplete="email"
-          className={fieldClassName}
+          aria-invalid={formAlert?.highlightEmailField ? true : undefined}
+          className={`${fieldClassName}${
+            formAlert?.highlightEmailField
+              ? " border-dojo-red/70 focus:border-dojo-red"
+              : ""
+          }`}
         />
       </div>
 

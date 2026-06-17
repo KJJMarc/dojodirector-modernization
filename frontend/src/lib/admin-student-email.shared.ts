@@ -1,7 +1,23 @@
 import { normalizeStudentEmail } from "@/lib/admin-create-student.shared";
+import type { AdminStudentFormAlertContent } from "@/lib/admin-student-form.shared";
 
+export const STUDENT_EMAIL_ALREADY_IN_USE_TITLE =
+  "Student account already exists";
+
+/** Single-line fallback for logs and non-form surfaces. */
 export const STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE =
-  "This email address is already in use by another student. Please use a different email address or update the existing student record.";
+  "The email address entered is already being used by another student. Please use a different email address or update the existing student record instead.";
+
+export const STUDENT_EMAIL_ALREADY_IN_USE_ALERT: AdminStudentFormAlertContent =
+  {
+    title: STUDENT_EMAIL_ALREADY_IN_USE_TITLE,
+    paragraphs: [
+      "The email address entered is already being used by another student.",
+      "To avoid login and portal access conflicts, each student must have their own unique email address.",
+      "Please use a different email address or update the existing student record instead.",
+    ],
+    highlightEmailField: true,
+  };
 
 export class StudentEmailAlreadyInUseError extends Error {
   constructor(message: string = STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE) {

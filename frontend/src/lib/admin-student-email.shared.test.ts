@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  STUDENT_EMAIL_ALREADY_IN_USE_ALERT,
   STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE,
   StudentEmailAlreadyInUseError,
   assertStudentProfileEmailNotDuplicate,
@@ -51,6 +52,10 @@ describe("assertStudentProfileEmailNotDuplicate", () => {
       (error: unknown) => {
         assert.ok(error instanceof StudentEmailAlreadyInUseError);
         assert.equal(error.message, STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE);
+        assert.equal(
+          STUDENT_EMAIL_ALREADY_IN_USE_ALERT.title,
+          "Student account already exists",
+        );
         return true;
       },
     );

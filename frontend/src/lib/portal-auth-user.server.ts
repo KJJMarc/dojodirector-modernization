@@ -3,7 +3,8 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 
 import {
-  STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE,
+  STUDENT_EMAIL_ALREADY_IN_USE_ALERT,
+  StudentEmailAlreadyInUseError,
 } from "@/lib/admin-student-email.shared";
 import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -224,7 +225,9 @@ export async function syncProfileEmailWithPortalLoginAccess(input: {
   );
 
   if (portalLoginConflict) {
-    throw new Error(STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE);
+    throw new StudentEmailAlreadyInUseError(
+      STUDENT_EMAIL_ALREADY_IN_USE_ALERT.paragraphs.join(" "),
+    );
   }
 
   const supabase = getSupabaseAdminClient();

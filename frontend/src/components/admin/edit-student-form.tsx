@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { updateAdminStudentAction } from "@/app/admin/[clubSlug]/students/[userId]/edit/actions";
+import { AdminStudentFormAlert } from "@/components/admin/admin-student-form-alert";
 import type { AdminStudentEditPageData } from "@/lib/admin-edit-student.shared";
+import type { AdminStudentFormAlertContent } from "@/lib/admin-student-form.shared";
 import {
   PROFILE_MEMBERSHIP_ROLE_OPTIONS,
   PROFILE_MEMBERSHIP_STATUS_OPTIONS,
@@ -22,7 +24,9 @@ export function EditStudentForm({
   cancelHref,
 }: EditStudentFormProps) {
   const [isPending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [formAlert, setFormAlert] = useState<AdminStudentFormAlertContent | null>(
+    null,
+  );
   const roleInProfileOptions = PROFILE_MEMBERSHIP_ROLE_OPTIONS.some(
     (option) => option.value === pageData.membershipRole,
   );
@@ -33,17 +37,15 @@ export function EditStudentForm({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage(null);
+    setFormAlert(null);
 
     const formData = new FormData(event.currentTarget);
 
     startTransition(async () => {
-      try {
-        await updateAdminStudentAction(formData);
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : "Unable to save changes.",
-        );
+      const result = await updateAdminStudentAction(formData);
+
+      if (result?.ok === false) {
+        setFormAlert(result.alert);
       }
     });
   };
@@ -53,11 +55,7 @@ export function EditStudentForm({
       <input type="hidden" name="clubSlug" value={clubSlug} />
       <input type="hidden" name="userId" value={pageData.userId} />
 
-      {errorMessage ? (
-        <p className="rounded-md border border-dojo-red/40 bg-dojo-red/10 px-3 py-2 text-sm text-dojo-red">
-          {errorMessage}
-        </p>
-      ) : null}
+      {formAlert ? <AdminStudentFormAlert alert={formAlert} /> : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
@@ -101,7 +99,12 @@ export function EditStudentForm({
           type="email"
           defaultValue={pageData.email}
           autoComplete="email"
-          className={fieldClassName}
+          aria-invalid={formAlert?.highlightEmailField ? true : undefined}
+          className={`${fieldClassName}${
+            formAlert?.highlightEmailField
+              ? " border-dojo-red/70 focus:border-dojo-red"
+              : ""
+          }`}
         />
       </div>
 
