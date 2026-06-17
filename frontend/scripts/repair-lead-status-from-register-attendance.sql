@@ -1,24 +1,32 @@
 -- Backfill lead statuses from attendance register marks where lead sync failed.
--- Mirrors app rules in lead-status-tracking.shared.ts / attendance-marking.server.ts.
+-- Does NOT use guest_bookings.lead_id (column may be absent in production).
+--
+-- Match rules (same academy only):
+--   Student register rows (session_attendees.user_id):
+--     member email, member phone, member full name
+--   Guest register rows (session_attendees.guest_booking_id):
+--     guest email, guest phone, guest booker name, guest participant name
 --
 -- Usage (Supabase SQL editor):
---   1. Run the PREVIEW queries below and confirm rows look correct.
---   2. Run the UPDATE blocks inside a transaction (BEGIN … COMMIT).
---   3. Re-run PREVIEW — expect zero rows for each mismatch query.
+--   1. Run PREVIEW: Present and PREVIEW: Absent below.
+--   2. Run APPLY inside BEGIN … COMMIT when previews look correct.
+--   3. Re-run previews — expect zero rows.
 --
--- Optional: restrict to one academy, e.g. add to register_attendance WHERE:
---   cs.club_id = (SELECT id FROM clubs WHERE slug = 'kingston-jiu-jitsu')
+-- Optional academy filter — add to every register_attendance CTE:
+--   AND cs.club_id = (SELECT id FROM public.clubs WHERE slug = 'kingston-jiu-jitsu')
 
 -- ---------------------------------------------------------------------------
--- PREVIEW: leads still trial_booked (etc.) but register shows Present
+-- PREVIEW: Present on register, lead still missing trial_attended_at
 -- ---------------------------------------------------------------------------
 WITH register_attendance AS (
   SELECT
+    sa.id AS session_attendee_id,
     sa.attendance_status,
     cs.club_id AS academy_id,
     cs.starts_at AS marked_at,
     COALESCE(NULLIF(trim(c.name), ''), 'Class') AS class_name,
-    gb.lead_id AS guest_lead_id,
+    (sa.user_id IS NOT NULL) AS is_member_row,
+    (sa.guest_booking_id IS NOT NULL) AS is_guest_row,
     lower(
       trim(
         COALESCE(
@@ -32,7 +40,13 @@ WITH register_attendance AS (
       regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
     ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
-    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
+    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', gb.first_name, gb.last_name)), '\s+', ' ', 'g')
+    ) AS guest_name_norm,
+    lower(
+      regexp_replace(trim(COALESCE(gb.participant_name, '')), '\s+', ' ', 'g')
+    ) AS guest_participant_name_norm
   FROM public.session_attendees sa
   INNER JOIN public.class_sessions cs ON cs.id = sa.class_session_id
   LEFT JOIN public.classes c ON c.id = cs.class_id
@@ -52,60 +66,108 @@ lead_register_match AS (
     ra.marked_at,
     ra.class_name,
     cl.name AS academy_name,
-    cl.slug AS academy_slug
+    cl.slug AS academy_slug,
+    CASE
+      WHEN ra.is_member_row AND ra.member_email_norm IS NOT NULL
+        AND ra.member_email_norm LIKE '%@%'
+        AND lower(trim(l.email)) = ra.member_email_norm THEN 'member_email'
+      WHEN ra.is_member_row
+        AND length(ra.member_phone_digits) >= 7
+        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits THEN 'member_phone'
+      WHEN ra.is_member_row
+        AND ra.member_name_norm IS NOT NULL
+        AND ra.member_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm THEN 'member_name'
+      WHEN ra.is_guest_row
+        AND ra.guest_email_norm IS NOT NULL
+        AND ra.guest_email_norm LIKE '%@%'
+        AND lower(trim(l.email)) = ra.guest_email_norm THEN 'guest_email'
+      WHEN ra.is_guest_row
+        AND length(ra.guest_phone_digits) >= 7
+        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits THEN 'guest_phone'
+      WHEN ra.is_guest_row
+        AND ra.guest_name_norm IS NOT NULL
+        AND ra.guest_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_name_norm THEN 'guest_name'
+      WHEN ra.is_guest_row
+        AND ra.guest_participant_name_norm IS NOT NULL
+        AND ra.guest_participant_name_norm <> ''
+        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_participant_name_norm THEN 'guest_participant_name'
+      ELSE 'unknown'
+    END AS match_method
   FROM register_attendance ra
   INNER JOIN public.leads l ON l.academy_id = ra.academy_id
   INNER JOIN public.clubs cl ON cl.id = l.academy_id
   WHERE l.archived_at IS NULL
     AND l.status <> 'joined'
     AND (
-      (ra.guest_lead_id IS NOT NULL AND l.id = ra.guest_lead_id)
-      OR (
-        ra.member_email_norm IS NOT NULL
-        AND ra.member_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.member_email_norm
+      (
+        ra.is_member_row
+        AND (
+          (
+            ra.member_email_norm IS NOT NULL
+            AND ra.member_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.member_email_norm
+          )
+          OR (
+            length(ra.member_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
+          )
+          OR (
+            ra.member_name_norm IS NOT NULL
+            AND ra.member_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+          )
+        )
       )
       OR (
-        ra.guest_email_norm IS NOT NULL
-        AND ra.guest_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.guest_email_norm
-      )
-      OR (
-        length(ra.member_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
-      )
-      OR (
-        length(ra.guest_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
-      )
-      OR (
-        ra.member_name_norm IS NOT NULL
-        AND ra.member_name_norm <> ''
-        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+        ra.is_guest_row
+        AND (
+          (
+            ra.guest_email_norm IS NOT NULL
+            AND ra.guest_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.guest_email_norm
+          )
+          OR (
+            length(ra.guest_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
+          )
+          OR (
+            ra.guest_name_norm IS NOT NULL
+            AND ra.guest_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_name_norm
+          )
+          OR (
+            ra.guest_participant_name_norm IS NOT NULL
+            AND ra.guest_participant_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_participant_name_norm
+          )
+        )
       )
     )
   ORDER BY l.id, ra.attendance_status, ra.marked_at DESC
 )
 SELECT
+  academy_name,
   full_name,
   lead_email,
   current_status,
-  attendance_status,
-  marked_at,
+  trial_attended_at,
+  marked_at AS register_present_at,
   class_name,
-  academy_name,
+  match_method,
   lead_id
 FROM lead_register_match
 WHERE attendance_status = 'present'
   AND trial_attended_at IS NULL
-  AND current_status <> 'joined'
-ORDER BY marked_at DESC;
+ORDER BY academy_name, marked_at DESC;
 
 -- ---------------------------------------------------------------------------
--- PREVIEW: leads still trial_booked (etc.) but register shows Absent
--- (skips leads that also have a Present mark on the register)
+-- PREVIEW: Absent on register (skips leads that also have Present)
 -- ---------------------------------------------------------------------------
 WITH register_attendance AS (
   SELECT
@@ -113,7 +175,8 @@ WITH register_attendance AS (
     cs.club_id AS academy_id,
     cs.starts_at AS marked_at,
     COALESCE(NULLIF(trim(c.name), ''), 'Class') AS class_name,
-    gb.lead_id AS guest_lead_id,
+    (sa.user_id IS NOT NULL) AS is_member_row,
+    (sa.guest_booking_id IS NOT NULL) AS is_guest_row,
     lower(
       trim(
         COALESCE(
@@ -127,7 +190,13 @@ WITH register_attendance AS (
       regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
     ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
-    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
+    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', gb.first_name, gb.last_name)), '\s+', ' ', 'g')
+    ) AS guest_name_norm,
+    lower(
+      regexp_replace(trim(COALESCE(gb.participant_name, '')), '\s+', ' ', 'g')
+    ) AS guest_participant_name_norm
   FROM public.session_attendees sa
   INNER JOIN public.class_sessions cs ON cs.id = sa.class_session_id
   LEFT JOIN public.classes c ON c.id = cs.class_id
@@ -151,32 +220,52 @@ lead_register_match AS (
   INNER JOIN public.clubs cl ON cl.id = l.academy_id
   WHERE l.archived_at IS NULL
     AND l.status <> 'joined'
+    AND l.trial_attended_at IS NULL
     AND (
-      (ra.guest_lead_id IS NOT NULL AND l.id = ra.guest_lead_id)
-      OR (
-        ra.member_email_norm IS NOT NULL
-        AND ra.member_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.member_email_norm
+      (
+        ra.is_member_row
+        AND (
+          (
+            ra.member_email_norm IS NOT NULL
+            AND ra.member_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.member_email_norm
+          )
+          OR (
+            length(ra.member_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
+          )
+          OR (
+            ra.member_name_norm IS NOT NULL
+            AND ra.member_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+          )
+        )
       )
       OR (
-        ra.guest_email_norm IS NOT NULL
-        AND ra.guest_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.guest_email_norm
-      )
-      OR (
-        length(ra.member_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
-      )
-      OR (
-        length(ra.guest_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
-      )
-      OR (
-        ra.member_name_norm IS NOT NULL
-        AND ra.member_name_norm <> ''
-        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+        ra.is_guest_row
+        AND (
+          (
+            ra.guest_email_norm IS NOT NULL
+            AND ra.guest_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.guest_email_norm
+          )
+          OR (
+            length(ra.guest_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
+          )
+          OR (
+            ra.guest_name_norm IS NOT NULL
+            AND ra.guest_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_name_norm
+          )
+          OR (
+            ra.guest_participant_name_norm IS NOT NULL
+            AND ra.guest_participant_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_participant_name_norm
+          )
+        )
       )
     )
   ORDER BY l.id, ra.attendance_status, ra.marked_at DESC
@@ -187,12 +276,12 @@ present_lead_ids AS (
   WHERE attendance_status = 'present'
 )
 SELECT
+  m.academy_name,
   m.full_name,
   m.lead_email,
   m.current_status,
   m.marked_at,
   m.class_name,
-  m.academy_name,
   m.lead_id
 FROM lead_register_match m
 WHERE m.attendance_status = 'absent'
@@ -217,7 +306,8 @@ WITH register_attendance AS (
     cs.club_id AS academy_id,
     cs.starts_at AS marked_at,
     COALESCE(NULLIF(trim(c.name), ''), 'Class') AS class_name,
-    gb.lead_id AS guest_lead_id,
+    (sa.user_id IS NOT NULL) AS is_member_row,
+    (sa.guest_booking_id IS NOT NULL) AS is_guest_row,
     lower(
       trim(
         COALESCE(
@@ -231,7 +321,13 @@ WITH register_attendance AS (
       regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
     ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
-    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
+    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', gb.first_name, gb.last_name)), '\s+', ' ', 'g')
+    ) AS guest_name_norm,
+    lower(
+      regexp_replace(trim(COALESCE(gb.participant_name, '')), '\s+', ' ', 'g')
+    ) AS guest_participant_name_norm
   FROM public.session_attendees sa
   INNER JOIN public.class_sessions cs ON cs.id = sa.class_session_id
   LEFT JOIN public.classes c ON c.id = cs.class_id
@@ -252,39 +348,51 @@ present_lead_updates AS (
   WHERE l.archived_at IS NULL
     AND l.status <> 'joined'
     AND l.trial_attended_at IS NULL
-    AND l.status IN (
-      'new_enquiry',
-      'trial_booked',
-      'trial_missed',
-      'new',
-      'contacted'
-    )
     AND (
-      (ra.guest_lead_id IS NOT NULL AND l.id = ra.guest_lead_id)
-      OR (
-        ra.member_email_norm IS NOT NULL
-        AND ra.member_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.member_email_norm
+      (
+        ra.is_member_row
+        AND (
+          (
+            ra.member_email_norm IS NOT NULL
+            AND ra.member_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.member_email_norm
+          )
+          OR (
+            length(ra.member_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
+          )
+          OR (
+            ra.member_name_norm IS NOT NULL
+            AND ra.member_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+          )
+        )
       )
       OR (
-        ra.guest_email_norm IS NOT NULL
-        AND ra.guest_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.guest_email_norm
-      )
-      OR (
-        length(ra.member_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
-      )
-      OR (
-        length(ra.guest_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
-      )
-      OR (
-        ra.member_name_norm IS NOT NULL
-        AND ra.member_name_norm <> ''
-        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+        ra.is_guest_row
+        AND (
+          (
+            ra.guest_email_norm IS NOT NULL
+            AND ra.guest_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.guest_email_norm
+          )
+          OR (
+            length(ra.guest_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
+          )
+          OR (
+            ra.guest_name_norm IS NOT NULL
+            AND ra.guest_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_name_norm
+          )
+          OR (
+            ra.guest_participant_name_norm IS NOT NULL
+            AND ra.guest_participant_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_participant_name_norm
+          )
+        )
       )
     )
   ORDER BY l.id, ra.marked_at DESC
@@ -323,7 +431,8 @@ WITH register_attendance AS (
     cs.club_id AS academy_id,
     cs.starts_at AS marked_at,
     COALESCE(NULLIF(trim(c.name), ''), 'Class') AS class_name,
-    gb.lead_id AS guest_lead_id,
+    (sa.user_id IS NOT NULL) AS is_member_row,
+    (sa.guest_booking_id IS NOT NULL) AS is_guest_row,
     lower(
       trim(
         COALESCE(
@@ -337,7 +446,13 @@ WITH register_attendance AS (
       regexp_replace(trim(concat_ws(' ', u.first_name, u.last_name)), '\s+', ' ', 'g')
     ) AS member_name_norm,
     lower(trim(gb.email)) AS guest_email_norm,
-    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits
+    regexp_replace(COALESCE(gb.phone, ''), '\D', '', 'g') AS guest_phone_digits,
+    lower(
+      regexp_replace(trim(concat_ws(' ', gb.first_name, gb.last_name)), '\s+', ' ', 'g')
+    ) AS guest_name_norm,
+    lower(
+      regexp_replace(trim(COALESCE(gb.participant_name, '')), '\s+', ' ', 'g')
+    ) AS guest_participant_name_norm
   FROM public.session_attendees sa
   INNER JOIN public.class_sessions cs ON cs.id = sa.class_session_id
   LEFT JOIN public.classes c ON c.id = cs.class_id
@@ -367,31 +482,50 @@ lead_register_match AS (
       'contacted'
     )
     AND (
-      (ra.guest_lead_id IS NOT NULL AND l.id = ra.guest_lead_id)
-      OR (
-        ra.member_email_norm IS NOT NULL
-        AND ra.member_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.member_email_norm
+      (
+        ra.is_member_row
+        AND (
+          (
+            ra.member_email_norm IS NOT NULL
+            AND ra.member_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.member_email_norm
+          )
+          OR (
+            length(ra.member_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
+          )
+          OR (
+            ra.member_name_norm IS NOT NULL
+            AND ra.member_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+          )
+        )
       )
       OR (
-        ra.guest_email_norm IS NOT NULL
-        AND ra.guest_email_norm LIKE '%@%'
-        AND lower(trim(l.email)) = ra.guest_email_norm
-      )
-      OR (
-        length(ra.member_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.member_phone_digits
-      )
-      OR (
-        length(ra.guest_phone_digits) >= 7
-        AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
-        AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
-      )
-      OR (
-        ra.member_name_norm IS NOT NULL
-        AND ra.member_name_norm <> ''
-        AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.member_name_norm
+        ra.is_guest_row
+        AND (
+          (
+            ra.guest_email_norm IS NOT NULL
+            AND ra.guest_email_norm LIKE '%@%'
+            AND lower(trim(l.email)) = ra.guest_email_norm
+          )
+          OR (
+            length(ra.guest_phone_digits) >= 7
+            AND length(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g')) >= 7
+            AND regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g') = ra.guest_phone_digits
+          )
+          OR (
+            ra.guest_name_norm IS NOT NULL
+            AND ra.guest_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_name_norm
+          )
+          OR (
+            ra.guest_participant_name_norm IS NOT NULL
+            AND ra.guest_participant_name_norm <> ''
+            AND lower(regexp_replace(trim(l.full_name), '\s+', ' ', 'g')) = ra.guest_participant_name_norm
+          )
+        )
       )
     )
   ORDER BY l.id, ra.attendance_status, ra.marked_at DESC
@@ -439,8 +573,3 @@ WHERE l.id = u.lead_id
   AND l.status IN ('new_enquiry', 'trial_booked', 'new', 'contacted');
 
 COMMIT;
-
--- Quick check for a named lead after backfill:
--- SELECT id, full_name, email, status, trial_attended_at, updated_at
--- FROM public.leads
--- WHERE full_name ILIKE '%Ieuan%Mapp%';
