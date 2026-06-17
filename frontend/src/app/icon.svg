@@ -1,9 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Dojo Director">
-  <rect width="32" height="32" fill="#0a0a0a"/>
-  <g fill="#dc2626">
-    <path d="M0 14 L4 10 H28 L32 14 V17 H0 Z"/>
-    <rect x="4" y="16" width="24" height="3.5" rx="0.5"/>
-    <rect x="7" y="16" width="5.5" height="14" rx="0.5"/>
-    <rect x="19.5" y="16" width="5.5" height="14" rx="0.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Dojo Director">
+  <rect width="512" height="512" fill="#000000"/>
+  <g>
+    <path fill="#7f1d1d" d="M112 442 h56 v16 c0 5-5 10-10 10 h-36 c-5 0-10-5-10-10 v-16z"/>
+    <path fill="#7f1d1d" d="M344 442 h56 v16 c0 5-5 10-10 10 h-36 c-5 0-10-5-10-10 v-16z"/>
+
+    <rect x="126" y="220" width="42" height="222" fill="#dc2626"/>
+    <rect x="344" y="220" width="42" height="222" fill="#dc2626"/>
+
+    <rect x="88" y="208" width="336" height="20" rx="2" fill="#b91c1c"/>
+    <rect x="88" y="208" width="336" height="7" rx="1" fill="#ef4444" opacity="0.35"/>
+
+    <rect x="76" y="168" width="360" height="18" rx="2" fill="#dc2626"/>
+    <rect x="76" y="168" width="360" height="6" rx="1" fill="#ef4444" opacity="0.4"/>
+
+    <rect x="64" y="132" width="384" height="16" rx="2" fill="#991b1b"/>
+
+    <path fill="#dc2626" d="
+      M 20 156
+      L 36 108
+      L 52 148
+      L 460 148
+      L 476 108
+      L 492 156
+      L 476 144
+      L 36 144
+      Z"/>
+    <path fill="#ef4444" d="M 36 108 h12 l-8 36 h-4z"/>
+    <path fill="#ef4444" d="M 476 108 h12 l-8 36 h-4z"/>
+
+    <rect x="242" y="176" width="28" height="48" rx="1" fill="#991b1b"/>
+    <rect x="246" y="180" width="20" height="40" rx="1" fill="#b91c1c"/>
+
+    <rect x="120" y="210" width="54" height="12" rx="2" fill="#ef4444"/>
+    <rect x="338" y="210" width="54" height="12" rx="2" fill="#ef4444"/>
   </g>
 </svg>
