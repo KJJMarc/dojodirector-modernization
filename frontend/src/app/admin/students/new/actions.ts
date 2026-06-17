@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { createAdminStudent } from "@/lib/admin-create-student.server";
 import type { CreateAdminStudentInput } from "@/lib/admin-create-student.shared";
 import {
-  mapAdminStudentSaveError,
-  type AdminStudentSaveActionResult,
+  ADMIN_STUDENT_FORM_INITIAL_STATE,
+  mapAdminStudentSaveFailure,
+  toAdminStudentSaveErrorState,
+  type AdminStudentSaveActionState,
 } from "@/lib/admin-student-form.shared";
 import {
   parseBookingAccessProgrammeTypes,
@@ -20,8 +22,9 @@ function revalidateStudentPaths(userId: string) {
 }
 
 export async function createAdminStudentAction(
+  _previousState: AdminStudentSaveActionState | null,
   formData: FormData,
-): Promise<AdminStudentSaveActionResult | void> {
+): Promise<AdminStudentSaveActionState | null> {
   try {
     const input: CreateAdminStudentInput = {
       firstName: String(formData.get("firstName") ?? ""),
@@ -43,13 +46,20 @@ export async function createAdminStudentAction(
       formData.getAll("bookingAccessTypes").map(String),
     );
 
-    const { userId } = await createAdminStudent(input, undefined, {
+    const result = await createAdminStudent(input, undefined, {
       programmeMembershipTypes,
       bookingAccessTypes,
     });
 
-    revalidateStudentPaths(userId);
-    redirect(`/admin/students/${userId}/profile`);
+    if (!result.ok) {
+      return {
+        ok: false,
+        alert: mapAdminStudentSaveFailure(result.failure),
+      };
+    }
+
+    revalidateStudentPaths(result.userId);
+    redirect(`/admin/students/${result.userId}/profile`);
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
@@ -59,9 +69,8 @@ export async function createAdminStudentAction(
       message: error instanceof Error ? error.message : String(error),
     });
 
-    return {
-      ok: false,
-      alert: mapAdminStudentSaveError(error),
-    };
+    return toAdminStudentSaveErrorState(error);
   }
+
+  return ADMIN_STUDENT_FORM_INITIAL_STATE;
 }

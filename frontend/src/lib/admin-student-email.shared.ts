@@ -33,22 +33,32 @@ export function shouldValidateStudentProfileEmail(
   return normalized.includes("@");
 }
 
+export function getStudentProfileEmailDuplicateStatus(input: {
+  email: string | null | undefined;
+  conflictingUserId: string | null | undefined;
+  currentUserId?: string | null;
+}): "available" | "duplicate" {
+  if (!shouldValidateStudentProfileEmail(input.email)) {
+    return "available";
+  }
+
+  if (!input.conflictingUserId) {
+    return "available";
+  }
+
+  if (input.currentUserId && input.conflictingUserId === input.currentUserId) {
+    return "available";
+  }
+
+  return "duplicate";
+}
+
 export function assertStudentProfileEmailNotDuplicate(input: {
   email: string | null | undefined;
   conflictingUserId: string | null | undefined;
   currentUserId?: string | null;
 }) {
-  if (!shouldValidateStudentProfileEmail(input.email)) {
-    return;
+  if (getStudentProfileEmailDuplicateStatus(input) === "duplicate") {
+    throw new StudentEmailAlreadyInUseError();
   }
-
-  if (!input.conflictingUserId) {
-    return;
-  }
-
-  if (input.currentUserId && input.conflictingUserId === input.currentUserId) {
-    return;
-  }
-
-  throw new StudentEmailAlreadyInUseError();
 }

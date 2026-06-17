@@ -12,16 +12,19 @@ import {
   programmeStudentsAdminPath,
 } from "@/lib/admin-programmes.shared";
 import {
-  mapAdminStudentSaveError,
-  type AdminStudentSaveActionResult,
+  ADMIN_STUDENT_FORM_INITIAL_STATE,
+  mapAdminStudentSaveFailure,
+  toAdminStudentSaveErrorState,
+  type AdminStudentSaveActionState,
 } from "@/lib/admin-student-form.shared";
 import { clubAdminPath, parseClubSlugFromForm } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { revalidatePath } from "next/cache";
 
 export async function createAdminStudentAction(
+  _previousState: AdminStudentSaveActionState | null,
   formData: FormData,
-): Promise<AdminStudentSaveActionResult | void> {
+): Promise<AdminStudentSaveActionState | null> {
   const clubSlug = parseClubSlugFromForm(formData);
   const programmeSlug = String(formData.get("programmeSlug") ?? "").trim() || undefined;
 
@@ -47,13 +50,20 @@ export async function createAdminStudentAction(
       formData.getAll("bookingAccessTypes").map(String),
     );
 
-    const { userId } = await createAdminStudent(input, club.id, {
+    const result = await createAdminStudent(input, club.id, {
       programmeSlug,
       programmeMembershipTypes,
       bookingAccessTypes,
     });
 
-    revalidateStudentAdminPaths(clubSlug, userId);
+    if (!result.ok) {
+      return {
+        ok: false,
+        alert: mapAdminStudentSaveFailure(result.failure),
+      };
+    }
+
+    revalidateStudentAdminPaths(clubSlug, result.userId);
 
     if (programmeSlug) {
       revalidatePath(programmeStudentsAdminPath(clubSlug, programmeSlug));
@@ -61,7 +71,7 @@ export async function createAdminStudentAction(
       redirect(programmeStudentsAdminPath(clubSlug, programmeSlug));
     }
 
-    redirect(clubAdminPath(clubSlug, `students/${userId}/profile`));
+    redirect(clubAdminPath(clubSlug, `students/${result.userId}/profile`));
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
@@ -72,9 +82,8 @@ export async function createAdminStudentAction(
       message: error instanceof Error ? error.message : String(error),
     });
 
-    return {
-      ok: false,
-      alert: mapAdminStudentSaveError(error),
-    };
+    return toAdminStudentSaveErrorState(error);
   }
+
+  return ADMIN_STUDENT_FORM_INITIAL_STATE;
 }

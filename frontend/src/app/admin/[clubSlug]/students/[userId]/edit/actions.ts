@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { updateAdminStudentDetails } from "@/lib/admin-edit-student.server";
 import type { EditAdminStudentInput } from "@/lib/admin-edit-student.shared";
 import {
-  mapAdminStudentSaveError,
-  type AdminStudentSaveActionResult,
+  ADMIN_STUDENT_FORM_INITIAL_STATE,
+  mapAdminStudentSaveFailure,
+  toAdminStudentSaveErrorState,
+  type AdminStudentSaveActionState,
 } from "@/lib/admin-student-form.shared";
 import { revalidateMembershipAdminPaths } from "@/lib/admin-revalidate.server";
 import { clubAdminPath, parseClubSlugFromForm } from "@/lib/clubs.shared";
@@ -17,8 +19,9 @@ function isInstructorFacingRole(role: string | null | undefined) {
 }
 
 export async function updateAdminStudentAction(
+  _previousState: AdminStudentSaveActionState | null,
   formData: FormData,
-): Promise<AdminStudentSaveActionResult | void> {
+): Promise<AdminStudentSaveActionState | null> {
   const clubSlug = parseClubSlugFromForm(formData);
   const userId = String(formData.get("userId") ?? "");
   const role = String(formData.get("role") ?? "");
@@ -43,14 +46,19 @@ export async function updateAdminStudentAction(
       membershipStatus,
     };
 
-    const { previousRole, nextRole } = await updateAdminStudentDetails(
-      input,
-      club.id,
-    );
+    const result = await updateAdminStudentDetails(input, club.id);
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        alert: mapAdminStudentSaveFailure(result.failure),
+      };
+    }
 
     revalidateMembershipAdminPaths(clubSlug, userId, {
       revalidateInstructors:
-        isInstructorFacingRole(previousRole) || isInstructorFacingRole(nextRole),
+        isInstructorFacingRole(result.previousRole) ||
+        isInstructorFacingRole(result.nextRole),
     });
 
     redirect(clubAdminPath(clubSlug, `students/${userId}/profile`));
@@ -65,9 +73,8 @@ export async function updateAdminStudentAction(
       message: error instanceof Error ? error.message : String(error),
     });
 
-    return {
-      ok: false,
-      alert: mapAdminStudentSaveError(error),
-    };
+    return toAdminStudentSaveErrorState(error);
   }
+
+  return ADMIN_STUDENT_FORM_INITIAL_STATE;
 }

@@ -2,21 +2,20 @@ import "server-only";
 
 import {
   CreateAdminStudentInput,
-  StudentAlreadyExistsError,
   getTodayJoinedAtDate,
   isMembershipRoleValue,
   parseMembershipStatusValue,
   normalizeStudentEmail,
 } from "@/lib/admin-create-student.shared";
-import { StudentEmailAlreadyInUseError } from "@/lib/admin-student-email.shared";
-import { findUserIdByProfileEmail } from "@/lib/admin-student-email.server";
-import { ACTIVE_CLUB_ID } from "@/lib/branding";
-import type { StudentPortalAccessProgrammeType } from "@/lib/admin-programmes.shared";
+import type { AdminStudentSaveFailure } from "@/lib/admin-student-form.shared";
 import {
   ensureProgrammeMembershipForUser,
   setProgrammeBookingAccessForUser,
   requireClubProgrammeBySlug,
 } from "@/lib/admin-programmes.server";
+import type { StudentPortalAccessProgrammeType } from "@/lib/admin-programmes.shared";
+import { ACTIVE_CLUB_ID } from "@/lib/branding";
+import { findUserIdByProfileEmail } from "@/lib/admin-student-email.server";
 import { getStudentFullName } from "@/lib/attendance";
 import { matchLeadOnStudentJoined } from "@/lib/lead-status-tracking.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -156,19 +155,35 @@ export interface CreateAdminStudentOptions {
   bookingAccessTypes: StudentPortalAccessProgrammeType[];
 }
 
+export type CreateAdminStudentResult =
+  | { ok: true; userId: string; createdUser: boolean }
+  | { ok: false; failure: AdminStudentSaveFailure };
+
 export async function createAdminStudent(
   rawInput: CreateAdminStudentInput,
   clubId: string = ACTIVE_CLUB_ID,
   options: CreateAdminStudentOptions,
-): Promise<{ userId: string; createdUser: boolean }> {
+): Promise<CreateAdminStudentResult> {
   const input = parseCreateAdminStudentInput(rawInput);
 
   if (options.programmeMembershipTypes.length === 0) {
-    throw new Error("Select at least one programme student area.");
+    return {
+      ok: false,
+      failure: {
+        code: "validation",
+        message: "Select at least one programme student area.",
+      },
+    };
   }
 
   if (options.bookingAccessTypes.length === 0) {
-    throw new Error("Select at least one programme for booking access.");
+    return {
+      ok: false,
+      failure: {
+        code: "validation",
+        message: "Select at least one programme for booking access.",
+      },
+    };
   }
 
   if (options.programmeSlug) {
@@ -184,10 +199,10 @@ export async function createAdminStudent(
     );
 
     if (existingMembership) {
-      throw new StudentAlreadyExistsError();
+      return { ok: false, failure: { code: "already_exists_at_academy" } };
     }
 
-    throw new StudentEmailAlreadyInUseError();
+    return { ok: false, failure: { code: "duplicate_email" } };
   }
 
   const userId = await createUser(input);
@@ -218,7 +233,7 @@ export async function createAdminStudent(
     studentName: getStudentFullName(input.firstName, input.lastName),
   });
 
-  return { userId, createdUser: true };
+  return { ok: true, userId, createdUser: true };
 }
 
 export type { CreateAdminStudentInput };

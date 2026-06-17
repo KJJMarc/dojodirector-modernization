@@ -16,7 +16,9 @@ import {
   saveUserAddressOnUsers,
 } from "@/lib/user-address-field.server";
 import { syncInstructorPortalAccessAfterMembershipChange } from "@/lib/instructor-portal-membership-sync.server";
-import { assertStudentProfileEmailAvailable } from "@/lib/admin-student-email.server";
+import type { AdminStudentSaveFailure } from "@/lib/admin-student-form.shared";
+import { getStudentProfileEmailAvailability } from "@/lib/admin-student-email.server";
+import { StudentEmailAlreadyInUseError } from "@/lib/admin-student-email.shared";
 import { syncProfileEmailWithPortalLoginAccess } from "@/lib/portal-auth-user.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -85,10 +87,14 @@ export async function getAdminStudentEditPageData(
   };
 }
 
+export type UpdateAdminStudentDetailsResult =
+  | { ok: true; previousRole: string | null; nextRole: string | null }
+  | { ok: false; failure: AdminStudentSaveFailure };
+
 export async function updateAdminStudentDetails(
   rawInput: EditAdminStudentInput,
   clubId: string,
-): Promise<{ previousRole: string | null; nextRole: string | null }> {
+): Promise<UpdateAdminStudentDetailsResult> {
   const userFields = parseEditAdminStudentUserFields(rawInput);
   const membership = await loadMembershipForClub(userFields.userId, clubId);
   const canChangeRole = canChangeProfileMembershipRole(membership.role);
@@ -106,7 +112,14 @@ export async function updateAdminStudentDetails(
 
   const previousProfileEmail = existingUser?.email ?? null;
 
-  await assertStudentProfileEmailAvailable(userFields.email, userFields.userId);
+  const emailAvailability = await getStudentProfileEmailAvailability(
+    userFields.email,
+    userFields.userId,
+  );
+
+  if (emailAvailability === "duplicate") {
+    return { ok: false, failure: { code: "duplicate_email" } };
+  }
 
   const { error: userError } = await supabase
     .from("users")
@@ -124,16 +137,28 @@ export async function updateAdminStudentDetails(
     throw new Error(`Unable to update student: ${userError.message}`);
   }
 
-  await syncProfileEmailWithPortalLoginAccess({
-    userId: userFields.userId,
-    profileEmail: userFields.email ?? "",
-    previousProfileEmail,
-  });
+  try {
+    await syncProfileEmailWithPortalLoginAccess({
+      userId: userFields.userId,
+      profileEmail: userFields.email ?? "",
+      previousProfileEmail,
+    });
+  } catch (error) {
+    if (error instanceof StudentEmailAlreadyInUseError) {
+      return { ok: false, failure: { code: "duplicate_email" } };
+    }
+
+    throw error;
+  }
 
   await saveUserAddressOnUsers(userFields.userId, userFields.address);
 
   if (!canChangeRole) {
-    return { previousRole: membership.role, nextRole: membership.role };
+    return {
+      ok: true,
+      previousRole: membership.role,
+      nextRole: membership.role,
+    };
   }
 
   const membershipFields = parseEditAdminStudentMembershipFields(
@@ -165,5 +190,5 @@ export async function updateAdminStudentDetails(
 
   await syncInstructorPortalAccessAfterMembershipChange(userFields.userId);
 
-  return { previousRole, nextRole };
+  return { ok: true, previousRole, nextRole };
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { useFormState } from "react-dom";
 import { createAdminStudentAction } from "@/app/admin/[clubSlug]/students/new/actions";
 import { AdminStudentFormAlert } from "@/components/admin/admin-student-form-alert";
 import { clubAdminPath } from "@/lib/clubs.shared";
@@ -9,7 +10,10 @@ import {
   MEMBERSHIP_ROLE_OPTIONS,
   MEMBERSHIP_STATUS_OPTIONS,
 } from "@/lib/admin-create-student.shared";
-import type { AdminStudentFormAlertContent } from "@/lib/admin-student-form.shared";
+import {
+  ADMIN_STUDENT_FORM_INITIAL_STATE,
+  type AdminStudentFormAlertContent,
+} from "@/lib/admin-student-form.shared";
 import type { ProgrammeTypeValue } from "@/lib/admin-programmes.shared";
 import {
   buildAddStudentProgrammeAccessOptionsFromRows,
@@ -34,9 +38,15 @@ export function AddStudentForm({
   cancelHref,
 }: AddStudentFormProps) {
   const [isPending, startTransition] = useTransition();
-  const [formAlert, setFormAlert] = useState<AdminStudentFormAlertContent | null>(
+  const [saveState, saveAction] = useFormState(
+    createAdminStudentAction,
+    ADMIN_STUDENT_FORM_INITIAL_STATE,
+  );
+  const [localAlert, setLocalAlert] = useState<AdminStudentFormAlertContent | null>(
     null,
   );
+  const formAlert =
+    localAlert ?? (saveState?.ok === false ? saveState.alert : null);
   const { programmeMembershipOptions, bookingAccessOptions } = useMemo(
     () =>
       programmes.length > 0
@@ -92,10 +102,10 @@ export function AddStudentForm({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setFormAlert(null);
+    setLocalAlert(null);
 
     if (selectedMembership.size === 0) {
-      setFormAlert({
+      setLocalAlert({
         title: "Programme selection required",
         paragraphs: ["Select at least one programme student area."],
       });
@@ -103,7 +113,7 @@ export function AddStudentForm({
     }
 
     if (selectedBooking.size === 0) {
-      setFormAlert({
+      setLocalAlert({
         title: "Booking access required",
         paragraphs: ["Select at least one programme for booking access."],
       });
@@ -120,12 +130,8 @@ export function AddStudentForm({
       formData.append("bookingAccessTypes", programmeType);
     }
 
-    startTransition(async () => {
-      const result = await createAdminStudentAction(formData);
-
-      if (result?.ok === false) {
-        setFormAlert(result.alert);
-      }
+    startTransition(() => {
+      saveAction(formData);
     });
   };
 

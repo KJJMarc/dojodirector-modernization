@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
+import { useFormState } from "react-dom";
 import { updateAdminStudentAction } from "@/app/admin/[clubSlug]/students/[userId]/edit/actions";
 import { AdminStudentFormAlert } from "@/components/admin/admin-student-form-alert";
 import type { AdminStudentEditPageData } from "@/lib/admin-edit-student.shared";
-import type { AdminStudentFormAlertContent } from "@/lib/admin-student-form.shared";
+import { ADMIN_STUDENT_FORM_INITIAL_STATE } from "@/lib/admin-student-form.shared";
 import {
   PROFILE_MEMBERSHIP_ROLE_OPTIONS,
   PROFILE_MEMBERSHIP_STATUS_OPTIONS,
@@ -24,9 +25,11 @@ export function EditStudentForm({
   cancelHref,
 }: EditStudentFormProps) {
   const [isPending, startTransition] = useTransition();
-  const [formAlert, setFormAlert] = useState<AdminStudentFormAlertContent | null>(
-    null,
+  const [saveState, saveAction] = useFormState(
+    updateAdminStudentAction,
+    ADMIN_STUDENT_FORM_INITIAL_STATE,
   );
+  const formAlert = saveState?.ok === false ? saveState.alert : null;
   const roleInProfileOptions = PROFILE_MEMBERSHIP_ROLE_OPTIONS.some(
     (option) => option.value === pageData.membershipRole,
   );
@@ -37,16 +40,11 @@ export function EditStudentForm({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setFormAlert(null);
 
     const formData = new FormData(event.currentTarget);
 
-    startTransition(async () => {
-      const result = await updateAdminStudentAction(formData);
-
-      if (result?.ok === false) {
-        setFormAlert(result.alert);
-      }
+    startTransition(() => {
+      saveAction(formData);
     });
   };
 

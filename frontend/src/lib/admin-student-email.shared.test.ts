@@ -5,6 +5,7 @@ import {
   STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE,
   StudentEmailAlreadyInUseError,
   assertStudentProfileEmailNotDuplicate,
+  getStudentProfileEmailDuplicateStatus,
   shouldValidateStudentProfileEmail,
 } from "./admin-student-email.shared.ts";
 
@@ -18,6 +19,30 @@ describe("shouldValidateStudentProfileEmail", () => {
 
   it("validates trimmed, case-insensitive emails", () => {
     assert.equal(shouldValidateStudentProfileEmail("  Student@Example.com "), true);
+  });
+});
+
+describe("getStudentProfileEmailDuplicateStatus", () => {
+  it("returns duplicate for another student's email", () => {
+    assert.equal(
+      getStudentProfileEmailDuplicateStatus({
+        email: "student@example.com",
+        conflictingUserId: "user-2",
+        currentUserId: "user-1",
+      }),
+      "duplicate",
+    );
+  });
+
+  it("returns available for the same student", () => {
+    assert.equal(
+      getStudentProfileEmailDuplicateStatus({
+        email: "student@example.com",
+        conflictingUserId: "user-1",
+        currentUserId: "user-1",
+      }),
+      "available",
+    );
   });
 });
 
