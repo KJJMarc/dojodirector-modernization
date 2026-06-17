@@ -14,6 +14,7 @@ import {
   type RecurringClassProgrammeOption,
   type RecurringClassProgrammeRow,
   type RecurringClassScheduleRow,
+  type RecurringSessionCapacitySyncResult,
 } from "@/lib/admin-recurring-classes.shared";
 import type {
   CreateRecurringClassInput,
@@ -343,14 +344,39 @@ async function findOrCreateClassTemplate(
   return created.id as string;
 }
 
-const RECORDED_ATTENDANCE_STATUSES = ["present", "absent"] as const;
+async function resolveClassTemplateForScheduleUpdate(
+  clubId: string,
+  existingClassId: string,
+  className: string,
+  programmeType: ProgrammeType,
+) {
+  const supabase = getSupabaseAdminClient();
 
-export interface RecurringSessionCapacitySyncResult {
-  matchedCount: number;
-  updatedCount: number;
-  skippedAttendanceCount: number;
-  skippedCancelledCount: number;
+  const { data: namedClass, error: namedError } = await supabase
+    .from("classes")
+    .select("id, programme_type")
+    .eq("club_id", clubId)
+    .eq("name", className)
+    .maybeSingle();
+
+  if (namedError) {
+    throw new Error(`Unable to load class template: ${namedError.message}`);
+  }
+
+  if (namedClass) {
+    if (namedClass.programme_type !== programmeType) {
+      throw new Error(
+        `Class "${className}" already exists with programme type ${namedClass.programme_type}.`,
+      );
+    }
+
+    return namedClass.id as string;
+  }
+
+  return existingClassId;
 }
+
+const RECORDED_ATTENDANCE_STATUSES = ["present", "absent"] as const;
 
 interface FutureRecurringSessionRow {
   id: string;
@@ -363,28 +389,6 @@ interface FutureRecurringSessionRow {
 
 function isUpdatableSessionStatus(status: string | null) {
   return status === "scheduled" || status === null;
-}
-
-export function formatRecurringSessionCapacitySyncSummary(
-  result: RecurringSessionCapacitySyncResult,
-) {
-  const parts = [`${result.updatedCount} future session${result.updatedCount === 1 ? "" : "s"} updated`];
-
-  if (result.skippedAttendanceCount > 0) {
-    parts.push(
-      `${result.skippedAttendanceCount} skipped (attendance recorded)`,
-    );
-  }
-
-  if (result.skippedCancelledCount > 0) {
-    parts.push(`${result.skippedCancelledCount} skipped (cancelled)`);
-  }
-
-  if (result.matchedCount === 0) {
-    return "No matching future sessions found to update.";
-  }
-
-  return parts.join(" · ");
 }
 
 async function loadSessionIdsWithRecordedAttendance(sessionIds: string[]) {
@@ -429,8 +433,10 @@ export async function syncFutureRecurringSessionCapacity(input: {
     .from("class_sessions")
     .select("id, starts_at, external_id, recurring_schedule_id, source, status")
     .eq("club_id", input.clubId)
-    .eq("class_id", input.classId)
-    .gte("starts_at", nowIso);
+    .gte("starts_at", nowIso)
+    .or(
+      `class_id.eq.${input.classId},recurring_schedule_id.eq.${input.scheduleId}`,
+    );
 
   if (sessionsError) {
     throw new Error(`Unable to load future sessions: ${sessionsError.message}`);
@@ -799,8 +805,9 @@ export async function updateRecurringClassSchedule(
     throw new Error("Recurring class schedule not found.");
   }
 
-  const classId = await findOrCreateClassTemplate(
+  const classId = await resolveClassTemplateForScheduleUpdate(
     clubId,
+    existing.classId,
     input.className,
     input.programmeType,
   );

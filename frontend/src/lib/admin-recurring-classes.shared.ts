@@ -155,6 +155,37 @@ export interface RecurringClassDeleteStatus {
   message: string;
 }
 
+export interface RecurringSessionCapacitySyncResult {
+  matchedCount: number;
+  updatedCount: number;
+  skippedAttendanceCount: number;
+  skippedCancelledCount: number;
+}
+
+export function formatRecurringSessionCapacitySyncSummary(
+  result: RecurringSessionCapacitySyncResult,
+) {
+  if (result.matchedCount === 0) {
+    return "Class saved. Future sessions will use the updated details when generated.";
+  }
+
+  const parts = [
+    `${result.updatedCount} future session${result.updatedCount === 1 ? "" : "s"} updated`,
+  ];
+
+  if (result.skippedAttendanceCount > 0) {
+    parts.push(
+      `${result.skippedAttendanceCount} skipped (attendance recorded)`,
+    );
+  }
+
+  if (result.skippedCancelledCount > 0) {
+    parts.push(`${result.skippedCancelledCount} skipped (cancelled)`);
+  }
+
+  return `Class saved. ${parts.join(" · ")}`;
+}
+
 export function formatDayOfWeekLabel(dayOfWeek: number) {
   return (
     DAY_OF_WEEK_OPTIONS.find((option) => option.value === dayOfWeek)?.label ??

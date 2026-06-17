@@ -82,7 +82,7 @@ export function RecurringClassForm({
     <form onSubmit={handleSubmit} className="space-y-5">
       {successMessage ? (
         <p className="rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-dojo-white">
-          Saved. {successMessage}
+          {successMessage}
         </p>
       ) : null}
 

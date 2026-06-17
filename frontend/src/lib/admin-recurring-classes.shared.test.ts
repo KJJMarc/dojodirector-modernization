@@ -8,6 +8,7 @@ import {
   buildFallbackRecurringClassProgrammeOptions,
   buildRecurringClassProgrammeOptionsFromRows,
   ensureRecurringClassProgrammeOptionPresent,
+  formatRecurringSessionCapacitySyncSummary,
   isRecurringClassProgrammeTypeAllowed,
   resolveDefaultRecurringClassProgrammeType,
 } from "@/lib/admin-recurring-classes.shared";
@@ -112,6 +113,30 @@ test("ensureRecurringClassProgrammeOptionPresent keeps legacy edit values availa
 
   assert.equal(options.length, 2);
   assert.equal(options[1]?.programmeType, "muay_thai");
+});
+
+test("formatRecurringSessionCapacitySyncSummary uses calm copy when no sessions match", () => {
+  assert.equal(
+    formatRecurringSessionCapacitySyncSummary({
+      matchedCount: 0,
+      updatedCount: 0,
+      skippedAttendanceCount: 0,
+      skippedCancelledCount: 0,
+    }),
+    "Class saved. Future sessions will use the updated details when generated.",
+  );
+});
+
+test("formatRecurringSessionCapacitySyncSummary reports session sync details", () => {
+  assert.equal(
+    formatRecurringSessionCapacitySyncSummary({
+      matchedCount: 2,
+      updatedCount: 2,
+      skippedAttendanceCount: 0,
+      skippedCancelledCount: 0,
+    }),
+    "Class saved. 2 future sessions updated",
+  );
 });
 
 test("resolveDefaultRecurringClassProgrammeType prefers an enabled schedule value", () => {

@@ -3,11 +3,11 @@
 import {
   deactivateRecurringClassSchedule,
   deleteRecurringClassSchedulePermanently,
-  formatRecurringSessionCapacitySyncSummary,
   getRecurringClassScheduleById,
   reactivateRecurringClassSchedule,
   updateRecurringClassSchedule,
 } from "@/lib/admin-recurring-classes.server";
+import { formatRecurringSessionCapacitySyncSummary } from "@/lib/admin-recurring-classes.shared";
 import { parseUpdateRecurringClassInput } from "@/lib/admin-recurring-classes.input";
 import { revalidateRecurringClassPaths } from "@/lib/admin-revalidate.server";
 import {
