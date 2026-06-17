@@ -99,7 +99,6 @@ export function EditStudentForm({
           id="email"
           name="email"
           type="email"
-          required
           defaultValue={pageData.email}
           autoComplete="email"
           className={fieldClassName}

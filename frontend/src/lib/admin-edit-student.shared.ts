@@ -37,7 +37,7 @@ export interface ParsedEditAdminStudentUserFields {
   userId: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   address: string | null;
@@ -54,10 +54,14 @@ function parseRequiredText(value: string, fieldLabel: string) {
   return trimmed;
 }
 
-function parseEmail(value: string) {
+function parseOptionalEmail(value: string) {
   const email = normalizeStudentEmail(value);
 
-  if (!email || !email.includes("@")) {
+  if (!email) {
+    return null;
+  }
+
+  if (!email.includes("@")) {
     throw new Error("Please enter a valid email address.");
   }
 
@@ -94,7 +98,7 @@ export function parseEditAdminStudentUserFields(
     userId: input.userId,
     firstName: parseRequiredText(input.firstName, "First name"),
     lastName: parseRequiredText(input.lastName, "Last name"),
-    email: parseEmail(input.email),
+    email: parseOptionalEmail(input.email),
     phone: parseOptionalText(input.phone),
     dateOfBirth: parseOptionalDate(input.dateOfBirth),
     address: parseOptionalText(input.address),

@@ -8,6 +8,8 @@ import {
   parseMembershipStatusValue,
   normalizeStudentEmail,
 } from "@/lib/admin-create-student.shared";
+import { StudentEmailAlreadyInUseError } from "@/lib/admin-student-email.shared";
+import { findUserIdByProfileEmail } from "@/lib/admin-student-email.server";
 import { ACTIVE_CLUB_ID } from "@/lib/branding";
 import type { StudentPortalAccessProgrammeType } from "@/lib/admin-programmes.shared";
 import {
@@ -82,22 +84,6 @@ function parseCreateAdminStudentInput(
     role,
     membershipStatus,
   };
-}
-
-async function findUserIdByEmail(email: string) {
-  const supabase = getSupabaseAdminClient();
-
-  const { data, error } = await supabase
-    .from("users")
-    .select("id")
-    .ilike("email", email)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Unable to look up student: ${error.message}`);
-  }
-
-  return data?.id ?? null;
 }
 
 async function findMembershipForClub(userId: string, clubId: string) {
@@ -189,7 +175,7 @@ export async function createAdminStudent(
     await requireClubProgrammeBySlug(clubId, options.programmeSlug);
   }
 
-  const existingUserId = await findUserIdByEmail(input.email);
+  const existingUserId = await findUserIdByProfileEmail(input.email);
 
   if (existingUserId) {
     const existingMembership = await findMembershipForClub(
@@ -201,33 +187,7 @@ export async function createAdminStudent(
       throw new StudentAlreadyExistsError();
     }
 
-    await createMembership({
-      userId: existingUserId,
-      clubId,
-      role: input.role,
-      status: input.membershipStatus,
-    });
-    await ensureProgrammeMembershipForUser({
-      clubId,
-      userId: existingUserId,
-      programmeTypes: options.programmeMembershipTypes,
-      status: input.membershipStatus,
-    });
-    await setProgrammeBookingAccessForUser({
-      clubId,
-      userId: existingUserId,
-      programmeTypes: options.bookingAccessTypes,
-    });
-
-    void matchLeadOnStudentJoined({
-      academyId: clubId,
-      userId: existingUserId,
-      email: input.email,
-      phone: input.phone || null,
-      studentName: getStudentFullName(input.firstName, input.lastName),
-    });
-
-    return { userId: existingUserId, createdUser: false };
+    throw new StudentEmailAlreadyInUseError();
   }
 
   const userId = await createUser(input);

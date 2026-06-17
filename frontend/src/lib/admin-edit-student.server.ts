@@ -16,6 +16,7 @@ import {
   saveUserAddressOnUsers,
 } from "@/lib/user-address-field.server";
 import { syncInstructorPortalAccessAfterMembershipChange } from "@/lib/instructor-portal-membership-sync.server";
+import { assertStudentProfileEmailAvailable } from "@/lib/admin-student-email.server";
 import { syncProfileEmailWithPortalLoginAccess } from "@/lib/portal-auth-user.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -43,23 +44,6 @@ async function loadMembershipForClub(userId: string, clubId: string) {
   }
 
   return data as { role: string | null; status: string | null };
-}
-
-async function findOtherUserIdByEmail(email: string, excludeUserId: string) {
-  const supabase = getSupabaseAdminClient();
-
-  const { data, error } = await supabase
-    .from("users")
-    .select("id")
-    .ilike("email", email)
-    .neq("id", excludeUserId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Unable to verify email: ${error.message}`);
-  }
-
-  return data?.id ?? null;
 }
 
 export async function getAdminStudentEditPageData(
@@ -122,14 +106,7 @@ export async function updateAdminStudentDetails(
 
   const previousProfileEmail = existingUser?.email ?? null;
 
-  const duplicateUserId = await findOtherUserIdByEmail(
-    userFields.email,
-    userFields.userId,
-  );
-
-  if (duplicateUserId) {
-    throw new Error("Another student already uses this email address.");
-  }
+  await assertStudentProfileEmailAvailable(userFields.email, userFields.userId);
 
   const { error: userError } = await supabase
     .from("users")
@@ -149,7 +126,7 @@ export async function updateAdminStudentDetails(
 
   await syncProfileEmailWithPortalLoginAccess({
     userId: userFields.userId,
-    profileEmail: userFields.email,
+    profileEmail: userFields.email ?? "",
     previousProfileEmail,
   });
 

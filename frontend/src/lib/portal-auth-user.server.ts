@@ -2,6 +2,9 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
+import {
+  STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE,
+} from "@/lib/admin-student-email.shared";
 import { resolvePortalLoginEmail } from "@/lib/student-portal-auth.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -221,7 +224,7 @@ export async function syncProfileEmailWithPortalLoginAccess(input: {
   );
 
   if (portalLoginConflict) {
-    throw new Error("Another member already uses this email for portal login.");
+    throw new Error(STUDENT_EMAIL_ALREADY_IN_USE_MESSAGE);
   }
 
   const supabase = getSupabaseAdminClient();
