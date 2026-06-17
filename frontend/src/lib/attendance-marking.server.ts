@@ -8,6 +8,7 @@ import {
 } from "@/lib/attendance-records-sync";
 import { utcIsoToLondonDate } from "@/lib/london-datetime";
 import { matchLeadOnAttendanceRegisterMark } from "@/lib/lead-status-tracking.server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -99,7 +100,6 @@ function resolveClassName(classes: ClassSessionMarkingRow["classes"]) {
 }
 
 async function syncLeadStatusFromAttendanceRegister(input: {
-  supabase: SupabaseClient;
   attendee: SessionAttendeeMarkingRow;
   classSession: ClassSessionMarkingRow;
   nextStatus: Extract<SyncAttendanceStatus, "present" | "absent">;
@@ -108,18 +108,22 @@ async function syncLeadStatusFromAttendanceRegister(input: {
     dateStyle: "medium",
   }).format(new Date(input.classSession.starts_at));
   const className = resolveClassName(input.classSession.classes);
+  const adminSupabase = getSupabaseAdminClient();
 
   if (input.attendee.user_id) {
-    const { data: userRow } = await input.supabase
+    const { data: userRow } = await adminSupabase
       .from("users")
-      .select("email, phone")
+      .select("email, phone, portal_login_email")
       .eq("id", input.attendee.user_id)
       .maybeSingle();
 
-    void matchLeadOnAttendanceRegisterMark({
+    const email =
+      userRow?.email?.trim() || userRow?.portal_login_email?.trim() || "";
+
+    await matchLeadOnAttendanceRegisterMark({
       academyId: input.classSession.club_id,
       attendanceStatus: input.nextStatus,
-      email: userRow?.email?.trim() ?? "",
+      email,
       phone: userRow?.phone?.trim() ?? null,
       className,
       sessionDateLabel,
@@ -132,7 +136,7 @@ async function syncLeadStatusFromAttendanceRegister(input: {
   }
 
   const guestBooking = await loadGuestBookingForLeadMatch(
-    input.supabase,
+    adminSupabase,
     input.attendee.guest_booking_id,
   );
 
@@ -140,7 +144,7 @@ async function syncLeadStatusFromAttendanceRegister(input: {
     return;
   }
 
-  void matchLeadOnAttendanceRegisterMark({
+  await matchLeadOnAttendanceRegisterMark({
     academyId: input.classSession.club_id,
     attendanceStatus: input.nextStatus,
     email: guestBooking.email.trim(),
@@ -200,7 +204,6 @@ export async function applySessionAttendeeAttendanceStatus(
     classSession.starts_at
   ) {
     await syncLeadStatusFromAttendanceRegister({
-      supabase,
       attendee,
       classSession,
       nextStatus,
