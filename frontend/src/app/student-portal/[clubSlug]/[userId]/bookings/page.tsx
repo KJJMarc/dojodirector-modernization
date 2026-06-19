@@ -21,7 +21,7 @@ export async function generateMetadata({
   const uiConfig = getStudentPortalUiConfig(club.slug, club.name);
 
   return {
-    title: `Dojo Director | Cancel Bookings | ${uiConfig.pageTitle}`,
+    title: `Dojo Director | Manage Bookings | ${uiConfig.pageTitle}`,
     description: "View and manage upcoming class bookings.",
   };
 }
@@ -40,7 +40,7 @@ export default async function StudentPortalBookingsPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Cancel Bookings" clubName={uiConfig.clubDisplayName ?? club.name} />
+      <AppHeader pageTitle="Manage Bookings" clubName={uiConfig.clubDisplayName ?? club.name} />
 
       <StudentPortalSubpageTopBar clubSlug={club.slug} userId={params.userId} />
 

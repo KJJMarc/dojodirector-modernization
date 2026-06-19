@@ -187,7 +187,7 @@ export function buildStudentPortalQuickActions(input: {
       ? { label: "Book a Class", href: `${basePath}/book`, openInNewTab: false }
       : null,
     uiConfig.showUpcomingBookings
-      ? { label: "Cancel Bookings", href: `${basePath}/bookings`, openInNewTab: false }
+      ? { label: "Manage Bookings", href: `${basePath}/bookings`, openInNewTab: false }
       : null,
     uiConfig.showMessages
       ? {

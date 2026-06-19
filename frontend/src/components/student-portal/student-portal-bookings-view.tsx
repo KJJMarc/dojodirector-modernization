@@ -67,7 +67,7 @@ export function StudentPortalBookingsView({
     >
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          CANCEL BOOKINGS
+          MANAGE BOOKINGS
         </h2>
         <p className="mt-1 text-xs text-dojo-muted">
           Your future booked class sessions.
