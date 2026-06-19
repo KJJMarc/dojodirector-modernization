@@ -32,7 +32,7 @@ export async function createAdminStudentAction(
       email: String(formData.get("email") ?? ""),
       phone: String(formData.get("phone") ?? ""),
       dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
-      notes: String(formData.get("notes") ?? ""),
+      adminNotes: String(formData.get("adminNotes") ?? ""),
       role: String(formData.get("role") ?? "student") as CreateAdminStudentInput["role"],
       membershipStatus: String(
         formData.get("membershipStatus") ?? "active",

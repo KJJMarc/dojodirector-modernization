@@ -148,15 +148,18 @@ export function EditStudentForm({
       </div>
 
       <div>
-        <label htmlFor="notes" className="text-sm font-medium text-dojo-white">
-          Notes
+        <label htmlFor="adminNotes" className="text-sm font-medium text-dojo-white">
+          Admin notes
         </label>
+        <p className="mt-1 text-xs text-dojo-muted">
+          Internal notes only. Not visible to students.
+        </p>
         <textarea
-          id="notes"
-          name="notes"
-          rows={3}
-          defaultValue={pageData.notes}
-          placeholder="Optional admin notes"
+          id="adminNotes"
+          name="adminNotes"
+          rows={4}
+          defaultValue={pageData.adminNotes}
+          placeholder="e.g. membership paused, injured, payment issue"
           className={fieldClassName}
         />
       </div>

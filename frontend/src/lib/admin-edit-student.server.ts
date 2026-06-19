@@ -25,7 +25,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 export type { AdminStudentEditPageData, EditAdminStudentInput };
 
 const USER_EDIT_COLUMNS =
-  "id, first_name, last_name, email, phone, date_of_birth, notes";
+  "id, first_name, last_name, email, phone, date_of_birth, admin_notes";
 
 async function loadMembershipForClub(userId: string, clubId: string) {
   const supabase = getSupabaseAdminClient();
@@ -60,11 +60,27 @@ export async function getAdminStudentEditPageData(
     loadUserAddressFromUsers(userId),
   ]);
 
-  if (userError) {
+  let resolvedUser = user;
+
+  if (userError?.message?.includes("admin_notes")) {
+    const fallback = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email, phone, date_of_birth, notes")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (fallback.error) {
+      throw new Error(`Failed to load student: ${fallback.error.message}`);
+    }
+
+    resolvedUser = fallback.data
+      ? { ...fallback.data, admin_notes: fallback.data.notes }
+      : null;
+  } else if (userError) {
     throw new Error(`Failed to load student: ${userError.message}`);
   }
 
-  if (!user) {
+  if (!resolvedUser) {
     throw new Error("Student not found.");
   }
 
@@ -73,14 +89,14 @@ export async function getAdminStudentEditPageData(
     parseProfileMembershipStatusValue(membership.status ?? "active") ?? "active";
 
   return {
-    userId: user.id,
-    firstName: user.first_name?.trim() ?? "",
-    lastName: user.last_name?.trim() ?? "",
-    email: user.email?.trim() ?? "",
-    phone: user.phone?.trim() ?? "",
-    dateOfBirth: user.date_of_birth ?? "",
+    userId: resolvedUser.id,
+    firstName: resolvedUser.first_name?.trim() ?? "",
+    lastName: resolvedUser.last_name?.trim() ?? "",
+    email: resolvedUser.email?.trim() ?? "",
+    phone: resolvedUser.phone?.trim() ?? "",
+    dateOfBirth: resolvedUser.date_of_birth ?? "",
     address,
-    notes: user.notes?.trim() ?? "",
+    adminNotes: resolvedUser.admin_notes?.trim() ?? "",
     membershipRole,
     membershipStatus,
     canChangeRole: canChangeProfileMembershipRole(membership.role),
@@ -129,7 +145,7 @@ export async function updateAdminStudentDetails(
       email: userFields.email,
       phone: userFields.phone,
       date_of_birth: userFields.dateOfBirth,
-      notes: userFields.notes,
+      admin_notes: userFields.adminNotes,
     })
     .eq("id", userFields.userId);
 

@@ -14,7 +14,7 @@ export interface EditAdminStudentInput {
   phone?: string;
   dateOfBirth?: string;
   address?: string;
-  notes?: string;
+  adminNotes?: string;
   role: string;
   membershipStatus: string;
 }
@@ -27,7 +27,7 @@ export interface AdminStudentEditPageData {
   phone: string;
   dateOfBirth: string;
   address: string;
-  notes: string;
+  adminNotes: string;
   membershipRole: string;
   membershipStatus: string;
   canChangeRole: boolean;
@@ -41,7 +41,7 @@ export interface ParsedEditAdminStudentUserFields {
   phone: string | null;
   dateOfBirth: string | null;
   address: string | null;
-  notes: string | null;
+  adminNotes: string | null;
 }
 
 function parseRequiredText(value: string, fieldLabel: string) {
@@ -102,7 +102,7 @@ export function parseEditAdminStudentUserFields(
     phone: parseOptionalText(input.phone),
     dateOfBirth: parseOptionalDate(input.dateOfBirth),
     address: parseOptionalText(input.address),
-    notes: parseOptionalText(input.notes),
+    adminNotes: parseOptionalText(input.adminNotes),
   };
 }
 

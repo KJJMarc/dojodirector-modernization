@@ -262,15 +262,18 @@ export function AddStudentForm({
       </div>
 
       <div>
-        <label htmlFor="notes" className="text-sm font-medium text-dojo-white">
-          Notes
+        <label htmlFor="adminNotes" className="text-sm font-medium text-dojo-white">
+          Admin notes
         </label>
+        <p className="mt-1 text-xs text-dojo-muted">
+          Internal notes only. Not visible to students.
+        </p>
         <textarea
-          id="notes"
-          name="notes"
-          rows={3}
+          id="adminNotes"
+          name="adminNotes"
+          rows={4}
           className={fieldClassName}
-          placeholder="Optional admin notes"
+          placeholder="e.g. membership paused, injured, payment issue"
         />
       </div>
 

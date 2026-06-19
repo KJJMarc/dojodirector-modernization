@@ -60,13 +60,12 @@ interface UserProfileRow {
   original_lead_source?: string | null;
   phone: string | null;
   date_of_birth: string | null;
-  notes: string | null;
+  admin_notes: string | null;
 }
 
 interface MembershipRow {
   role: string | null;
   status: string | null;
-  notes: string | null;
 }
 
 interface GradeAwardRow {
@@ -86,7 +85,7 @@ interface BeltLevelRow {
 }
 
 const USER_PROFILE_COLUMNS =
-  "id, first_name, last_name, email, phone, date_of_birth, notes, original_lead_source";
+  "id, first_name, last_name, email, phone, date_of_birth, admin_notes, original_lead_source";
 
 async function loadUserProfileRow(userId: string) {
   const supabase = getSupabaseAdminClient();
@@ -100,12 +99,28 @@ async function loadUserProfileRow(userId: string) {
   if (error?.message?.includes("original_lead_source")) {
     const fallback = await supabase
       .from("users")
-      .select("id, first_name, last_name, email, phone, date_of_birth, notes")
+      .select("id, first_name, last_name, email, phone, date_of_birth, admin_notes")
       .eq("id", userId)
       .maybeSingle();
 
     data = fallback.data
       ? { ...fallback.data, original_lead_source: null }
+      : null;
+    error = fallback.error;
+  }
+
+  if (error?.message?.includes("admin_notes")) {
+    const fallback = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email, phone, date_of_birth, notes, original_lead_source")
+      .eq("id", userId)
+      .maybeSingle();
+
+    data = fallback.data
+      ? {
+          ...fallback.data,
+          admin_notes: fallback.data.notes,
+        }
       : null;
     error = fallback.error;
   }
@@ -131,7 +146,7 @@ async function loadMembershipRow(userId: string, clubId: string) {
 
   const { data, error } = await supabase
     .from("memberships")
-    .select("role, status, notes")
+    .select("role, status")
     .eq("user_id", userId)
     .eq("club_id", clubId)
     .maybeSingle();
@@ -164,13 +179,9 @@ async function loadGradeAwards(userId: string, clubId: string) {
   return (data ?? []) as GradeAwardRow[];
 }
 
-function combineNotes(
-  userNotes: string | null,
-  membershipNotes: string | null,
-) {
-  const parts = [userNotes?.trim(), membershipNotes?.trim()].filter(Boolean);
-
-  return parts.length > 0 ? parts.join("\n\n") : null;
+function formatAdminNotes(notes: string | null) {
+  const trimmed = notes?.trim();
+  return trimmed ? trimmed : null;
 }
 
 export async function getAdminStudentProfilePageData(
@@ -306,7 +317,7 @@ export async function getAdminStudentProfilePageData(
       phone: user.phone,
       dateOfBirth: user.date_of_birth,
       address,
-      notes: combineNotes(user.notes, membership.notes),
+      adminNotes: formatAdminNotes(user.admin_notes),
       role: formatInstructorRoleLabel(membership.role),
       membershipRole: membership.role,
       membershipStatus:

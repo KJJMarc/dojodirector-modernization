@@ -14,7 +14,7 @@ export interface AdminStudentProfileDetails {
   phone: string | null;
   dateOfBirth: string | null;
   address: string | null;
-  notes: string | null;
+  adminNotes: string | null;
   role: string | null;
   membershipRole: string | null;
   membershipStatus: string | null;

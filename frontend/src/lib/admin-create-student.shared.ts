@@ -27,7 +27,7 @@ export interface CreateAdminStudentInput {
   email: string;
   phone?: string;
   dateOfBirth?: string;
-  notes?: string;
+  adminNotes?: string;
   role: MembershipRoleValue;
   membershipStatus: MembershipStatusValue;
 }

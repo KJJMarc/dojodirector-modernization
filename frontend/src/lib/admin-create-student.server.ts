@@ -79,7 +79,7 @@ function parseCreateAdminStudentInput(
     email: parseEmail(input.email),
     phone: parseOptionalText(input.phone) ?? undefined,
     dateOfBirth: parseOptionalDate(input.dateOfBirth) ?? undefined,
-    notes: parseOptionalText(input.notes) ?? undefined,
+    adminNotes: parseOptionalText(input.adminNotes) ?? undefined,
     role,
     membershipStatus,
   };
@@ -134,7 +134,7 @@ async function createUser(input: CreateAdminStudentInput) {
       email: input.email,
       phone: input.phone ?? null,
       date_of_birth: input.dateOfBirth ?? null,
-      notes: input.notes ?? null,
+      admin_notes: input.adminNotes ?? null,
     })
     .select("id")
     .single();

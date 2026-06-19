@@ -108,13 +108,13 @@ export function StudentProfileView({
           <div className="sm:col-span-2">
             <ProfileDetailItem label="Address" value={formatProfileField(student.address)} />
           </div>
-          {student.notes ? (
+          {student.adminNotes ? (
             <div className="sm:col-span-2">
               <dt className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted">
-                Notes
+                Admin notes
               </dt>
               <dd className="mt-0.5 whitespace-pre-wrap text-sm leading-snug text-dojo-white">
-                {student.notes}
+                {student.adminNotes}
               </dd>
             </div>
           ) : null}
