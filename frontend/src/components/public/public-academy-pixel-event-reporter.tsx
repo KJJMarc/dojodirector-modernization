@@ -3,9 +3,15 @@
 import { useEffect } from "react";
 import type { AcademyPublicPixelSettings } from "@/lib/academy-pixel-settings.shared";
 import { reportAcademyPixelTrackingEvent } from "@/lib/academy-pixel-tracking.client";
+import {
+  canLoadGoogleTagForConsent,
+  canLoadMetaPixelForConsent,
+} from "@/lib/cookie-consent.shared";
 
 interface PublicAcademyPixelEventReporterProps {
   settings: AcademyPublicPixelSettings;
+  analyticsConsent: boolean;
+  marketingConsent: boolean;
 }
 
 function waitForTrackingFunction(
@@ -37,11 +43,17 @@ function waitForTrackingFunction(
 
 export function PublicAcademyPixelEventReporter({
   settings,
+  analyticsConsent,
+  marketingConsent,
 }: PublicAcademyPixelEventReporterProps) {
   useEffect(() => {
     const cleanups: Array<() => void> = [];
 
-    if (settings.metaPixelEnabled && settings.metaPixelId) {
+    if (
+      settings.metaPixelEnabled &&
+      settings.metaPixelId &&
+      canLoadMetaPixelForConsent(marketingConsent)
+    ) {
       cleanups.push(
         waitForTrackingFunction(
           () => typeof window.fbq === "function",
@@ -52,7 +64,15 @@ export function PublicAcademyPixelEventReporter({
       );
     }
 
-    if (settings.googleTrackingEnabled && settings.googleTagId) {
+    if (
+      settings.googleTrackingEnabled &&
+      settings.googleTagId &&
+      canLoadGoogleTagForConsent(
+        settings.googleTagId,
+        analyticsConsent,
+        marketingConsent,
+      )
+    ) {
       cleanups.push(
         waitForTrackingFunction(
           () => typeof window.gtag === "function",
@@ -69,6 +89,8 @@ export function PublicAcademyPixelEventReporter({
       }
     };
   }, [
+    analyticsConsent,
+    marketingConsent,
     settings.clubSlug,
     settings.googleTagId,
     settings.googleTrackingEnabled,

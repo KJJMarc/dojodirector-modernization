@@ -8,6 +8,7 @@ import {
   PWA_THEME_COLOR,
 } from "@/lib/pwa.shared";
 import { PwaServiceWorkerRegister } from "@/components/pwa/pwa-service-worker-register";
+import { CookieConsentProvider } from "@/components/cookie-consent/cookie-consent-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   title: "Dojo Director | Martial arts academy management",
   description: PWA_DESCRIPTION,
   applicationName: PWA_NAME,
-  manifest: "/manifest.webmanifest",
+  manifest: PWA_ICON_PATHS.manifest,
   appleWebApp: {
     capable: true,
     title: PWA_SHORT_NAME,
@@ -30,10 +31,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: PWA_ICON_PATHS.favicon16, type: "image/png", sizes: "16x16" },
       { url: PWA_ICON_PATHS.favicon32, type: "image/png", sizes: "32x32" },
       { url: PWA_ICON_PATHS.icon192, type: "image/png", sizes: "192x192" },
       { url: PWA_ICON_PATHS.icon512, type: "image/png", sizes: "512x512" },
-      { url: "/favicon.ico", type: "image/x-icon", sizes: "16x16" },
+      { url: PWA_ICON_PATHS.faviconIco, type: "image/x-icon", sizes: "48x48" },
     ],
     apple: [
       { url: PWA_ICON_PATHS.apple180, sizes: "180x180", type: "image/png" },
@@ -71,7 +73,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} min-h-screen`}>
-        {children}
+        <CookieConsentProvider>
+          {children}
+        </CookieConsentProvider>
         <PwaServiceWorkerRegister />
       </body>
     </html>

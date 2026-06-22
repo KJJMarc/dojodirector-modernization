@@ -2,7 +2,12 @@
 
 import Script from "next/script";
 import { PublicAcademyPixelEventReporter } from "@/components/public/public-academy-pixel-event-reporter";
+import { useCookieConsent } from "@/hooks/use-cookie-consent";
 import type { AcademyPublicPixelSettings } from "@/lib/academy-pixel-settings.shared";
+import {
+  canLoadGoogleTagForConsent,
+  canLoadMetaPixelForConsent,
+} from "@/lib/cookie-consent.shared";
 
 interface PublicAcademyPixelScriptsProps {
   settings: AcademyPublicPixelSettings;
@@ -11,12 +16,32 @@ interface PublicAcademyPixelScriptsProps {
 export function PublicAcademyPixelScripts({
   settings,
 }: PublicAcademyPixelScriptsProps) {
-  const googleTagId = settings.googleTrackingEnabled ? settings.googleTagId : null;
-  const metaPixelId = settings.metaPixelEnabled ? settings.metaPixelId : null;
+  const { analyticsConsent, marketingConsent } = useCookieConsent();
+
+  const googleTagId =
+    settings.googleTrackingEnabled &&
+    settings.googleTagId &&
+    canLoadGoogleTagForConsent(
+      settings.googleTagId,
+      analyticsConsent,
+      marketingConsent,
+    )
+      ? settings.googleTagId
+      : null;
+  const metaPixelId =
+    settings.metaPixelEnabled &&
+    settings.metaPixelId &&
+    canLoadMetaPixelForConsent(marketingConsent)
+      ? settings.metaPixelId
+      : null;
 
   return (
     <>
-      <PublicAcademyPixelEventReporter settings={settings} />
+      <PublicAcademyPixelEventReporter
+        settings={settings}
+        analyticsConsent={analyticsConsent}
+        marketingConsent={marketingConsent}
+      />
       {googleTagId ? (
         <>
           <Script

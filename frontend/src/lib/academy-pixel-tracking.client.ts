@@ -1,8 +1,17 @@
 import {
   academyLeadTrackingDedupeKey,
   buildAcademyLeadConversionEventPlan,
+  isGoogleAdsTagId,
   type AcademyPublicPixelSettings,
 } from "@/lib/academy-pixel-settings.shared";
+import {
+  getAnalyticsConsent,
+  getMarketingConsent,
+} from "@/lib/cookie-consent.client";
+import {
+  canLoadGoogleTagForConsent,
+  canLoadMetaPixelForConsent,
+} from "@/lib/cookie-consent.shared";
 import {
   clubPixelTrackingEventApiPath,
   type GooglePixelTrackingEventType,
@@ -123,9 +132,21 @@ export async function trackAcademyLeadConversion(
   }
 
   const plan = buildAcademyLeadConversionEventPlan(settings);
+  const analyticsConsent = getAnalyticsConsent();
+  const marketingConsent = getMarketingConsent();
+  const googleTagId = settings.googleTagId;
+  const canLoadGoogleTag =
+    Boolean(googleTagId) &&
+    canLoadGoogleTagForConsent(googleTagId!, analyticsConsent, marketingConsent);
+  const canFireGoogleGenerateLead =
+    canLoadGoogleTag &&
+    Boolean(
+      googleTagId &&
+        (isGoogleAdsTagId(googleTagId) ? marketingConsent : analyticsConsent),
+    );
   let firedAny = false;
 
-  if (plan.metaLead) {
+  if (plan.metaLead && canLoadMetaPixelForConsent(marketingConsent)) {
     const metaReady = await waitForClientTrackingFunction(
       () => typeof window.fbq === "function",
     );
@@ -137,14 +158,17 @@ export async function trackAcademyLeadConversion(
     }
   }
 
-  if (plan.googleGenerateLead || plan.googleAdsConversion) {
+  if (
+    (plan.googleGenerateLead || plan.googleAdsConversion) &&
+    canLoadGoogleTag
+  ) {
     const googleReady = await waitForClientTrackingFunction(
       () => typeof window.gtag === "function",
     );
 
     if (googleReady) {
       // Google Ads (AW-XXXXXXXX): dedicated conversion action for campaign optimisation.
-      if (plan.googleAdsConversion && plan.googleAdsConversionSendTo) {
+      if (plan.googleAdsConversion && plan.googleAdsConversionSendTo && marketingConsent) {
         fireGoogleAdsTrialEnquiryConversion(
           plan.googleAdsConversionSendTo,
           settings.clubSlug,
@@ -152,7 +176,7 @@ export async function trackAcademyLeadConversion(
       }
 
       // GA4 (G-XXXXXXXX) and Google Ads: recommended lead event for reporting.
-      if (plan.googleGenerateLead) {
+      if (plan.googleGenerateLead && canFireGoogleGenerateLead) {
         fireGoogleGenerateLeadEvent(settings.clubSlug);
       }
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CookiePreferencesLink } from "@/components/cookie-consent/cookie-preferences-link";
 import { PoweredByDojoDirector } from "@/components/public/powered-by-dojo-director";
 import { PRODUCT_NAME } from "@/lib/branding";
 
@@ -28,9 +29,13 @@ export function PublicSiteFooter({ variant = "platform" }: PublicSiteFooterProps
           <Link href="/terms" className={FOOTER_LINK_CLASSNAME}>
             Terms &amp; Conditions
           </Link>
-          <Link href="/privacy" className={FOOTER_LINK_CLASSNAME}>
+          <Link href="/privacy-policy" className={FOOTER_LINK_CLASSNAME}>
             Privacy Policy
           </Link>
+          <Link href="/cookie-policy" className={FOOTER_LINK_CLASSNAME}>
+            Cookie Policy
+          </Link>
+          <CookiePreferencesLink />
         </nav>
       </div>
     </footer>
