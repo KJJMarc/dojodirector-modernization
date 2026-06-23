@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { PromotionCandidate } from "@/lib/admin-belt-promotion.shared";
 import {
+  applyKidsPromotionRegisterSessionFilter,
   filterJuniorPromotionCandidates,
   filterKidsPromotionRegisterDateGroups,
   filterKidsPromotionRegisterSessions,
   isKidsPromotionCandidatesOnRegistersClub,
+  kidsPromotionRegisterSessionPdfPath,
   parseKidsPromotionRegistersFilter,
   type KidsPromotionRegisterSession,
 } from "@/lib/admin-kids-promotion-registers.shared";
@@ -180,4 +182,42 @@ test("filterKidsPromotionRegisterDateGroups removes empty dates in candidates mo
 
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0]?.dateKey, "2026-06-24");
+});
+
+test("kidsPromotionRegisterSessionPdfPath builds scoped API route", () => {
+  assert.equal(
+    kidsPromotionRegisterSessionPdfPath(
+      KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
+      "session-123",
+    ),
+    "/api/admin/kingston-jiu-jitsu-kids/students/promotion-candidates-on-registers/session-123/pdf",
+  );
+  assert.equal(
+    kidsPromotionRegisterSessionPdfPath(
+      KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
+      "session-123",
+      "candidates",
+    ),
+    "/api/admin/kingston-jiu-jitsu-kids/students/promotion-candidates-on-registers/session-123/pdf?filter=candidates",
+  );
+});
+
+test("applyKidsPromotionRegisterSessionFilter returns empty attendees for candidates-only miss", () => {
+  const session = buildSession("session-1", [
+    {
+      attendeeId: "a-2",
+      userId: "student-2",
+      firstName: "Sam",
+      lastName: "Two",
+      fullName: "Sam Two",
+      attendanceStatus: "present",
+      isPromotionCandidate: false,
+      promotionCandidate: null,
+    },
+  ]);
+
+  const filtered = applyKidsPromotionRegisterSessionFilter(session, "candidates");
+
+  assert.equal(filtered.attendees.length, 0);
+  assert.equal(filtered.bookedCount, 0);
 });

@@ -5,6 +5,7 @@ import { AttendanceStatusChip } from "@/components/attendance/attendance-status-
 import {
   clubKidsPromotionCandidatesOnRegistersPath,
   filterKidsPromotionRegisterDateGroups,
+  kidsPromotionRegisterSessionPdfPath,
   type KidsPromotionRegistersFilter,
   type KidsPromotionRegistersViewData,
 } from "@/lib/admin-kids-promotion-registers.shared";
@@ -29,6 +30,25 @@ function resolveAttendanceChipStatus(status: string | null): AttendanceStatus {
   }
 
   return null;
+}
+
+function PdfDownloadLink({
+  href,
+  label,
+}: {
+  href: string;
+  label: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+    >
+      {label}
+    </a>
+  );
 }
 
 export function KidsPromotionRegistersView({
@@ -134,12 +154,29 @@ export function KidsPromotionRegistersView({
                           : ""}
                       </p>
                     </div>
-                    <Link
-                      href={`/attendance/${session.id}`}
-                      className="inline-flex min-h-[36px] items-center justify-center self-start rounded-md border border-dojo-border bg-dojo-surface px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
-                    >
-                      Open register
-                    </Link>
+                    <div className="flex flex-wrap gap-2 self-start">
+                      <PdfDownloadLink
+                        href={kidsPromotionRegisterSessionPdfPath(
+                          data.clubSlug,
+                          session.id,
+                        )}
+                        label="Download PDF"
+                      />
+                      <PdfDownloadLink
+                        href={kidsPromotionRegisterSessionPdfPath(
+                          data.clubSlug,
+                          session.id,
+                          "candidates",
+                        )}
+                        label="Candidates PDF"
+                      />
+                      <Link
+                        href={`/attendance/${session.id}`}
+                        className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-surface px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+                      >
+                        Open register
+                      </Link>
+                    </div>
                   </div>
 
                   {session.attendees.length === 0 ? (

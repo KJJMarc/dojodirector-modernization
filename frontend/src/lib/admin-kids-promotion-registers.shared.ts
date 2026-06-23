@@ -105,3 +105,37 @@ export function filterKidsPromotionRegisterDateGroups(
     }))
     .filter((group) => group.sessions.length > 0);
 }
+
+export const KIDS_PROMOTION_REGISTER_PDF_TITLE = "Promotion Candidates Register";
+
+export function kidsPromotionRegisterSessionPdfPath(
+  clubSlug: string,
+  sessionId: string,
+  filter: KidsPromotionRegistersFilter = "all",
+) {
+  const base = `/api/admin/${clubSlug.trim().replace(/^\/+|\/+$/g, "")}/students/promotion-candidates-on-registers/${encodeURIComponent(sessionId)}/pdf`;
+
+  if (filter === "candidates") {
+    return `${base}?filter=candidates`;
+  }
+
+  return base;
+}
+
+export function applyKidsPromotionRegisterSessionFilter(
+  session: KidsPromotionRegisterSession,
+  filter: KidsPromotionRegistersFilter,
+): KidsPromotionRegisterSession {
+  const [filtered] = filterKidsPromotionRegisterSessions([session], filter);
+
+  if (filtered) {
+    return filtered;
+  }
+
+  return {
+    ...session,
+    attendees: [],
+    bookedCount: 0,
+    promotionCandidateCount: 0,
+  };
+}

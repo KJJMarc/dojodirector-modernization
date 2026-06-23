@@ -268,3 +268,22 @@ export async function loadKidsPromotionCandidatesOnRegisters(
     dateGroups: groupSessionsByDate(sessions),
   };
 }
+
+export async function loadKidsPromotionRegisterSessionById(
+  clubId: string,
+  clubSlug: string,
+  clubName: string,
+  sessionId: string,
+): Promise<KidsPromotionRegisterSession | null> {
+  const data = await loadKidsPromotionCandidatesOnRegisters(clubId, clubSlug, clubName);
+
+  for (const group of data.dateGroups) {
+    const session = group.sessions.find((item) => item.id === sessionId);
+
+    if (session) {
+      return session;
+    }
+  }
+
+  return null;
+}
