@@ -1,6 +1,7 @@
 import { AttendanceSummary } from "@/components/attendance/attendance-summary";
 import { StudentAttendanceCard } from "@/components/attendance/student-attendance-card";
 import { getStudentFullName } from "@/lib/attendance";
+import type { MarkAttendanceResult } from "@/lib/attendance-marking.shared";
 import { countAttendance } from "@/lib/attendance-ui";
 import { formatAttendanceSessionTimeRange } from "@/lib/attendance-schedule";
 import { ClassSession } from "@/types/database";
@@ -9,7 +10,7 @@ interface SessionAttendanceSectionProps {
   session: ClassSession;
   endsAt?: string | null;
   externalId?: string | null;
-  markAttendanceAction: (formData: FormData) => Promise<void>;
+  markAttendanceAction: (formData: FormData) => Promise<MarkAttendanceResult>;
   markingDisabled?: boolean;
   showAttendanceCardLink?: boolean;
 }

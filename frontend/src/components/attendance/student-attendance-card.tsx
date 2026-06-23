@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import type { MarkAttendanceResult } from "@/lib/attendance-marking.shared";
 import { AttendanceStatus } from "@/types/database";
 
 interface StudentAttendanceCardProps {
@@ -9,7 +10,7 @@ interface StudentAttendanceCardProps {
   userId: string | null;
   studentName: string;
   status: AttendanceStatus;
-  markAttendanceAction: (formData: FormData) => Promise<void>;
+  markAttendanceAction: (formData: FormData) => Promise<MarkAttendanceResult>;
   markingDisabled?: boolean;
   showAttendanceCardLink?: boolean;
 }
@@ -24,19 +25,25 @@ export function StudentAttendanceCard({
   showAttendanceCardLink = true,
 }: StudentAttendanceCardProps) {
   const [isPending, startTransition] = useTransition();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const submitWithStatus = (
     nextStatus: "present" | "absent" | "not_marked",
   ) => {
-    if (markingDisabled) {
+    if (markingDisabled || isPending) {
       return;
     }
 
+    setErrorMessage(null);
     const formData = new FormData();
     formData.set("attendeeId", attendeeId);
     formData.set("attendanceStatus", nextStatus);
     startTransition(async () => {
-      await markAttendanceAction(formData);
+      const result = await markAttendanceAction(formData);
+
+      if (result.status === "error") {
+        setErrorMessage(result.message);
+      }
     });
   };
 
@@ -104,6 +111,11 @@ export function StudentAttendanceCard({
           Absent
         </button>
       </div>
+      {errorMessage ? (
+        <p className="w-full text-xs text-dojo-red" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
     </article>
   );
 }

@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isSupabaseDuplicateKeyError,
+  logAttendanceMarking,
+  serializeSupabaseError,
+  type AttendanceMarkAction,
+} from "@/lib/attendance-marking.shared";
 import { utcIsoToLondonDate } from "@/lib/london-datetime";
 
 export type SyncAttendanceStatus = "present" | "absent" | "not_marked";
@@ -75,6 +81,11 @@ export async function syncAttendanceRecordForStatus(
   supabase: SupabaseClient,
   context: AttendanceRecordContext,
   attendanceStatus: SyncAttendanceStatus,
+  logContext: {
+    action: AttendanceMarkAction;
+    attendeeId?: string;
+    clubSlug?: string;
+  } = { action: attendanceStatus },
 ) {
   if (attendanceStatus === "present") {
     const { data: existing, error: fetchError } = await supabase
@@ -87,16 +98,37 @@ export async function syncAttendanceRecordForStatus(
       .maybeSingle();
 
     if (fetchError) {
+      logAttendanceMarking("error", {
+        phase: "syncAttendanceRecordForStatus.fetch",
+        action: logContext.action,
+        attendeeId: logContext.attendeeId,
+        sessionId: context.classSessionId,
+        clubId: context.clubId,
+        clubSlug: logContext.clubSlug,
+        userId: context.userId,
+        supabaseError: serializeSupabaseError(fetchError),
+      });
       throw new Error(
         `Unable to check attendance record: ${fetchError.message}`,
       );
     }
 
-    if (existing) {
-      return;
+    if (existing?.id) {
+      logAttendanceMarking("info", {
+        phase: "syncAttendanceRecordForStatus.present",
+        action: logContext.action,
+        attendeeId: logContext.attendeeId,
+        sessionId: context.classSessionId,
+        clubId: context.clubId,
+        clubSlug: logContext.clubSlug,
+        userId: context.userId,
+        attendanceRecordId: existing.id,
+        outcome: "already_present",
+      });
+      return existing.id as string;
     }
 
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from("attendance_records")
       .insert({
         user_id: context.userId,
@@ -105,24 +137,88 @@ export async function syncAttendanceRecordForStatus(
         attended_on: context.attendedOn,
         attended_at: new Date().toISOString(),
         source: "session_attendee",
-      });
+      })
+      .select("id")
+      .maybeSingle();
 
     if (insertError) {
+      if (isSupabaseDuplicateKeyError(insertError)) {
+        logAttendanceMarking("info", {
+          phase: "syncAttendanceRecordForStatus.present",
+          action: logContext.action,
+          attendeeId: logContext.attendeeId,
+          sessionId: context.classSessionId,
+          clubId: context.clubId,
+          clubSlug: logContext.clubSlug,
+          userId: context.userId,
+          outcome: "duplicate_insert_ignored",
+          supabaseError: serializeSupabaseError(insertError),
+        });
+        return null;
+      }
+
+      logAttendanceMarking("error", {
+        phase: "syncAttendanceRecordForStatus.insert",
+        action: logContext.action,
+        attendeeId: logContext.attendeeId,
+        sessionId: context.classSessionId,
+        clubId: context.clubId,
+        clubSlug: logContext.clubSlug,
+        userId: context.userId,
+        supabaseError: serializeSupabaseError(insertError),
+      });
       throw new Error(`Unable to sync attendance record: ${insertError.message}`);
     }
 
-    return;
+    logAttendanceMarking("info", {
+      phase: "syncAttendanceRecordForStatus.present",
+      action: logContext.action,
+      attendeeId: logContext.attendeeId,
+      sessionId: context.classSessionId,
+      clubId: context.clubId,
+      clubSlug: logContext.clubSlug,
+      userId: context.userId,
+      attendanceRecordId: inserted?.id ?? null,
+      outcome: "inserted",
+    });
+
+    return inserted?.id ?? null;
   }
 
-  const { error } = await supabase
+  const { data: deletedRows, error } = await supabase
     .from("attendance_records")
     .delete()
     .eq("user_id", context.userId)
     .eq("club_id", context.clubId)
     .eq("class_session_id", context.classSessionId)
-    .eq("attended_on", context.attendedOn);
+    .eq("attended_on", context.attendedOn)
+    .select("id");
 
   if (error) {
+    logAttendanceMarking("error", {
+      phase: "syncAttendanceRecordForStatus.delete",
+      action: logContext.action,
+      attendeeId: logContext.attendeeId,
+      sessionId: context.classSessionId,
+      clubId: context.clubId,
+      clubSlug: logContext.clubSlug,
+      userId: context.userId,
+      supabaseError: serializeSupabaseError(error),
+    });
     throw new Error(`Unable to remove attendance record: ${error.message}`);
   }
+
+  logAttendanceMarking("info", {
+    phase: "syncAttendanceRecordForStatus.delete",
+    action: logContext.action,
+    attendeeId: logContext.attendeeId,
+    sessionId: context.classSessionId,
+    clubId: context.clubId,
+    clubSlug: logContext.clubSlug,
+    userId: context.userId,
+    attendanceRecordId: deletedRows?.[0]?.id ?? null,
+    outcome: deletedRows && deletedRows.length > 0 ? "deleted" : "already_absent",
+  });
+
+  return deletedRows?.[0]?.id ?? null;
 }
