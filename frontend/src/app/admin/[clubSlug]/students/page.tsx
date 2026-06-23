@@ -17,6 +17,10 @@ import {
 import { getBjjProgrammeStudents } from "@/lib/admin-students.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
+import {
+  clubKidsPromotionCandidatesOnRegistersPath,
+  isKidsPromotionCandidatesOnRegistersClub,
+} from "@/lib/admin-kids-promotion-registers.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -85,12 +89,22 @@ export default async function ClubAdminStudentsPage({
         </AdminNavLinks>
         <div className="flex flex-wrap gap-2">
           {bjjProgramme.promotionCandidatesEnabled ? (
-            <Link
-              href={clubAdminPath(club.slug, "students/promotion-candidates")}
-              className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
-            >
-              Promotion Candidates
-            </Link>
+            <>
+              <Link
+                href={clubAdminPath(club.slug, "students/promotion-candidates")}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+              >
+                Promotion Candidates
+              </Link>
+              {isKidsPromotionCandidatesOnRegistersClub(club.slug) ? (
+                <Link
+                  href={clubKidsPromotionCandidatesOnRegistersPath(club.slug)}
+                  className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red"
+                >
+                  Promotion Candidates on Registers
+                </Link>
+              ) : null}
+            </>
           ) : null}
           <Link
             href={clubAdminPath(club.slug, "students/new")}

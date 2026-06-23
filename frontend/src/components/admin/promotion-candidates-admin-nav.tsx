@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
+import {
+  clubKidsPromotionCandidatesOnRegistersPath,
+  isKidsPromotionCandidatesOnRegistersClub,
+} from "@/lib/admin-kids-promotion-registers.shared";
 import { clubProgrammeStudentAreasPath } from "@/lib/admin-programmes.shared";
 
 interface PromotionCandidatesAdminNavProps {
@@ -20,6 +24,14 @@ export function PromotionCandidatesAdminNav({
       >
         ← Back to Student Area
       </Link>
+      {isKidsPromotionCandidatesOnRegistersClub(clubSlug) ? (
+        <Link
+          href={clubKidsPromotionCandidatesOnRegistersPath(clubSlug)}
+          className={adminNavLinkClassName}
+        >
+          Promotion candidates on registers
+        </Link>
+      ) : null}
     </AdminNavLinks>
   );
 }
