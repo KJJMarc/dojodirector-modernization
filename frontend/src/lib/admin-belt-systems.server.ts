@@ -3,6 +3,7 @@ import "server-only";
 import {
   filterAdultBeltLevelsForPromotion,
   filterJuniorBeltLevelsForPromotion,
+  isActiveBeltLevel,
   type BeltLevelProgressionRow,
   type GradingRequirementRow,
 } from "@/lib/admin-belt-promotion.shared";
@@ -247,7 +248,7 @@ async function loadJuniorRequirementsByTargetBeltId(clubId: string) {
 function buildSyntheticJuniorRequirementsByTargetId(
   beltLevels: BeltLevelProgressionRow[],
 ) {
-  const sorted = [...beltLevels].sort(
+  const sorted = filterJuniorBeltLevelsForPromotion(beltLevels).sort(
     (left, right) => left.sort_order - right.sort_order,
   );
   const requirements = new Map<string, JuniorRequirementTargetRow>();
@@ -298,6 +299,7 @@ function resolveSystemBeltLevels(
   if (system.id === LEGACY_BELT_SYSTEM_ADULT_ID || system.legacy_category === "adult") {
     return beltLevels.filter(
       (belt) =>
+        isActiveBeltLevel(belt) &&
         belt.belt_category === "adult" &&
         (belt.belt_system_id === null || belt.belt_system_id === system.id),
     );
@@ -306,12 +308,16 @@ function resolveSystemBeltLevels(
   if (system.id === LEGACY_BELT_SYSTEM_JUNIOR_ID || system.legacy_category === "junior") {
     return beltLevels.filter(
       (belt) =>
+        isActiveBeltLevel(belt) &&
         belt.belt_category === "junior" &&
         (belt.belt_system_id === null || belt.belt_system_id === system.id),
     );
   }
 
-  return beltLevels.filter((belt) => belt.belt_system_id === system.id);
+  return beltLevels.filter(
+    (belt) =>
+      isActiveBeltLevel(belt) && belt.belt_system_id === system.id,
+  );
 }
 
 function buildLevelRowsForSystem(input: {
