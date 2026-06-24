@@ -8,13 +8,23 @@ export const PWA_START_URL = "/app";
 export const PWA_SCOPE = "/";
 export const PWA_APP_ENTRY_PATH = "/app";
 
+/** Bump when favicon/PWA raster assets change to defeat browser and SW caches. */
+export const PWA_ICON_ASSET_VERSION = "3";
+
+export function versionedAssetPath(path: string): string {
+  return `${path}?v=${PWA_ICON_ASSET_VERSION}`;
+}
+
 export const PWA_ICON_PATHS = {
-  favicon32: "/icon.png",
-  apple180: "/apple-icon.png",
-  icon192: "/pwa/icon-192.png",
-  icon512: "/pwa/icon-512.png",
-  maskable512: "/pwa/icon-maskable-512.png",
-  splash1290: "/pwa/apple-splash-1290x2796.png",
+  favicon16: versionedAssetPath("/icon-16.png"),
+  favicon32: versionedAssetPath("/icon.png"),
+  faviconIco: versionedAssetPath("/favicon.ico"),
+  apple180: versionedAssetPath("/apple-icon.png"),
+  icon192: versionedAssetPath("/pwa/icon-192.png"),
+  icon512: versionedAssetPath("/pwa/icon-512.png"),
+  maskable512: versionedAssetPath("/pwa/icon-maskable-512.png"),
+  splash1290: versionedAssetPath("/pwa/apple-splash-1290x2796.png"),
+  manifest: versionedAssetPath("/manifest.webmanifest"),
 } as const;
 
 export function isPortalInstallPromptPath(pathname: string): boolean {
