@@ -1,23 +1,30 @@
 "use client";
 
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
 import { AttendanceStatusChip } from "@/components/attendance/attendance-status-chip";
+import { InstructorKidsPromotionDateSearchForm } from "@/components/instructor/instructor-kids-promotion-date-search-form";
 import { promoteJuniorCandidateAction } from "@/app/instructor-portal/(portal)/[clubSlug]/promotion-candidates/actions";
 import {
-  filterKidsPromotionRegisterDateGroups,
-  type KidsPromotionRegistersViewData,
-} from "@/lib/admin-kids-promotion-registers.shared";
+  buildDefaultExpandedKidsPromotionSessionIds,
+  listKidsPromotionCandidateSessionCards,
+  type KidsPromotionCandidateSessionCard,
+} from "@/lib/instructor-kids-promotion-candidates.shared";
+import type { KidsPromotionRegistersViewData } from "@/lib/admin-kids-promotion-registers.shared";
 import {
   formatPromotionProgressLabel,
   formatPromotionRequiredTimeLabel,
   formatPromotionTimeSinceLabel,
 } from "@/lib/admin-belt-promotion.shared";
 import { formatAdminAttendanceStatusLabel } from "@/lib/admin-session-bookings.shared";
+import { getLondonTodayDateKey } from "@/lib/london-datetime";
 import type { AttendanceStatus } from "@/types/database";
 
 interface InstructorKidsPromotionCandidatesViewProps {
   data: KidsPromotionRegistersViewData;
+  initialDate?: string;
+  initialDays?: number;
+  filterHeading?: string | null;
 }
 
 function resolveAttendanceChipStatus(status: string | null): AttendanceStatus {
@@ -28,10 +35,58 @@ function resolveAttendanceChipStatus(status: string | null): AttendanceStatus {
   return null;
 }
 
+function SessionAccordionHeader({
+  card,
+  expanded,
+}: {
+  card: KidsPromotionCandidateSessionCard;
+  expanded: boolean;
+}) {
+  const { session, dayLabel, dateLabel } = card;
+
+  return (
+    <div className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left">
+      <div className="min-w-0 space-y-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-dojo-muted">
+          {dayLabel} · {dateLabel}
+        </p>
+        <h3 className="text-sm font-semibold text-dojo-white">{session.className}</h3>
+        <p className="text-sm text-dojo-muted">
+          {session.timeLabel}
+          {session.location ? ` · ${session.location}` : ""}
+        </p>
+        <p className="text-xs text-dojo-muted">
+          {session.promotionCandidateCount} promotion candidate
+          {session.promotionCandidateCount === 1 ? "" : "s"}
+        </p>
+      </div>
+      <span
+        aria-hidden
+        className={`mt-1 shrink-0 text-dojo-muted transition-transform ${
+          expanded ? "rotate-180" : ""
+        }`}
+      >
+        ▾
+      </span>
+    </div>
+  );
+}
+
 export function InstructorKidsPromotionCandidatesView({
   data,
+  initialDate,
+  initialDays,
+  filterHeading = null,
 }: InstructorKidsPromotionCandidatesViewProps) {
   const router = useRouter();
+  const todayKey = getLondonTodayDateKey();
+  const sessionCards = useMemo(
+    () => listKidsPromotionCandidateSessionCards(data.dateGroups),
+    [data.dateGroups],
+  );
+  const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(
+    () => new Set(buildDefaultExpandedKidsPromotionSessionIds(sessionCards, todayKey)),
+  );
   const [isPending, startTransition] = useTransition();
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
@@ -39,20 +94,41 @@ export function InstructorKidsPromotionCandidatesView({
     message: string;
   } | null>(null);
 
-  const dateGroups = filterKidsPromotionRegisterDateGroups(data.dateGroups, "candidates");
-  const visibleSessionCount = dateGroups.reduce(
-    (count, group) => count + group.sessions.length,
+  useEffect(() => {
+    setExpandedSessionIds((previous) => {
+      const next = new Set<string>();
+      const defaultExpanded = new Set(
+        buildDefaultExpandedKidsPromotionSessionIds(sessionCards, todayKey),
+      );
+
+      for (const card of sessionCards) {
+        if (previous.has(card.session.id) || defaultExpanded.has(card.session.id)) {
+          next.add(card.session.id);
+        }
+      }
+
+      return next;
+    });
+  }, [sessionCards, todayKey]);
+
+  const visibleCandidateCount = sessionCards.reduce(
+    (count, card) => count + card.session.promotionCandidateCount,
     0,
   );
-  const visibleCandidateCount = dateGroups.reduce(
-    (count, group) =>
-      count +
-      group.sessions.reduce(
-        (sessionCount, session) => sessionCount + session.promotionCandidateCount,
-        0,
-      ),
-    0,
-  );
+
+  const toggleSession = (sessionId: string) => {
+    setExpandedSessionIds((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+
+      return next;
+    });
+  };
 
   const handlePromote = (userId: string, studentName: string, nextBeltLabel: string) => {
     if (isPending) {
@@ -96,19 +172,26 @@ export function InstructorKidsPromotionCandidatesView({
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
+      <InstructorKidsPromotionDateSearchForm
+        clubSlug={data.clubSlug}
+        initialDate={initialDate}
+        initialDays={initialDays}
+        filterHeading={filterHeading}
+      />
+
+      <section className="space-y-2 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Today&apos;s promotion candidates
+            Promotion candidates by class
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Booked junior students who meet promotion requirements, grouped by class
-            session. Today&apos;s classes are shown first.
+            Expand a class to review eligible students and promote them. Today&apos;s
+            classes open by default.
           </p>
         </div>
         <p className="text-xs text-dojo-muted">
           {visibleCandidateCount} candidate{visibleCandidateCount === 1 ? "" : "s"} across{" "}
-          {visibleSessionCount} class{visibleSessionCount === 1 ? "" : "es"}
+          {sessionCards.length} class{sessionCards.length === 1 ? "" : "es"}
         </p>
       </section>
 
@@ -125,43 +208,32 @@ export function InstructorKidsPromotionCandidatesView({
         </p>
       ) : null}
 
-      {dateGroups.length === 0 ? (
+      {sessionCards.length === 0 ? (
         <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
-          No upcoming classes have booked promotion candidates.
+          No classes with promotion candidates found for the selected date range.
         </div>
       ) : (
-        dateGroups.map((group) => (
-          <section
-            key={group.dateKey}
-            className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4"
-          >
-            <div>
-              <h3 className="text-base font-semibold text-dojo-white">{group.dayLabel}</h3>
-              <p className="text-sm text-dojo-muted">{group.dateLabel}</p>
-            </div>
+        <div className="space-y-3">
+          {sessionCards.map((card) => {
+            const expanded = expandedSessionIds.has(card.session.id);
 
-            <div className="space-y-4">
-              {group.sessions.map((session) => (
-                <article
-                  key={session.id}
-                  className="rounded-lg border border-dojo-border bg-dojo-elevated p-4"
+            return (
+              <article
+                key={card.session.id}
+                className="overflow-hidden rounded-lg border border-dojo-border bg-dojo-elevated"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSession(card.session.id)}
+                  aria-expanded={expanded}
+                  className="flex w-full px-4 py-4 transition hover:bg-dojo-surface/60"
                 >
-                  <div>
-                    <h4 className="text-sm font-semibold text-dojo-white">
-                      {session.className}
-                    </h4>
-                    <p className="mt-1 text-sm text-dojo-muted">
-                      {session.timeLabel}
-                      {session.location ? ` · ${session.location}` : ""}
-                    </p>
-                    <p className="mt-1 text-xs text-dojo-muted">
-                      {session.promotionCandidateCount} promotion candidate
-                      {session.promotionCandidateCount === 1 ? "" : "s"}
-                    </p>
-                  </div>
+                  <SessionAccordionHeader card={card} expanded={expanded} />
+                </button>
 
-                  <ul className="mt-4 space-y-2">
-                    {session.attendees.map((attendee) => {
+                {expanded ? (
+                  <ul className="space-y-2 border-t border-dojo-border px-4 py-4">
+                    {card.session.attendees.map((attendee) => {
                       const candidate = attendee.promotionCandidate;
 
                       if (!candidate || !attendee.userId) {
@@ -259,11 +331,11 @@ export function InstructorKidsPromotionCandidatesView({
                       );
                     })}
                   </ul>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
       )}
     </div>
   );

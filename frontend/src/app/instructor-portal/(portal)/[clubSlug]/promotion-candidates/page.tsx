@@ -4,12 +4,15 @@ import { AttendanceRegisterBackLink } from "@/components/attendance/attendance-r
 import { InstructorKidsPromotionCandidatesView } from "@/components/instructor/instructor-kids-promotion-candidates-view";
 import { AppHeader } from "@/components/layout/app-header";
 import { loadKidsPromotionCandidatesOnRegisters } from "@/lib/admin-kids-promotion-registers.server";
+import { formatAttendanceScheduleFilterHeading } from "@/lib/attendance-schedule";
 import {
   ATTENDANCE_REGISTER_NAV_FROM,
 } from "@/lib/attendance-register-navigation.shared";
 import {
   isInstructorKidsPromotionCandidatesClub,
-  prioritizeTodayKidsPromotionRegisterDateGroups,
+  parseInstructorKidsPromotionCandidatesSearchParams,
+  resolveInstructorKidsPromotionScheduleFilter,
+  type InstructorKidsPromotionCandidatesSearchParams,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import { requireInstructorPortalPageContext } from "@/lib/instructor-portal-page.server";
 
@@ -17,6 +20,7 @@ export const dynamic = "force-dynamic";
 
 interface InstructorKidsPromotionCandidatesPageProps {
   params: { clubSlug: string };
+  searchParams: InstructorKidsPromotionCandidatesSearchParams;
 }
 
 export async function generateMetadata({
@@ -38,16 +42,21 @@ export async function generateMetadata({
 
 export default async function InstructorKidsPromotionCandidatesPage({
   params,
+  searchParams,
 }: InstructorKidsPromotionCandidatesPageProps) {
   if (!isInstructorKidsPromotionCandidatesClub(params.clubSlug)) {
     notFound();
   }
 
   const { club } = await requireInstructorPortalPageContext(params.clubSlug);
+  const filterContext = parseInstructorKidsPromotionCandidatesSearchParams(searchParams);
+  const scheduleFilter = resolveInstructorKidsPromotionScheduleFilter(searchParams);
+  const filterHeading = formatAttendanceScheduleFilterHeading(scheduleFilter);
   const data = await loadKidsPromotionCandidatesOnRegisters(
     club.id,
     club.slug,
     club.name,
+    scheduleFilter,
   );
   const navContext = {
     from: ATTENDANCE_REGISTER_NAV_FROM.instructorPortal,
@@ -61,10 +70,10 @@ export default async function InstructorKidsPromotionCandidatesPage({
       <AttendanceRegisterBackLink context={navContext} />
 
       <InstructorKidsPromotionCandidatesView
-        data={{
-          ...data,
-          dateGroups: prioritizeTodayKidsPromotionRegisterDateGroups(data.dateGroups),
-        }}
+        data={data}
+        initialDate={filterContext.date}
+        initialDays={filterContext.days}
+        filterHeading={filterHeading}
       />
     </main>
   );

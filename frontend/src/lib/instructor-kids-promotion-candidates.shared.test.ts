@@ -1,14 +1,64 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  buildAdjacentKidsPromotionDatePath,
+  buildDefaultExpandedKidsPromotionSessionIds,
   instructorPortalKidsPromotionCandidatesPath,
   isInstructorKidsPromotionCandidatesClub,
+  listKidsPromotionCandidateSessionCards,
   prioritizeTodayKidsPromotionRegisterDateGroups,
+  shouldExpandKidsPromotionSessionByDefault,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import {
   KINGSTON_CLUB_SLUG,
   KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
 } from "@/lib/clubs.shared";
+
+function buildSession(id: string, startsAt: string) {
+  return {
+    id,
+    className: `Class ${id}`,
+    startsAt,
+    endsAt: null,
+    externalId: null,
+    location: null,
+    dateLabel: "Friday 19 June 2026",
+    dayLabel: "Friday",
+    timeLabel: "6:00pm",
+    bookedCount: 1,
+    promotionCandidateCount: 1,
+    attendees: [
+      {
+        attendeeId: `attendee-${id}`,
+        userId: `user-${id}`,
+        firstName: "Test",
+        lastName: id,
+        fullName: `Test ${id}`,
+        attendanceStatus: null,
+        isPromotionCandidate: true,
+        promotionCandidate: {
+          id: `user-${id}`,
+          firstName: "Test",
+          lastName: id,
+          email: null,
+          fullName: `Test ${id}`,
+          currentBeltCategory: "junior" as const,
+          currentBeltSortOrder: 1000,
+          assessment: {
+            isEligible: true,
+            currentBeltLabel: "Grey belt",
+            nextBeltLabel: "Grey belt, 1 stripe",
+            attendanceSinceAward: 4,
+            requiredAttendance: 4,
+            timeUnit: "weeks" as const,
+            timeSinceAward: 5,
+            requiredTime: 5,
+          },
+        },
+      },
+    ],
+  };
+}
 
 test("isInstructorKidsPromotionCandidatesClub is kids-only", () => {
   assert.equal(
@@ -22,6 +72,12 @@ test("instructorPortalKidsPromotionCandidatesPath uses instructor portal route",
   assert.equal(
     instructorPortalKidsPromotionCandidatesPath(KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG),
     "/instructor-portal/kingston-jiu-jitsu-kids/promotion-candidates",
+  );
+  assert.equal(
+    instructorPortalKidsPromotionCandidatesPath(KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG, {
+      date: "2026-06-19",
+    }),
+    "/instructor-portal/kingston-jiu-jitsu-kids/promotion-candidates?date=2026-06-19",
   );
 });
 
@@ -48,4 +104,69 @@ test("prioritizeTodayKidsPromotionRegisterDateGroups moves today first", () => {
   assert.equal(groups[0]?.dateKey, todayKey);
   assert.equal(groups[0]?.dayLabel, "Today");
   assert.equal(groups[1]?.dateKey, "2026-06-20");
+});
+
+test("listKidsPromotionCandidateSessionCards returns candidate sessions only", () => {
+  const cards = listKidsPromotionCandidateSessionCards(
+    [
+      {
+        dateKey: "2026-06-19",
+        dateLabel: "Friday 19 June 2026",
+        dayLabel: "Friday",
+        sessions: [
+          buildSession("today", "2026-06-19T17:00:00.000Z"),
+          {
+            ...buildSession("empty", "2026-06-19T18:00:00.000Z"),
+            promotionCandidateCount: 0,
+            attendees: [],
+          },
+        ],
+      },
+    ],
+    new Date("2026-06-19T12:00:00.000Z"),
+  );
+
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0]?.session.id, "today");
+});
+
+test("shouldExpandKidsPromotionSessionByDefault expands today only", () => {
+  assert.equal(shouldExpandKidsPromotionSessionByDefault("2026-06-19", "2026-06-19"), true);
+  assert.equal(shouldExpandKidsPromotionSessionByDefault("2026-06-18", "2026-06-19"), false);
+});
+
+test("buildDefaultExpandedKidsPromotionSessionIds includes today sessions", () => {
+  const cards = listKidsPromotionCandidateSessionCards(
+    [
+      {
+        dateKey: "2026-06-19",
+        dateLabel: "Friday 19 June 2026",
+        dayLabel: "Today",
+        sessions: [buildSession("today", "2026-06-19T17:00:00.000Z")],
+      },
+      {
+        dateKey: "2026-06-20",
+        dateLabel: "Saturday 20 June 2026",
+        dayLabel: "Saturday",
+        sessions: [buildSession("future", "2026-06-20T17:00:00.000Z")],
+      },
+    ],
+    new Date("2026-06-19T12:00:00.000Z"),
+  );
+
+  assert.deepEqual(
+    buildDefaultExpandedKidsPromotionSessionIds(cards, "2026-06-19"),
+    ["today"],
+  );
+});
+
+test("buildAdjacentKidsPromotionDatePath steps by one day", () => {
+  assert.equal(
+    buildAdjacentKidsPromotionDatePath(
+      KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
+      "2026-06-19",
+      -1,
+    ),
+    "/instructor-portal/kingston-jiu-jitsu-kids/promotion-candidates?date=2026-06-18",
+  );
 });

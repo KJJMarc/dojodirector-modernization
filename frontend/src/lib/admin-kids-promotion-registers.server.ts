@@ -11,7 +11,10 @@ import {
   type KidsPromotionRegisterSession,
 } from "@/lib/admin-kids-promotion-registers.shared";
 import { requireClubBjjProgramme } from "@/lib/admin-programmes.server";
-import { getAttendanceScheduleDateRange } from "@/lib/attendance-schedule";
+import {
+  getAttendanceScheduleFilterDateRange,
+  type AttendanceScheduleFilter,
+} from "@/lib/attendance-schedule";
 import { ATTENDANCE_REGISTER_BOOKING_STATUSES } from "@/lib/attendance-register-booking.shared";
 import {
   compareAttendanceRegisterNames,
@@ -152,6 +155,7 @@ export async function loadKidsPromotionCandidatesOnRegisters(
   clubId: string,
   clubSlug: string,
   clubName: string,
+  scheduleFilter: AttendanceScheduleFilter = { mode: "default" },
 ): Promise<KidsPromotionRegistersViewData> {
   if (!isKidsPromotionCandidatesOnRegistersClub(clubSlug)) {
     throw new Error("Promotion candidates on registers is only available for Kingston Jiu Jitsu Kids.");
@@ -159,7 +163,8 @@ export async function loadKidsPromotionCandidatesOnRegisters(
 
   const bjjProgramme = await requireClubBjjProgramme(clubId);
   const bjjClassIds = await loadBjjClassIdsForClub(clubId, bjjProgramme.id);
-  const { startIso, endIso } = getAttendanceScheduleDateRange();
+  const { startIso, endIso } = getAttendanceScheduleFilterDateRange(scheduleFilter);
+  const ensureRecurringSessions = scheduleFilter.mode === "default";
 
   const [scheduleSessions, allCandidates] = await Promise.all([
     loadClassScheduleSessions({
@@ -168,6 +173,7 @@ export async function loadKidsPromotionCandidatesOnRegisters(
       clubId,
       activeClassesOnly: true,
       includeCancelled: false,
+      ensureRecurringSessions,
     }),
     loadPromotionCandidates(clubId),
   ]);
