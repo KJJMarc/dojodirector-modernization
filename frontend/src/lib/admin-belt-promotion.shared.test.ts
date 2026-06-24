@@ -4,7 +4,6 @@ import { describe, it } from "node:test";
 import {
   buildRecentPromotionEntries,
   compareGradeAwardRecency,
-  filterJuniorBeltLevelsForPromotion,
   pickLatestGradeAwardForUser,
   sortGradeAwardsNewestFirst,
 } from "@/lib/admin-belt-promotion.shared";
@@ -79,33 +78,5 @@ describe("buildRecentPromotionEntries", () => {
     assert.equal(promotions.length, 1);
     assert.equal(promotions[0]?.newRankLabel, "blue");
     assert.equal(promotions[0]?.previousRankLabel, "green");
-  });
-});
-
-describe("filterJuniorBeltLevelsForPromotion", () => {
-  it("excludes inactive junior belts from promotion progression", () => {
-    const belts = filterJuniorBeltLevelsForPromotion([
-      {
-        id: "active",
-        name: "Junior Grey 3 Stripes",
-        stripe_count: 3,
-        sort_order: 1013,
-        belt_category: "junior",
-        is_active: true,
-      },
-      {
-        id: "retired",
-        name: "Junior Grey 4 Stripes",
-        stripe_count: 4,
-        sort_order: 1014,
-        belt_category: "junior",
-        is_active: false,
-      },
-    ]);
-
-    assert.deepEqual(
-      belts.map((belt) => belt.id),
-      ["active"],
-    );
   });
 });

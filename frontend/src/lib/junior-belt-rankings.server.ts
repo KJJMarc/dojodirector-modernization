@@ -440,8 +440,8 @@ export async function getJuniorBeltRankingsPageData(
   const allBeltLevelById = new Map(
     allBeltLevels.map((beltLevel) => [beltLevel.id, beltLevel]),
   );
-  const juniorBeltLevels = allBeltLevels.filter(
-    (beltLevel) => isJuniorBeltLevel(beltLevel) && beltLevel.is_active !== false,
+  const juniorBeltLevels = allBeltLevels.filter((beltLevel) =>
+    isJuniorBeltLevel(beltLevel),
   );
   const juniorBeltLevelById = new Map(
     juniorBeltLevels.map((beltLevel) => [beltLevel.id, beltLevel]),

@@ -1,13 +1,9 @@
 export const KINGSTON_CLUB_SLUG = "kingston-jiu-jitsu";
 export const KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG = "kingston-jiu-jitsu-kids";
 export const BAHAMAS_JIU_JITSU_CLUB_SLUG = "bahamas-jiu-jitsu";
-/** Kingston Jiu Jitsu adult academy club id. */
-export const KINGSTON_JIU_JITSU_CLUB_ID = "a869a3a1-2174-43a5-87d1-3f365f11c68a";
 /** Kingston Jiu Jitsu Kids academy club id (grading + memberships). */
 export const KINGSTON_JIU_JITSU_KIDS_CLUB_ID =
   "0e81995e-7ed5-490d-8425-f23c87f34587";
-/** Kingston academies cap junior stripes at three (Bahamas remains at four). */
-export const KINGSTON_JUNIOR_MAX_STRIPE_COUNT = 3;
 
 export interface ClubRow {
   id: string;

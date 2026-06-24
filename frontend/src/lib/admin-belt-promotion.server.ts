@@ -86,7 +86,7 @@ function getJuniorBaseOrderFromSortOrder(sortOrder: number) {
 function buildJuniorGradingRequirementsFromBeltLevels(
   juniorBelts: BeltLevelProgressionRow[],
 ) {
-  const sorted = filterJuniorBeltLevelsForPromotion(juniorBelts).sort(
+  const sorted = [...juniorBelts].sort(
     (left, right) => left.sort_order - right.sort_order,
   );
   const requirements = new Map<string, JuniorGradingRequirementRow>();
@@ -116,7 +116,7 @@ async function loadJuniorBeltLevelsForClubFromAdmin(
 ) {
   const { data, error } = await supabase
     .from("belt_levels")
-    .select("id, name, stripe_count, sort_order, type, belt_category, is_active")
+    .select("id, name, stripe_count, sort_order, type, belt_category")
     .eq("club_id", clubId)
     .eq("belt_category", "junior")
     .order("sort_order", { ascending: true });
@@ -132,34 +132,12 @@ export async function loadBeltLevelsForClub(
   clubId: string,
 ): Promise<BeltLevelProgressionRow[]> {
   const supabase = getSupabaseAdminClient();
-  const extendedSelect =
-    "id, name, stripe_count, sort_order, type, belt_category, colour, is_active";
-  const baseSelect = "id, name, stripe_count, sort_order, type, belt_category, colour";
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("belt_levels")
-    .select(extendedSelect)
+    .select("id, name, stripe_count, sort_order, type, belt_category, colour")
     .eq("club_id", clubId)
     .order("sort_order", { ascending: true });
-
-  if (error?.message?.includes("is_active")) {
-    const fallback = await supabase
-      .from("belt_levels")
-      .select(baseSelect)
-      .eq("club_id", clubId)
-      .order("sort_order", { ascending: true });
-
-    if (fallback.error) {
-      throw new Error(`Failed to load belt levels: ${fallback.error.message}`);
-    }
-
-    return ((fallback.data ?? []) as Omit<BeltLevelProgressionRow, "is_active">[]).map(
-      (row) => ({
-        ...row,
-        is_active: true,
-      }),
-    );
-  }
 
   if (error) {
     throw new Error(`Failed to load belt levels: ${error.message}`);
@@ -223,7 +201,7 @@ function buildJuniorRequirementsMapFromTargetModel(
     required_weeks: number;
   }[],
 ) {
-  const sorted = filterJuniorBeltLevelsForPromotion(juniorBelts).sort(
+  const sorted = [...juniorBelts].sort(
     (left, right) => left.sort_order - right.sort_order,
   );
   const beltById = new Map(sorted.map((belt) => [belt.id, belt]));

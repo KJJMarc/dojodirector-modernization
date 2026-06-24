@@ -43,17 +43,6 @@ export interface BeltLevelProgressionRow {
   type?: string | null;
   belt_category?: string | null;
   colour?: string | null;
-  is_active?: boolean | null;
-}
-
-export function isActiveBeltLevel(belt: { is_active?: boolean | null }): boolean {
-  return belt.is_active !== false;
-}
-
-export function filterActiveBeltLevelsForPromotion<
-  T extends BeltLevelProgressionRow,
->(beltLevels: T[]): T[] {
-  return beltLevels.filter(isActiveBeltLevel);
 }
 
 export interface JuniorGradingRequirementRow {
@@ -91,17 +80,13 @@ export interface BeltPromotionAssessment {
 export function filterAdultBeltLevelsForPromotion<
   T extends BeltLevelProgressionRow,
 >(beltLevels: T[]): T[] {
-  return filterActiveBeltLevelsForPromotion(
-    beltLevels.filter((belt) => !isJuniorBeltCategory(belt.belt_category)),
-  );
+  return beltLevels.filter((belt) => !isJuniorBeltCategory(belt.belt_category));
 }
 
 export function filterJuniorBeltLevelsForPromotion<
   T extends BeltLevelProgressionRow,
 >(beltLevels: T[]): T[] {
-  return filterActiveBeltLevelsForPromotion(
-    beltLevels.filter((belt) => isJuniorBeltCategory(belt.belt_category)),
-  );
+  return beltLevels.filter((belt) => isJuniorBeltCategory(belt.belt_category));
 }
 
 export function formatPromotionTimeSinceLabel(assessment: BeltPromotionAssessment) {

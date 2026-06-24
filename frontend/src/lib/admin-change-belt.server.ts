@@ -23,7 +23,6 @@ interface BeltLevelRow {
   sort_order: number;
   type: string | null;
   belt_category: string | null;
-  is_active?: boolean | null;
 }
 
 interface GradeAwardRow {
@@ -144,16 +143,14 @@ async function loadClubBeltLevelOptions(clubId: string) {
 
   const { data, error } = await supabase
     .from("belt_levels")
-    .select("id, name, stripe_count, sort_order, type, belt_category, is_active")
+    .select("id, name, stripe_count, sort_order, type, belt_category")
     .eq("club_id", clubId);
 
   if (error) {
     throw new Error(`Failed to load belt levels: ${error.message}`);
   }
 
-  const belts = ((data ?? []) as BeltLevelRow[]).filter(
-    (belt) => belt.is_active !== false,
-  );
+  const belts = (data ?? []) as BeltLevelRow[];
   const adultBelts = belts.filter(isAdultClubBeltLevel);
   const juniorBelts = belts.filter(isJuniorClubBeltLevel);
 
