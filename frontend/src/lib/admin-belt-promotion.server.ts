@@ -13,6 +13,7 @@ import {
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import {
   buildStudentBeltPromotionAssessment,
+  filterJuniorBeltLevelsForPromotion,
   getNextBeltLevel,
   isStudentEligibleForPromotion,
   pickLatestGradeAwardByUserId,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/admin-club-memberships.server";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
 import { loadMembershipStatusesByUserId } from "@/lib/membership-access.server";
+import { filterJuniorPromotionCandidates } from "@/lib/admin-kids-promotion-registers.shared";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /** KJJ test/dev — promotion candidate debug focus user. */
@@ -1029,4 +1031,40 @@ export async function loadPromotionCandidates(
   }
 
   return sortPromotionCandidates(candidates);
+}
+
+export interface EligibleJuniorPromotionAward {
+  candidate: PromotionCandidate;
+  nextBeltLevelId: string;
+}
+
+/** Resolves a junior promotion candidate and the next belt level id to award. */
+export async function resolveEligibleJuniorPromotionAward(input: {
+  clubId: string;
+  userId: string;
+}): Promise<EligibleJuniorPromotionAward | null> {
+  const candidates = filterJuniorPromotionCandidates(
+    await loadPromotionCandidates(input.clubId),
+  );
+  const candidate = candidates.find((item) => item.id === input.userId) ?? null;
+
+  if (!candidate) {
+    return null;
+  }
+
+  const context = await loadPromotionEvaluationContext(input.clubId);
+  const latestAward = context.latestAwardByUserId.get(input.userId);
+  const nextBelt = getNextBeltLevel(
+    latestAward?.belt_level_id ?? null,
+    filterJuniorBeltLevelsForPromotion(context.beltLevels),
+  );
+
+  if (!nextBelt) {
+    return null;
+  }
+
+  return {
+    candidate,
+    nextBeltLevelId: nextBelt.id,
+  };
 }

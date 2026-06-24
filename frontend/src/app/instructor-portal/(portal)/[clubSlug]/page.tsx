@@ -6,6 +6,10 @@ import { InstructorPortalSwitchAcademyButton } from "@/components/instructor-por
 import { countUnreadPortalMessages } from "@/lib/portal-messages.server";
 import { formatPortalMessagesNavLabel } from "@/lib/portal-messages.shared";
 import { requireInstructorPortalPageContext } from "@/lib/instructor-portal-page.server";
+import {
+  instructorPortalKidsPromotionCandidatesPath,
+  isInstructorKidsPromotionCandidatesClub,
+} from "@/lib/instructor-kids-promotion-candidates.shared";
 import { instructorPortalClubPath } from "@/lib/instructor-portal-routing.shared";
 import { formatInstructorSlugFromName } from "@/lib/instructor-portal.shared";
 
@@ -62,6 +66,16 @@ export default async function InstructorPortalClubPage({
         clubSlug={club.slug}
         sectionTitle="QUICK ACTIONS"
         extraActions={[
+          ...(isInstructorKidsPromotionCandidatesClub(club.slug)
+            ? [
+                {
+                  label: "Promotion Candidates",
+                  href: instructorPortalKidsPromotionCandidatesPath(club.slug),
+                  description:
+                    "View junior promotion candidates by today's classes and promote eligible students.",
+                },
+              ]
+            : []),
           {
             label: formatPortalMessagesNavLabel(unreadMessageCount),
             href: instructorPortalClubPath(club.slug, "messages"),
