@@ -71,8 +71,7 @@ export default async function InstructorPortalClubPage({
                 {
                   label: "Promotion Candidates",
                   href: instructorPortalKidsPromotionCandidatesPath(club.slug),
-                  description:
-                    "View junior promotion candidates by today's classes and promote eligible students.",
+                  description: "View and promote eligible students.",
                 },
               ]
             : []),
