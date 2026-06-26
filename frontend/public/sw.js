@@ -1,17 +1,24 @@
-const CACHE_VERSION = "dojo-director-pwa-v1";
+const CACHE_VERSION = "dojo-director-pwa-v2";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const ICON_ASSET_VERSION = "3";
+
+function versionedAsset(path) {
+  return `${path}?v=${ICON_ASSET_VERSION}`;
+}
 
 const STATIC_ASSETS = [
-  "/manifest.webmanifest",
-  "/icon.png",
-  "/apple-icon.png",
-  "/pwa/icon-192.png",
-  "/pwa/icon-512.png",
-  "/pwa/icon-maskable-512.png",
+  versionedAsset("/manifest.webmanifest"),
+  versionedAsset("/favicon.ico"),
+  versionedAsset("/icon-16.png"),
+  versionedAsset("/icon.png"),
+  versionedAsset("/apple-icon.png"),
+  versionedAsset("/pwa/icon-192.png"),
+  versionedAsset("/pwa/icon-512.png"),
+  versionedAsset("/pwa/icon-maskable-512.png"),
 ];
 
-function isStaticAsset(pathname) {
-  return STATIC_ASSETS.includes(pathname);
+function isStaticAsset(pathname, search) {
+  return STATIC_ASSETS.includes(`${pathname}${search}`);
 }
 
 function shouldBypassServiceWorker(request, requestUrl) {
@@ -58,7 +65,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith(CACHE_VERSION) && key !== STATIC_CACHE)
+            .filter((key) => key.startsWith("dojo-director-pwa-") && key !== STATIC_CACHE)
             .map((key) => caches.delete(key)),
         ),
       )
@@ -77,7 +84,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (isStaticAsset(requestUrl.pathname)) {
+  if (isStaticAsset(requestUrl.pathname, requestUrl.search)) {
     event.respondWith(
       caches.match(event.request).then((cached) => cached ?? fetch(event.request)),
     );

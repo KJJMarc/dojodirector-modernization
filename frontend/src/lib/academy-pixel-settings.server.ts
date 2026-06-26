@@ -82,10 +82,18 @@ export async function updateAcademyPixelSettings(input: {
   );
 
   if (input.metaPixelEnabled && !isValidMetaPixelId(metaPixelId)) {
+    console.error("[pixel-settings] validation failed: invalid meta pixel id", {
+      clubSlug: input.clubSlug,
+      metaPixelId,
+    });
     throw new Error("Enter a valid Meta Pixel ID (numeric ID from Events Manager).");
   }
 
   if (input.googleTrackingEnabled && !isValidGoogleTagId(googleTagId)) {
+    console.error("[pixel-settings] validation failed: invalid google tag id", {
+      clubSlug: input.clubSlug,
+      googleTagId,
+    });
     throw new Error(
       "Enter a valid Google tag ID (e.g. G-XXXXXXXX, AW-XXXXXXXX, or GT-XXXXXXXX).",
     );
@@ -102,12 +110,26 @@ export async function updateAcademyPixelSettings(input: {
     !googleAdsConversionLabel &&
     !envConversionLabel
   ) {
+    console.error(
+      "[pixel-settings] validation failed: missing google ads conversion label",
+      {
+        clubSlug: input.clubSlug,
+        googleTagId,
+        hasEnvConversionLabel: Boolean(envConversionLabel),
+      },
+    );
     throw new Error(
       "Enter the Google Ads conversion label for trial enquiry leads when using an AW- tag ID.",
     );
   }
 
   const supabase = getSupabaseAdminClient();
+  console.info("[pixel-settings] writing club pixel settings", {
+    clubSlug: input.clubSlug,
+    clubId: input.clubId,
+    metaPixelEnabled: input.metaPixelEnabled,
+    googleTrackingEnabled: input.googleTrackingEnabled,
+  });
   const { error } = await supabase
     .from("clubs")
     .update({
@@ -123,8 +145,18 @@ export async function updateAcademyPixelSettings(input: {
     .eq("id", input.clubId);
 
   if (error) {
+    console.error("[pixel-settings] database update failed", {
+      clubSlug: input.clubSlug,
+      clubId: input.clubId,
+      message: error.message,
+    });
     throw new Error(`Failed to save pixel settings: ${error.message}`);
   }
+
+  console.info("[pixel-settings] database update succeeded", {
+    clubSlug: input.clubSlug,
+    clubId: input.clubId,
+  });
 }
 
 export async function getPublicAcademyPixelSettingsByClubSlug(

@@ -5,6 +5,8 @@
  * Usage: node scripts/verify-pwa.mjs http://localhost:9876
  */
 
+import { PWA_ICON_ASSET_VERSION, PWA_ICON_PATHS } from "../src/lib/pwa.shared.ts";
+
 const baseUrl = process.argv[2] ?? "http://localhost:9876";
 const portalLoginPath = "/student-portal/login";
 const appEntryPath = "/app";
@@ -43,10 +45,15 @@ const html = await fetchText(portalLoginPath);
 const appEntry = await fetchText(appEntryPath);
 const manifest = await fetchJson("/manifest.webmanifest");
 const serviceWorker = await fetchText("/sw.js");
-const icon192 = await fetchText("/pwa/icon-192.png");
-const icon512 = await fetchText("/pwa/icon-512.png");
-const maskable512 = await fetchText("/pwa/icon-maskable-512.png");
-const appleIcon = await fetchText("/apple-icon.png");
+const icon192 = await fetchText(PWA_ICON_PATHS.icon192);
+const icon512 = await fetchText(PWA_ICON_PATHS.icon512);
+const maskable512 = await fetchText(PWA_ICON_PATHS.maskable512);
+const appleIcon = await fetchText(PWA_ICON_PATHS.apple180);
+const favicon16 = await fetchText(PWA_ICON_PATHS.favicon16);
+const favicon32 = await fetchText(PWA_ICON_PATHS.favicon32);
+const faviconIco = await fetchText(PWA_ICON_PATHS.faviconIco);
+const iconSvg = await fetchText("/icon.svg");
+const manifestLink = PWA_ICON_PATHS.manifest;
 
 let score = 0;
 let total = 0;
@@ -191,6 +198,9 @@ if (
 }
 
 for (const asset of [
+  ["16px favicon", favicon16],
+  ["32px favicon", favicon32],
+  ["favicon.ico", faviconIco],
   ["192 icon", icon192],
   ["512 icon", icon512],
   ["maskable icon", maskable512],
@@ -200,6 +210,68 @@ for (const asset of [
   if (check(`${asset[0]} asset available`, asset[1].ok, String(asset[1].status))) {
     score++;
   }
+}
+
+total++;
+if (
+  check(
+    "/icon.svg does not serve SVG metadata route",
+    iconSvg.status === 307 || iconSvg.status === 308 || iconSvg.status === 404,
+    String(iconSvg.status),
+  )
+) {
+  score++;
+}
+
+total++;
+if (
+  check(
+    "HTML references versioned manifest",
+    html.body.includes(manifestLink),
+    manifestLink,
+  )
+) {
+  score++;
+}
+
+const iconLinks = [...html.body.matchAll(/<link[^>]*rel="icon"[^>]*>/g)].map(
+  (match) => match[0],
+);
+const faviconIcoLinks = iconLinks.filter((link) => link.includes("favicon.ico"));
+
+total++;
+if (check("HTML has exactly one favicon.ico link", faviconIcoLinks.length === 1)) {
+  score++;
+}
+
+total++;
+if (
+  check(
+    "HTML includes explicit 16x16 PNG favicon",
+    html.body.includes(PWA_ICON_PATHS.favicon16),
+  )
+) {
+  score++;
+}
+
+total++;
+if (
+  check(
+    "Manifest icon URLs are versioned",
+    icons.every((icon) => icon.src?.includes(`?v=${PWA_ICON_ASSET_VERSION}`)),
+  )
+) {
+  score++;
+}
+
+total++;
+if (
+  check(
+    "HTML does not reference /icon.svg",
+    !html.body.includes('href="/icon.svg"'),
+  )
+) {
+  score++;
 }
 
 total++;

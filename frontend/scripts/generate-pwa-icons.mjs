@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Generate favicon, Apple touch icon, and PWA icon assets from src/app/icon.svg.
+ * Generate favicon, Apple touch icon, and PWA icon assets from assets/icon-source.svg.
+ * Outputs raster icons to public/ (not src/app) so Next does not also serve /icon.svg.
  *
  * Usage: node scripts/generate-pwa-icons.mjs
  */
@@ -15,9 +16,9 @@ const PWA_BACKGROUND_COLOR = "#0a0a0a";
 const MASKABLE_PADDING_RATIO = 0.2;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const appDir = resolve(__dirname, "../src/app");
-const publicPwaDir = resolve(__dirname, "../public/pwa");
-const svg = readFileSync(resolve(appDir, "icon.svg"));
+const publicDir = resolve(__dirname, "../public");
+const publicPwaDir = resolve(publicDir, "pwa");
+const svg = readFileSync(resolve(__dirname, "../assets/icon-source.svg"));
 
 mkdirSync(publicPwaDir, { recursive: true });
 
@@ -49,8 +50,9 @@ const png192 = await renderFullBleedIcon(192);
 const png512 = await renderFullBleedIcon(512);
 const maskable512 = await renderMaskableIcon(512, MASKABLE_PADDING_RATIO);
 
-writeFileSync(resolve(appDir, "icon.png"), png32);
-writeFileSync(resolve(appDir, "apple-icon.png"), png180);
+writeFileSync(resolve(publicDir, "icon-16.png"), png16);
+writeFileSync(resolve(publicDir, "icon.png"), png32);
+writeFileSync(resolve(publicDir, "apple-icon.png"), png180);
 writeFileSync(resolve(publicPwaDir, "icon-192.png"), png192);
 writeFileSync(resolve(publicPwaDir, "icon-512.png"), png512);
 writeFileSync(resolve(publicPwaDir, "icon-maskable-512.png"), maskable512);
@@ -71,8 +73,8 @@ const appleSplash = await sharp({
 writeFileSync(resolve(publicPwaDir, "apple-splash-1290x2796.png"), appleSplash);
 
 const ico = await pngToIco([png16, png32]);
-writeFileSync(resolve(appDir, "favicon.ico"), ico);
+writeFileSync(resolve(publicDir, "favicon.ico"), ico);
 
 console.log(
-  "Generated favicon, Apple touch icon, and PWA icons in src/app/ and public/pwa/",
+  "Generated favicon, Apple touch icon, and PWA icons in public/ and public/pwa/",
 );
