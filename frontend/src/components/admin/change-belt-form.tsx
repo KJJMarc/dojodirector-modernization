@@ -56,14 +56,11 @@ export function ChangeBeltForm({
     formData.set("notes", notes);
 
     startTransition(async () => {
-      try {
-        await awardBeltLevelAction(formData);
-      } catch (submitError) {
-        setError(
-          submitError instanceof Error
-            ? submitError.message
-            : "Unable to award belt level.",
-        );
+      const result = await awardBeltLevelAction(formData);
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
       }
     });
   };

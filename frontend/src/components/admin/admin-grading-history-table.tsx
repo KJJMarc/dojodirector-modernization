@@ -77,17 +77,15 @@ export function AdminGradingHistoryTable({
     formData.set("notes", notes);
 
     startTransition(async () => {
-      try {
-        await updateGradeAwardAction(formData);
-        setEditingAwardId(null);
-        router.refresh();
-      } catch (saveError) {
-        setError(
-          saveError instanceof Error
-            ? saveError.message
-            : "Unable to update grade award.",
-        );
+      const result = await updateGradeAwardAction(formData);
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
       }
+
+      setEditingAwardId(null);
+      router.refresh();
     });
   };
 
@@ -107,19 +105,17 @@ export function AdminGradingHistoryTable({
     formData.set("awardId", awardId);
 
     startTransition(async () => {
-      try {
-        await deleteGradeAwardAction(formData);
-        if (editingAwardId === awardId) {
-          setEditingAwardId(null);
-        }
-        router.refresh();
-      } catch (deleteError) {
-        setError(
-          deleteError instanceof Error
-            ? deleteError.message
-            : "Unable to delete grade award.",
-        );
+      const result = await deleteGradeAwardAction(formData);
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
       }
+
+      if (editingAwardId === awardId) {
+        setEditingAwardId(null);
+      }
+      router.refresh();
     });
   };
 

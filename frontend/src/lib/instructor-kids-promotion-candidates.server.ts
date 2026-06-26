@@ -23,13 +23,18 @@ export async function instructorPromoteJuniorPromotionCandidate(input: {
     throw new Error("This student is not currently eligible for promotion.");
   }
 
-  await adminAwardBeltLevel({
+  const awardResult = await adminAwardBeltLevel({
     userId: input.userId,
     beltLevelId: awardTarget.nextBeltLevelId,
     awardedAt: getTodayDateInputValue(),
     notes: "Promoted via instructor portal",
     clubId: input.clubId,
+    clubSlug: input.clubSlug,
   });
+
+  if (!awardResult.ok) {
+    throw new Error(awardResult.message);
+  }
 
   return {
     studentName: awardTarget.candidate.fullName,
