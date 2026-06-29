@@ -15,16 +15,21 @@ interface BookingSessionCardProps {
   onBookSession: (classSessionId: string) => void;
   /** Override primary action label (e.g. guest booking flow). */
   sessionActionLabel?: string;
+  /** When true, the action button is disabled (e.g. guest booking on a full class). */
+  sessionActionDisabled?: boolean;
 }
 
 export function BookingSessionCard({
   session,
   onBookSession,
   sessionActionLabel,
+  sessionActionDisabled = false,
 }: BookingSessionCardProps) {
   const isFull = session.spacesAvailable === 0;
+  const actionDisabled = Boolean(sessionActionDisabled);
   const actionLabel =
-    sessionActionLabel ?? (isFull ? "Join waiting list" : "Book class");
+    sessionActionLabel ??
+    (isFull ? "Join waiting list" : "Book class");
 
   return (
     <article className="rounded-xl border border-dojo-border bg-dojo-surface p-3">
@@ -58,10 +63,13 @@ export function BookingSessionCard({
         <button
           type="button"
           onClick={() => onBookSession(session.id)}
+          disabled={actionDisabled}
           className={`min-h-[40px] w-full rounded-md px-3 text-sm font-semibold transition active:scale-[0.98] ${
-            isFull
-              ? "bg-dojo-red text-dojo-white hover:bg-dojo-red-hover"
-              : "bg-green-600 text-white ring-1 ring-green-500 hover:bg-green-500"
+            actionDisabled
+              ? "cursor-not-allowed bg-dojo-border text-dojo-muted"
+              : isFull
+                ? "bg-dojo-red text-dojo-white hover:bg-dojo-red-hover"
+                : "bg-green-600 text-white ring-1 ring-green-500 hover:bg-green-500"
           }`}
         >
           {actionLabel}

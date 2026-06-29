@@ -91,6 +91,15 @@ export function GuestBookingFlow({
   }, [pendingSessionId, sessionGroups]);
 
   const handleSelectSession = (classSessionId: string) => {
+    const session = sessionGroups
+      .flatMap((group) => group.sessions)
+      .find((item) => item.id === classSessionId);
+
+    if (session && session.spacesAvailable === 0) {
+      setServerErrorMessage("This class is full and cannot be booked as a guest.");
+      return;
+    }
+
     setFieldErrors({});
     setServerErrorMessage(null);
     setBookingResult(null);
@@ -296,7 +305,10 @@ export function GuestBookingFlow({
               key={group.dateKey}
               group={group}
               onBookSession={handleSelectSession}
-              sessionActionLabel="Select class"
+              sessionActionLabel={(session) =>
+                session.spacesAvailable === 0 ? "Class full" : "Select class"
+              }
+              sessionActionDisabled={(session) => session.spacesAvailable === 0}
             />
           ))}
         </div>

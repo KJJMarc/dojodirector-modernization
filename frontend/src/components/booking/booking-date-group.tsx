@@ -4,13 +4,15 @@ import { BookableSessionGroup } from "@/lib/booking";
 interface BookingDateGroupProps {
   group: BookableSessionGroup;
   onBookSession: (classSessionId: string) => void;
-  sessionActionLabel?: string;
+  sessionActionLabel?: string | ((session: BookableSessionGroup["sessions"][number]) => string);
+  sessionActionDisabled?: (session: BookableSessionGroup["sessions"][number]) => boolean;
 }
 
 export function BookingDateGroup({
   group,
   onBookSession,
   sessionActionLabel,
+  sessionActionDisabled,
 }: BookingDateGroupProps) {
   return (
     <section className="space-y-2">
@@ -24,7 +26,12 @@ export function BookingDateGroup({
             key={session.id}
             session={session}
             onBookSession={onBookSession}
-            sessionActionLabel={sessionActionLabel}
+            sessionActionLabel={
+              typeof sessionActionLabel === "function"
+                ? sessionActionLabel(session)
+                : sessionActionLabel
+            }
+            sessionActionDisabled={sessionActionDisabled?.(session) ?? false}
           />
         ))}
       </div>
