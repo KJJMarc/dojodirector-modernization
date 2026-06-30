@@ -275,7 +275,7 @@ export function InstructorKidsPromotionCandidatesView({
 
       {sessionCards.length === 0 ? (
         <div className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
-          No classes with promotion candidates found for the selected date range.
+          No classes scheduled for the selected date.
         </div>
       ) : (
         <div className="space-y-3">

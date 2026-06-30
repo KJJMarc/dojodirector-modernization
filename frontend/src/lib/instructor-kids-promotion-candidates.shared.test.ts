@@ -115,7 +115,7 @@ test("prioritizeTodayKidsPromotionRegisterDateGroups moves today first", () => {
   assert.equal(groups[1]?.dateKey, "2026-06-20");
 });
 
-test("listKidsPromotionCandidateSessionCards returns candidate sessions only", () => {
+test("listKidsPromotionCandidateSessionCards returns all sessions for the day", () => {
   const cards = listKidsPromotionCandidateSessionCards(
     [
       {
@@ -135,8 +135,10 @@ test("listKidsPromotionCandidateSessionCards returns candidate sessions only", (
     new Date("2026-06-19T12:00:00.000Z"),
   );
 
-  assert.equal(cards.length, 1);
+  assert.equal(cards.length, 2);
   assert.equal(cards[0]?.session.id, "today");
+  assert.equal(cards[1]?.session.id, "empty");
+  assert.equal(cards[1]?.session.promotionCandidateCount, 0);
 });
 
 test("shouldExpandKidsPromotionSessionByDefault expands today only", () => {

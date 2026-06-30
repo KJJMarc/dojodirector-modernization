@@ -1,6 +1,5 @@
 import {
   isKidsPromotionCandidatesOnRegistersClub,
-  filterKidsPromotionRegisterDateGroups,
   type KidsPromotionRegisterAttendee,
   type KidsPromotionRegisterDateGroup,
   type KidsPromotionRegisterSession,
@@ -143,10 +142,7 @@ export function listKidsPromotionCandidateSessionCards(
   dateGroups: KidsPromotionRegisterDateGroup[],
   from = new Date(),
 ): KidsPromotionCandidateSessionCard[] {
-  const orderedGroups = prioritizeTodayKidsPromotionRegisterDateGroups(
-    filterKidsPromotionRegisterDateGroups(dateGroups, "candidates"),
-    from,
-  );
+  const orderedGroups = prioritizeTodayKidsPromotionRegisterDateGroups(dateGroups, from);
   const cards: KidsPromotionCandidateSessionCard[] = [];
 
   for (const group of orderedGroups) {

@@ -60,7 +60,6 @@ export default async function InstructorKidsPromotionCandidatesPage({
     {
       promotionScope: "session-attendees",
       attendeesMode: "lazy",
-      filter: "candidates",
     },
   );
   const navContext = {
