@@ -10,6 +10,7 @@ import {
   ATTENDANCE_MARK_INVALID_PAYLOAD_MESSAGE,
   formatAttendanceMarkDevMessage,
   logAttendanceMarking,
+  shouldExposeAttendanceMarkDevDetails,
   type MarkAttendanceResult,
 } from "@/lib/attendance-marking.shared";
 import type { SyncAttendanceStatus } from "@/lib/attendance-records-sync";
@@ -94,7 +95,7 @@ export async function markAttendance(
       return {
         status: "error",
         message: error.safeMessage,
-        ...(process.env.NODE_ENV === "development"
+        ...(shouldExposeAttendanceMarkDevDetails()
           ? { devMessage: formatAttendanceMarkDevMessage(error.logContext) }
           : {}),
       };
@@ -103,7 +104,7 @@ export async function markAttendance(
     return {
       status: "error",
       message: ATTENDANCE_MARK_GENERIC_ERROR_MESSAGE,
-      ...(process.env.NODE_ENV === "development"
+      ...(shouldExposeAttendanceMarkDevDetails()
         ? {
             devMessage:
               error instanceof Error ? error.message : "Unknown attendance marking error.",

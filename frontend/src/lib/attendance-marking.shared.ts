@@ -93,9 +93,32 @@ export function formatAttendanceMarkDevMessage(
   const parts = [
     context.phase,
     context.outcome,
+    context.attendeeId,
+    context.userId,
+    context.sessionId,
     context.supabaseError?.code,
     context.supabaseError?.message ?? context.message,
   ].filter(Boolean);
 
   return parts.join(" · ");
+}
+
+export function shouldExposeAttendanceMarkDevDetails() {
+  if (process.env.ATTENDANCE_MARKING_DEBUG === "1") {
+    return true;
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    return true;
+  }
+
+  return process.env.VERCEL_ENV === "preview";
+}
+
+/** Register row is source of truth; sync failures are fatal only when the register was not updated. */
+export function isAttendanceRecordSyncFailureFatal(input: {
+  registerUpdated: boolean;
+  alreadyMarked: boolean;
+}) {
+  return !input.registerUpdated && !input.alreadyMarked;
 }

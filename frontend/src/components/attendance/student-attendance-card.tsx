@@ -61,6 +61,13 @@ export function StudentAttendanceCard({
           setDisplayStatus(previousStatus);
           setErrorMessage(result.message);
           setDevErrorMessage(result.devMessage ?? null);
+          console.error("[attendance-marking] row save failed", {
+            attendeeId,
+            studentName,
+            message: result.message,
+            devMessage: result.devMessage ?? null,
+          });
+          router.refresh();
           return;
         }
 

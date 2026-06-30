@@ -9,6 +9,7 @@ import {
   ATTENDANCE_MARK_GENERIC_ERROR_MESSAGE,
   logAttendanceMarking,
   serializeSupabaseError,
+  isAttendanceRecordSyncFailureFatal,
   type AttendanceMarkAction,
   type AttendanceMarkingLogContext,
 } from "@/lib/attendance-marking.shared";
@@ -19,7 +20,6 @@ import {
 import { utcIsoToLondonDate } from "@/lib/london-datetime";
 import { matchLeadOnAttendanceRegisterMark } from "@/lib/lead-status-tracking.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface SessionAttendeeMarkingRow {
@@ -257,7 +257,7 @@ export async function applySessionAttendeeAttendanceStatus(
   };
 
   try {
-    const supabase = getSupabaseServerClient();
+    const supabase = getSupabaseAdminClient();
     const attendee = await loadSessionAttendeeForMarking(
       supabase,
       attendeeId,
@@ -293,6 +293,7 @@ export async function applySessionAttendeeAttendanceStatus(
 
     const previousStatus = normalizeAttendanceStatus(attendee.attendance_status);
     const alreadyMarked = previousStatus === nextStatus;
+    let registerUpdated = false;
 
     if (!alreadyMarked) {
       const { error } = await supabase
@@ -307,6 +308,8 @@ export async function applySessionAttendeeAttendanceStatus(
           supabaseError: serializeSupabaseError(error),
         });
       }
+
+      registerUpdated = true;
     }
 
     if (attendee.user_id) {
@@ -319,23 +322,50 @@ export async function applySessionAttendeeAttendanceStatus(
       }
 
       const attendedOn = utcIsoToLondonDate(classSession.starts_at);
-      const attendanceRecordId = await syncAttendanceRecordForStatus(
-        supabase,
-        {
-          userId: attendee.user_id,
-          clubId: classSession.club_id,
-          classSessionId: attendee.class_session_id,
-          attendedOn,
-        },
-        nextStatus,
-        {
-          action: nextStatus,
-          attendeeId,
-          clubSlug,
-        },
-      );
 
-      contextWithClub.attendanceRecordId = attendanceRecordId;
+      try {
+        const attendanceRecordId = await syncAttendanceRecordForStatus(
+          supabase,
+          {
+            userId: attendee.user_id,
+            clubId: classSession.club_id,
+            classSessionId: attendee.class_session_id,
+            attendedOn,
+          },
+          nextStatus,
+          {
+            action: nextStatus,
+            attendeeId,
+            clubSlug,
+          },
+        );
+
+        contextWithClub.attendanceRecordId = attendanceRecordId;
+      } catch (syncError) {
+        logAttendanceMarking("error", {
+          ...contextWithClub,
+          phase: "syncAttendanceRecordForStatus",
+          outcome: registerUpdated
+            ? "attendance_record_sync_failed_register_saved"
+            : "attendance_record_sync_failed",
+          message:
+            syncError instanceof Error
+              ? syncError.message
+              : "Attendance record sync failed.",
+        });
+
+        if (isAttendanceRecordSyncFailureFatal({ registerUpdated, alreadyMarked })) {
+          throw new AttendanceMarkingError(ATTENDANCE_MARK_GENERIC_ERROR_MESSAGE, {
+            ...contextWithClub,
+            phase: "syncAttendanceRecordForStatus",
+            outcome: "attendance_record_sync_failed",
+            message:
+              syncError instanceof Error
+                ? syncError.message
+                : "Attendance record sync failed.",
+          });
+        }
+      }
     }
 
     if (
