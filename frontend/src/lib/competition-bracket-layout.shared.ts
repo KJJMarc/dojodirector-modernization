@@ -34,11 +34,14 @@ export interface BracketLayoutMatch {
   bottomLabel: string;
   topY: number;
   bottomY: number;
+  topTextBaselineY: number;
+  bottomTextBaselineY: number;
   centerY: number;
   nameLineStartX: number;
   nameLineEndX: number;
   connectorX: number;
   winnerLineEndX: number;
+  matchNumberTextBaselineY: number;
   feedsMainMatchIndex?: number;
   feedsMainSlot?: "top" | "bottom";
 }
@@ -67,6 +70,8 @@ export interface BracketLayout {
   roundHeaderFontSize: number;
   lineThickness: number;
   matchGap: number;
+  competitorNameLineGap: number;
+  matchNumberLabelOffset: number;
   rounds: {
     label: string;
     roundIndex: number;
@@ -74,6 +79,26 @@ export interface BracketLayout {
     columnX: number;
     matches: BracketLayoutMatch[];
   }[];
+}
+
+export const BRACKET_COMPETITOR_NAME_LINE_GAP = 8;
+
+export function bracketSvgTextBaselineY(
+  pdfBaselineY: number,
+  pageHeight: number,
+): number {
+  return pageHeight - pdfBaselineY;
+}
+
+export function bracketRoundHeaderX(
+  columnX: number,
+  roundColumnWidth: number,
+  label: string,
+  headerFontSize: number,
+): number {
+  const labelWidthEstimate = label.length * headerFontSize * 0.55;
+
+  return columnX + roundColumnWidth / 2 - labelWidthEstimate / 2;
 }
 
 function resolvePageSize(mainBracketSize: number): BracketPageSize {
@@ -157,6 +182,8 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
   const nameFontSize = 11 * scale;
   const roundHeaderFontSize = 13.5 * scale;
   const lineThickness = 1;
+  const competitorNameLineGap = BRACKET_COMPETITOR_NAME_LINE_GAP * scale;
+  const matchNumberLabelOffset = 2 * scale;
   const mainMatchCenters = new Map<string, BracketLayoutMatch>();
 
   const rounds = bracket.rounds.map((round, columnIndex) => {
@@ -187,6 +214,8 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
         nameLineEndX,
         connectorX,
         winnerLineEndX,
+        competitorNameLineGap,
+        matchNumberLabelOffset,
         mainMatchCenters,
       }),
     );
@@ -244,6 +273,8 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
     roundHeaderFontSize,
     lineThickness,
     matchGap,
+    competitorNameLineGap,
+    matchNumberLabelOffset,
     rounds,
   };
 }
@@ -260,6 +291,8 @@ function layoutMatch(input: {
   nameLineEndX: number;
   connectorX: number;
   winnerLineEndX: number;
+  competitorNameLineGap: number;
+  matchNumberLabelOffset: number;
   mainMatchCenters: Map<string, BracketLayoutMatch>;
 }): BracketLayoutMatch {
   const halfGap = input.matchGap + 10;
@@ -283,6 +316,9 @@ function layoutMatch(input: {
     });
   }
 
+  const topLineY = centerY + halfGap;
+  const bottomLineY = centerY - halfGap;
+
   const layoutMatch: BracketLayoutMatch = {
     matchNumber: input.match.matchNumber,
     matchIndex: input.match.matchIndex,
@@ -291,13 +327,16 @@ function layoutMatch(input: {
     roundLabel: input.round.label,
     topLabel: displayParticipantLabel(input.match.top),
     bottomLabel: displayParticipantLabel(input.match.bottom),
-    topY: centerY + halfGap,
-    bottomY: centerY - halfGap,
+    topY: topLineY,
+    bottomY: bottomLineY,
+    topTextBaselineY: topLineY + input.competitorNameLineGap,
+    bottomTextBaselineY: bottomLineY + input.competitorNameLineGap,
     centerY,
     nameLineStartX: input.nameLineStartX,
     nameLineEndX: input.nameLineEndX,
     connectorX: input.connectorX,
     winnerLineEndX: input.winnerLineEndX,
+    matchNumberTextBaselineY: centerY - input.matchNumberLabelOffset,
     feedsMainMatchIndex: input.match.feedsMainMatchIndex,
     feedsMainSlot: input.match.feedsMainSlot,
   };

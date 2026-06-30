@@ -40,6 +40,24 @@ test("buildCompetitionBracketPdfBytes produces a readable landscape PDF", async 
   assert.ok(width > height);
 });
 
+test("buildCompetitionBracketPdfBytes keeps competitor text above entry lines", async () => {
+  const bracket = buildCompetitionBracketFromForm(SAMPLE_BRACKET_INPUT);
+  const layout = buildBracketLayout(bracket);
+  const firstRound = layout.rounds[0];
+
+  for (const match of firstRound.matches) {
+    assert.ok(match.topTextBaselineY > match.topY);
+    assert.ok(match.bottomTextBaselineY > match.bottomY);
+    assert.equal(
+      match.topTextBaselineY - match.topY,
+      layout.competitorNameLineGap,
+    );
+  }
+
+  const pdfBytes = await buildCompetitionBracketPdfBytes(bracket);
+  assert.equal(Buffer.from(pdfBytes).subarray(0, 4).toString(), "%PDF");
+});
+
 test("buildCompetitionBracketPdfBytes handles apostrophes, ampersands and angle brackets", async () => {
   const bracket = buildCompetitionBracketFromForm({
     competitionName: "Tom O'Connor",

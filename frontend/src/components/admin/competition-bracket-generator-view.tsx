@@ -142,7 +142,7 @@ export function CompetitionBracketGeneratorView({
 
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-dojo-white">
-                Bracket / division name
+                Bracket name
               </span>
               <input
                 type="text"

@@ -6,6 +6,7 @@ import {
   type PDFFont,
 } from "pdf-lib";
 import {
+  bracketRoundHeaderX,
   buildBracketLayout,
   findFeederConnectorTargets,
   getBracketTitleLines,
@@ -62,7 +63,7 @@ function drawMatch(
     page,
     match.topLabel,
     match.nameLineStartX,
-    match.topY - 2,
+    match.topTextBaselineY,
     font,
     layout.nameFontSize,
   );
@@ -78,7 +79,7 @@ function drawMatch(
     page,
     match.bottomLabel,
     match.nameLineStartX,
-    match.bottomY - 2,
+    match.bottomTextBaselineY,
     font,
     layout.nameFontSize,
   );
@@ -110,7 +111,7 @@ function drawMatch(
     page,
     `#${match.matchNumber}`,
     match.connectorX + 2,
-    match.centerY - 2,
+    match.matchNumberTextBaselineY,
     font,
     layout.nameFontSize - 1.5,
   );
@@ -164,12 +165,13 @@ function drawBracketPage(
   });
 
   for (const round of layout.rounds) {
-    const labelWidth = bold.widthOfTextAtSize(
-      round.label,
-      layout.roundHeaderFontSize,
-    );
     page.drawText(round.label, {
-      x: round.columnX + layout.roundColumnWidth / 2 - labelWidth / 2,
+      x: bracketRoundHeaderX(
+        round.columnX,
+        layout.roundColumnWidth,
+        round.label,
+        layout.roundHeaderFontSize,
+      ),
       y: layout.roundHeaderY,
       size: layout.roundHeaderFontSize,
       font: bold,
