@@ -1,11 +1,12 @@
 import type { BracketLayout } from "@/lib/competition-bracket-layout.shared";
 import type { CompetitionBracket } from "@/lib/competition-bracket.shared";
 import {
-  BRACKET_FONT_FAMILY,
   buildBracketLayout,
   findFeederConnectorTargets,
   getBracketTitleLines,
 } from "@/lib/competition-bracket-layout.shared";
+
+const BRACKET_SVG_FONT_FAMILY = "Helvetica, Arial, sans-serif";
 
 export function escapeSvgText(value: string): string {
   return String(value ?? "")
@@ -14,14 +15,6 @@ export function escapeSvgText(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
-}
-
-function escapeSvgAttribute(value: string | number): string {
-  return escapeSvgText(String(value));
-}
-
-function svgFontFamilyAttribute(): string {
-  return `font-family="${escapeSvgAttribute(BRACKET_FONT_FAMILY)}"`;
 }
 
 export function validateBracketSvg(svg: string): void {
@@ -57,19 +50,19 @@ function renderMatchSvg(
   flipY: (y: number) => number,
 ) {
   const stroke = "#000000";
-  const textStyle = `${svgFontFamilyAttribute()} font-size="${layout.nameFontSize}" fill="#000000"`;
+  const textStyle = `font-family="${BRACKET_SVG_FONT_FAMILY}" font-size="${layout.nameFontSize}" fill="#000000"`;
   const topName = escapeSvgText(match.topLabel || " ");
   const bottomName = escapeSvgText(match.bottomLabel || " ");
 
   return `
-    <g data-match="${escapeSvgAttribute(match.matchNumber)}">
+    <g data-match="${match.matchNumber}">
       <text x="${match.nameLineStartX}" y="${flipY(match.topY) - 4}" ${textStyle}>${topName}</text>
       <line x1="${match.nameLineStartX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.topY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <text x="${match.nameLineStartX}" y="${flipY(match.bottomY) - 4}" ${textStyle}>${bottomName}</text>
       <line x1="${match.nameLineStartX}" y1="${flipY(match.bottomY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <line x1="${match.nameLineEndX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <line x1="${match.nameLineEndX}" y1="${flipY(match.centerY)}" x2="${match.winnerLineEndX}" y2="${flipY(match.centerY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
-      <text x="${match.connectorX + 4}" y="${flipY(match.centerY) - 2}" ${svgFontFamilyAttribute()} font-size="${layout.nameFontSize - 2}" fill="#000000">#${escapeSvgText(String(match.matchNumber))}</text>
+      <text x="${match.connectorX + 4}" y="${flipY(match.centerY) - 2}" font-family="${BRACKET_SVG_FONT_FAMILY}" font-size="${layout.nameFontSize - 2}" fill="#000000">#${match.matchNumber}</text>
     </g>
   `;
 }
@@ -79,9 +72,9 @@ export function renderBracketSvg(bracket: CompetitionBracket): string {
   const titles = getBracketTitleLines(bracket);
   const { width, height } = layout.page;
   const flipY = (y: number) => height - y;
-  const headerFont = `${svgFontFamilyAttribute()} font-size="${layout.roundHeaderFontSize}" font-weight="700" fill="#000000"`;
-  const titleFont = `${svgFontFamilyAttribute()} font-size="${layout.titleFontSize}" font-weight="700" fill="#000000"`;
-  const metaFont = `${svgFontFamilyAttribute()} font-size="${layout.metaFontSize}" fill="#000000"`;
+  const headerFont = `font-family="${BRACKET_SVG_FONT_FAMILY}" font-size="${layout.roundHeaderFontSize}" font-weight="700" fill="#000000"`;
+  const titleFont = `font-family="${BRACKET_SVG_FONT_FAMILY}" font-size="${layout.titleFontSize}" font-weight="700" fill="#000000"`;
+  const metaFont = `font-family="${BRACKET_SVG_FONT_FAMILY}" font-size="${layout.metaFontSize}" fill="#000000"`;
 
   const roundHeaders = layout.rounds
     .map((round) => {
