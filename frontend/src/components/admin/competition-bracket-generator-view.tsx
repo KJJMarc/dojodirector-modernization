@@ -54,7 +54,7 @@ function BracketPreview({ bracket }: { bracket: CompetitionBracket }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-dojo-border bg-white p-2">
       <div
-        className="mx-auto min-w-[720px]"
+        className="mx-auto w-full min-w-[720px] max-w-full [&_svg]:h-auto [&_svg]:w-full"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
     </div>

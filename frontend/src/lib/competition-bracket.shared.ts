@@ -43,6 +43,7 @@ export interface CompetitionBracket {
   divisionName: string;
   scheduleTime: string;
   notes: string;
+  competitorCount: number;
   /** Entrants at the first main-bracket round (after any preliminary). */
   mainBracketSize: number;
   preliminaryMatchCount: number;
@@ -290,6 +291,7 @@ export function buildCompetitionBracket(
     divisionName: input.divisionName.trim() || "Division",
     scheduleTime: input.scheduleTime?.trim() ?? "",
     notes: input.notes?.trim() ?? "",
+    competitorCount: orderedNames.length,
     mainBracketSize: plan.mainBracketEntrants,
     preliminaryMatchCount: plan.preliminaryMatchCount,
     rounds,

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  BRACKET_PAGE_A4_LANDSCAPE,
   bracketSvgTextBaselineY,
   buildBracketLayout,
+  getBracketLayoutVerticalBounds,
 } from "@/lib/competition-bracket-layout.shared";
 import { buildCompetitionBracketFromForm } from "@/lib/competition-bracket.shared";
 import { buildCompetitionBracketPdfBytes } from "@/lib/competition-bracket-pdf.shared";
@@ -24,6 +26,35 @@ const EIGHT_PERSON_BRACKET_INPUT = {
     "Reign Smallin",
   ].join("\n"),
 };
+
+function buildBracketFromCount(count: number) {
+  const names = Array.from({ length: count }, (_, index) => `Competitor ${index + 1}`);
+
+  return buildCompetitionBracketFromForm({
+    competitionName: "Competition Name",
+    divisionName: "Bracket Name",
+    scheduleTime: "10:00",
+    notes: "1 minute. No subs allowed.",
+    competitorsText: names.join("\n"),
+  });
+}
+
+function assertBracketFitsPage(layout: ReturnType<typeof buildBracketLayout>) {
+  const { minY, maxY } = getBracketLayoutVerticalBounds(layout);
+
+  assert.ok(
+    minY >= layout.bracketBottom - 1,
+    `expected minY ${minY} to stay above bracket bottom ${layout.bracketBottom}`,
+  );
+  assert.ok(
+    maxY <= layout.page.height - 8,
+    `expected maxY ${maxY} to stay within page height ${layout.page.height}`,
+  );
+  assert.ok(
+    maxY <= layout.bracketTop + 1,
+    `expected maxY ${maxY} to stay within bracket top ${layout.bracketTop}`,
+  );
+}
 
 test("competitor names sit above entry lines with shared layout spacing", () => {
   const bracket = buildCompetitionBracketFromForm(EIGHT_PERSON_BRACKET_INPUT);
@@ -102,4 +133,54 @@ test("svg competitor text uses the same baseline coordinates as pdf layout", () 
       `y1="${bracketSvgTextBaselineY(match.topY, layout.page.height)}"`,
     ),
   );
+});
+
+for (const count of [8, 10, 12, 16]) {
+  test(`${count}-competitor brackets fit on one landscape page`, async () => {
+    const bracket = buildBracketFromCount(count);
+    const layout = buildBracketLayout(bracket);
+
+    if (count <= 16) {
+      assert.equal(layout.page.width, BRACKET_PAGE_A4_LANDSCAPE.width);
+      assert.equal(layout.page.height, BRACKET_PAGE_A4_LANDSCAPE.height);
+    }
+
+    assertBracketFitsPage(layout);
+
+    const svg = renderBracketSvg(bracket);
+    const pdfBytes = await buildCompetitionBracketPdfBytes(bracket);
+
+    assert.match(
+      svg,
+      new RegExp(
+        `width="${layout.page.width}" height="${layout.page.height}"`,
+      ),
+    );
+    assert.equal(Buffer.from(pdfBytes).subarray(0, 4).toString(), "%PDF");
+  });
+}
+
+test("32-competitor brackets fit on one landscape A3 page", async () => {
+  const bracket = buildBracketFromCount(32);
+  const layout = buildBracketLayout(bracket);
+
+  assert.ok(layout.page.width > BRACKET_PAGE_A4_LANDSCAPE.width);
+  assertBracketFitsPage(layout);
+
+  const pdfBytes = await buildCompetitionBracketPdfBytes(bracket);
+  assert.equal(Buffer.from(pdfBytes).subarray(0, 4).toString(), "%PDF");
+});
+
+test("larger brackets reduce vertical spacing automatically", () => {
+  const smallLayout = buildBracketLayout(buildBracketFromCount(4));
+  const largeLayout = buildBracketLayout(buildBracketFromCount(16));
+  const smallLeafSpan =
+    smallLayout.rounds[0].matches[0].topY -
+    smallLayout.rounds[0].matches[0].bottomY;
+  const largeLeafSpan =
+    largeLayout.rounds[0].matches[0].topY -
+    largeLayout.rounds[0].matches[0].bottomY;
+
+  assert.ok(largeLeafSpan < smallLeafSpan);
+  assert.ok(largeLayout.scale < smallLayout.scale);
 });

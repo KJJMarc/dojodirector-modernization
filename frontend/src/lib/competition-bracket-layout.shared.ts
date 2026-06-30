@@ -80,6 +80,13 @@ export interface BracketLayout {
 
 export const BRACKET_COMPETITOR_NAME_LINE_GAP = 8;
 
+const BRACKET_NAME_FONT_SIZE = 11;
+const BRACKET_MATCH_GAP_EXTRA = 10;
+const BRACKET_MATCH_GAP_BASE = 9;
+const BRACKET_HEADER_SCALE_HEIGHT = 26 + 22 + 17 + 17 + 24 + 20;
+const BRACKET_FOOTER_SCALE_HEIGHT = 36 + 10;
+const BRACKET_MIN_LAYOUT_SCALE = 0.58;
+
 export function bracketSvgTextBaselineY(
   pdfBaselineY: number,
   pageHeight: number,
@@ -106,20 +113,53 @@ function resolvePageSize(mainBracketSize: number): BracketPageSize {
   return BRACKET_PAGE_A4_LANDSCAPE;
 }
 
-function resolveScale(mainBracketSize: number, roundCount: number): number {
-  if (mainBracketSize >= 32 || roundCount >= 5) {
-    return 0.9;
-  }
+function computeFitScale(pageHeight: number, leafCount: number): number {
+  const perLeafAtUnitScale =
+    2 *
+    (BRACKET_MATCH_GAP_BASE +
+      BRACKET_MATCH_GAP_EXTRA +
+      BRACKET_COMPETITOR_NAME_LINE_GAP +
+      BRACKET_NAME_FONT_SIZE);
+  const denominator =
+    BRACKET_HEADER_SCALE_HEIGHT +
+    BRACKET_FOOTER_SCALE_HEIGHT +
+    leafCount * perLeafAtUnitScale;
 
-  if (mainBracketSize >= 16 || roundCount >= 4) {
-    return 0.96;
-  }
-
-  if (mainBracketSize >= 8) {
+  if (denominator <= 0) {
     return 1;
   }
 
-  return 1;
+  const idealScale = (pageHeight / denominator) * 0.98;
+
+  return Math.max(BRACKET_MIN_LAYOUT_SCALE, Math.min(1, idealScale));
+}
+
+function resolveLayoutScale(
+  page: BracketPageSize,
+  mainBracketSize: number,
+): number {
+  const leafCount = Math.max(mainBracketSize / 2, 1);
+  return computeFitScale(page.height, leafCount);
+}
+
+export function getBracketLayoutVerticalBounds(layout: BracketLayout) {
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const round of layout.rounds) {
+    for (const match of round.matches) {
+      minY = Math.min(minY, match.bottomY);
+      maxY = Math.max(
+        maxY,
+        match.topTextBaselineY + layout.nameFontSize,
+      );
+    }
+  }
+
+  return {
+    minY: Number.isFinite(minY) ? minY : layout.bracketBottom,
+    maxY: Number.isFinite(maxY) ? maxY : layout.bracketTop,
+  };
 }
 
 function getMainRoundIndex(
@@ -156,9 +196,9 @@ function layoutMainMatchCenterY(input: {
 export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
   const page = resolvePageSize(bracket.mainBracketSize);
   const roundCount = bracket.rounds.length;
-  const scale = resolveScale(bracket.mainBracketSize, roundCount);
+  const leafCount = Math.max(bracket.mainBracketSize / 2, 1);
+  const scale = resolveLayoutScale(page, bracket.mainBracketSize);
   const marginX = 56 * scale;
-  const marginTop = 88 * scale;
   const marginBottom = 36 * scale;
   const titleFontSize = 20 * scale;
   const metaFontSize = 11.5 * scale;
@@ -175,11 +215,19 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
   const roundColumnWidth = bracketWidth / roundCount;
   const nameLineLength = Math.min(132 * scale, roundColumnWidth * 0.44);
   const connectorWidth = Math.min(32 * scale, roundColumnWidth * 0.15);
-  const matchGap = 9 * scale;
-  const nameFontSize = 11 * scale;
+  const nameFontSize = BRACKET_NAME_FONT_SIZE * scale;
   const roundHeaderFontSize = 13.5 * scale;
   const lineThickness = 1;
   const competitorNameLineGap = BRACKET_COMPETITOR_NAME_LINE_GAP * scale;
+  const availableBracketHeight = bracketTop - bracketBottom;
+  const leafSlotHeight = availableBracketHeight / leafCount;
+  const desiredHalfGap = (BRACKET_MATCH_GAP_BASE + BRACKET_MATCH_GAP_EXTRA) * scale;
+  const maxHalfGap = Math.max(
+    4 * scale,
+    leafSlotHeight / 2 - competitorNameLineGap - nameFontSize,
+  );
+  const halfGap = Math.min(desiredHalfGap, maxHalfGap);
+  const matchGap = Math.max(0, halfGap - BRACKET_MATCH_GAP_EXTRA * scale);
   const mainMatchCenters = new Map<string, BracketLayoutMatch>();
 
   const rounds = bracket.rounds.map((round, columnIndex) => {
@@ -205,7 +253,7 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
         bracket,
         bracketTop,
         bracketBottom,
-        matchGap,
+        halfGap,
         nameLineStartX,
         nameLineEndX,
         connectorX,
@@ -236,10 +284,12 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
           continue;
         }
 
-        const halfGap = matchGap + 10;
         prelimMatch.centerY = feederMain.centerY;
         prelimMatch.topY = feederMain.centerY + halfGap;
         prelimMatch.bottomY = feederMain.centerY - halfGap;
+        prelimMatch.topTextBaselineY = prelimMatch.topY + competitorNameLineGap;
+        prelimMatch.bottomTextBaselineY =
+          prelimMatch.bottomY + competitorNameLineGap;
       }
     }
   }
@@ -248,7 +298,7 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
     page,
     scale,
     marginX,
-    marginTop,
+    marginTop: page.height - titleY,
     marginBottom,
     titleY,
     divisionY,
@@ -280,7 +330,7 @@ function layoutMatch(input: {
   bracket: CompetitionBracket;
   bracketTop: number;
   bracketBottom: number;
-  matchGap: number;
+  halfGap: number;
   nameLineStartX: number;
   nameLineEndX: number;
   connectorX: number;
@@ -288,7 +338,7 @@ function layoutMatch(input: {
   competitorNameLineGap: number;
   mainMatchCenters: Map<string, BracketLayoutMatch>;
 }): BracketLayoutMatch {
-  const halfGap = input.matchGap + 10;
+  const halfGap = input.halfGap;
   let centerY = input.bracketTop / 2;
 
   if (!input.round.isPreliminary && input.mainRoundIndex >= 0) {
