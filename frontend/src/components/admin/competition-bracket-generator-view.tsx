@@ -280,7 +280,7 @@ export function CompetitionBracketGeneratorView({
                     : "border-dojo-border bg-dojo-elevated text-dojo-muted hover:text-dojo-white"
                 }`}
               >
-                {bracket.divisionName} ({bracket.bracketSize})
+                {bracket.divisionName} ({bracket.mainBracketSize})
               </button>
             ))}
           </div>

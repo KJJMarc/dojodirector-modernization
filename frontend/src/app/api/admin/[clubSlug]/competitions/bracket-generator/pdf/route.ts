@@ -51,7 +51,7 @@ export async function POST(
       competitorsText: body.competitorsText ?? "",
       seedOrder: body.seedOrder === "shuffle" ? "shuffle" : "entered",
       multipleBrackets: Boolean(body.multipleBrackets),
-    }).filter((bracket) => bracket.bracketSize >= 2);
+    }).filter((bracket) => bracket.mainBracketSize >= 1);
 
     if (brackets.length === 0) {
       return NextResponse.json(

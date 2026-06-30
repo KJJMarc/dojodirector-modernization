@@ -9,6 +9,7 @@ import {
 } from "pdf-lib";
 import {
   buildBracketLayout,
+  findFeederConnectorTargets,
   getBracketTitleLines,
   type BracketLayout,
   type BracketLayoutMatch,
@@ -24,12 +25,13 @@ function drawLine(
   y1: number,
   x2: number,
   y2: number,
+  thickness: number,
 ) {
   page.drawLine({
     start: { x: x1, y: y1 },
     end: { x: x2, y: y2 },
     color: BLACK,
-    thickness: 1,
+    thickness,
   });
 }
 
@@ -39,7 +41,7 @@ function drawLabel(
   x: number,
   y: number,
   font: PDFFont,
-  size = 9,
+  size: number,
 ) {
   const value = text.trim() || " ";
 
@@ -55,24 +57,40 @@ function drawLabel(
 function drawMatch(
   page: PDFPage,
   match: BracketLayoutMatch,
+  layout: BracketLayout,
   font: PDFFont,
-  bold: PDFFont,
 ) {
-  drawLabel(page, match.topLabel, match.nameLineStartX, match.topY - 2, font);
+  drawLabel(
+    page,
+    match.topLabel,
+    match.nameLineStartX,
+    match.topY - 2,
+    font,
+    layout.nameFontSize,
+  );
   drawLine(
     page,
     match.nameLineStartX,
     match.topY,
     match.nameLineEndX,
     match.topY,
+    layout.lineThickness,
   );
-  drawLabel(page, match.bottomLabel, match.nameLineStartX, match.bottomY - 2, font);
+  drawLabel(
+    page,
+    match.bottomLabel,
+    match.nameLineStartX,
+    match.bottomY - 2,
+    font,
+    layout.nameFontSize,
+  );
   drawLine(
     page,
     match.nameLineStartX,
     match.bottomY,
     match.nameLineEndX,
     match.bottomY,
+    layout.lineThickness,
   );
   drawLine(
     page,
@@ -80,6 +98,7 @@ function drawMatch(
     match.topY,
     match.nameLineEndX,
     match.bottomY,
+    layout.lineThickness,
   );
   drawLine(
     page,
@@ -87,6 +106,7 @@ function drawMatch(
     match.centerY,
     match.winnerLineEndX,
     match.centerY,
+    layout.lineThickness,
   );
   drawLabel(
     page,
@@ -94,45 +114,8 @@ function drawMatch(
     match.connectorX + 2,
     match.centerY - 2,
     font,
-    7,
+    layout.nameFontSize - 1.5,
   );
-
-  if (match.winnerLabel) {
-    drawLabel(
-      page,
-      match.winnerLabel,
-      match.connectorX + 2,
-      match.centerY + 8,
-      font,
-      7,
-    );
-  }
-}
-
-function drawFeederConnectors(page: PDFPage, layout: BracketLayout) {
-  for (let roundIndex = 0; roundIndex < layout.rounds.length - 1; roundIndex += 1) {
-    const currentRound = layout.rounds[roundIndex];
-    const nextRound = layout.rounds[roundIndex + 1];
-
-    for (const match of currentRound.matches) {
-      const nextMatch = nextRound.matches[Math.floor(match.matchIndex / 2)];
-
-      if (!nextMatch) {
-        continue;
-      }
-
-      const targetY =
-        match.matchIndex % 2 === 0 ? nextMatch.topY : nextMatch.bottomY;
-
-      drawLine(
-        page,
-        match.winnerLineEndX,
-        match.centerY,
-        nextMatch.nameLineStartX,
-        targetY,
-      );
-    }
-  }
 }
 
 function drawBracketPage(
@@ -156,34 +139,46 @@ function drawBracketPage(
   page.drawText(titles.competitionName, {
     x: layout.marginX,
     y: layout.titleY,
-    size: 18,
+    size: 17,
     font: bold,
     color: BLACK,
   });
   page.drawText(titles.divisionName, {
     x: layout.marginX,
-    y: layout.titleY - 20,
-    size: 11,
+    y: layout.titleY - 18,
+    size: 10.5,
     font: regular,
     color: BLACK,
   });
 
   for (const round of layout.rounds) {
-    const labelWidth = bold.widthOfTextAtSize(round.label, 10);
+    const labelWidth = bold.widthOfTextAtSize(
+      round.label,
+      layout.roundHeaderFontSize,
+    );
     page.drawText(round.label, {
       x: round.columnX + layout.roundColumnWidth / 2 - labelWidth / 2,
-      y: layout.titleY - 36,
-      size: 10,
+      y: layout.roundHeaderY,
+      size: layout.roundHeaderFontSize,
       font: bold,
       color: BLACK,
     });
 
     for (const match of round.matches) {
-      drawMatch(page, match, regular, bold);
+      drawMatch(page, match, layout, regular);
     }
   }
 
-  drawFeederConnectors(page, layout);
+  for (const segment of findFeederConnectorTargets(layout)) {
+    drawLine(
+      page,
+      segment.x1,
+      segment.y1,
+      segment.x2,
+      segment.y2,
+      layout.lineThickness,
+    );
+  }
 }
 
 export async function buildCompetitionBracketPdfBytes(

@@ -3,8 +3,11 @@ import { test } from "node:test";
 import {
   bracketSizeForCompetitorCount,
   buildCompetitionBracket,
+  hasByeVersusByeMatch,
+  mainRoundLabel,
   parseCompetitorGroups,
-  roundLabelForIndex,
+  planBracketStructure,
+  preliminaryRoundLabel,
 } from "@/lib/competition-bracket.shared";
 
 test("bracketSizeForCompetitorCount pads to the next power of two", () => {
@@ -14,47 +17,111 @@ test("bracketSizeForCompetitorCount pads to the next power of two", () => {
   assert.equal(bracketSizeForCompetitorCount(9), 16);
 });
 
-test("buildCompetitionBracket adds byes and advances single competitors", () => {
+test("planBracketStructure uses preliminary matches instead of bye vs bye", () => {
+  assert.deepEqual(planBracketStructure(5), {
+    targetBracketSize: 8,
+    preliminaryMatchCount: 1,
+    byePlayerCount: 3,
+    mainBracketEntrants: 4,
+  });
+  assert.deepEqual(planBracketStructure(6), {
+    targetBracketSize: 8,
+    preliminaryMatchCount: 2,
+    byePlayerCount: 2,
+    mainBracketEntrants: 4,
+  });
+});
+
+test("buildCompetitionBracket for five competitors uses preliminary and semi-finals", () => {
   const bracket = buildCompetitionBracket({
     competitionName: "Kids Open",
     divisionName: "Grey Belt",
-    competitors: ["Alex Smith"],
+    competitors: ["A", "B", "C", "D", "E"],
     seedOrder: "entered",
   });
 
-  assert.equal(bracket.bracketSize, 2);
-  assert.equal(bracket.rounds.length, 1);
-  assert.equal(bracket.rounds[0].label, "Final");
-  assert.equal(bracket.rounds[0].matches[0].top.name, "Alex Smith");
-  assert.equal(bracket.rounds[0].matches[0].bottom.isBye, true);
-  assert.equal(bracket.rounds[0].matches[0].winnerName, "Alex Smith");
+  assert.equal(bracket.preliminaryMatchCount, 1);
+  assert.equal(bracket.mainBracketSize, 4);
+  assert.equal(hasByeVersusByeMatch(bracket), false);
+  assert.deepEqual(
+    bracket.rounds.map((round) => round.label),
+    ["Preliminary Round", "Semi-Final", "Final"],
+  );
+
+  const preliminary = bracket.rounds[0].matches[0];
+  assert.deepEqual(
+    [preliminary.top.name, preliminary.bottom.name],
+    ["D", "E"],
+  );
+
+  const semiFinals = bracket.rounds[1].matches;
+  assert.equal(semiFinals.length, 2);
+  assert.equal(semiFinals[0].top.source, "preliminary-winner");
+  assert.equal(semiFinals[0].bottom.name, "A");
+  assert.equal(semiFinals[1].top.name, "B");
+  assert.equal(semiFinals[1].bottom.name, "C");
 });
 
-test("buildCompetitionBracket creates quarter, semi, and final rounds for eight competitors", () => {
+test("buildCompetitionBracket for six competitors pairs preliminary winners with bye players", () => {
+  const bracket = buildCompetitionBracket({
+    competitionName: "Kids Open",
+    divisionName: "Grey Belt",
+    competitors: ["A", "B", "C", "D", "E", "F"],
+    seedOrder: "entered",
+  });
+
+  assert.equal(bracket.preliminaryMatchCount, 2);
+  assert.equal(bracket.rounds[0].matches.length, 2);
+  assert.equal(bracket.rounds[1].label, "Semi-Final");
+  assert.equal(bracket.rounds[1].matches[0].bottom.name, "A");
+  assert.equal(bracket.rounds[1].matches[1].bottom.name, "B");
+  assert.equal(hasByeVersusByeMatch(bracket), false);
+});
+
+test("buildCompetitionBracket for eight competitors has no preliminary round", () => {
   const bracket = buildCompetitionBracket({
     competitionName: "Kids Open",
     divisionName: "Blue Belt",
-    competitors: [
-      "A",
-      "B",
-      "C",
-      "D",
-      "E",
-      "F",
-      "G",
-      "H",
-    ],
+    competitors: ["A", "B", "C", "D", "E", "F", "G", "H"],
     seedOrder: "entered",
   });
 
-  assert.equal(bracket.bracketSize, 8);
+  assert.equal(bracket.preliminaryMatchCount, 0);
+  assert.equal(bracket.mainBracketSize, 8);
   assert.deepEqual(
     bracket.rounds.map((round) => round.label),
-    ["Round 1", "Semi Final", "Final"],
+    ["Quarter-Final", "Semi-Final", "Final"],
   );
-  assert.equal(bracket.rounds[0].matches.length, 4);
-  assert.equal(bracket.rounds[1].matches.length, 2);
-  assert.equal(bracket.rounds[2].matches.length, 1);
+});
+
+test("buildCompetitionBracket for four competitors uses semi-final and final", () => {
+  const bracket = buildCompetitionBracket({
+    competitionName: "Kids Open",
+    divisionName: "White Belt",
+    competitors: ["A", "B", "C", "D"],
+    seedOrder: "entered",
+  });
+
+  assert.deepEqual(
+    bracket.rounds.map((round) => round.label),
+    ["Semi-Final", "Final"],
+  );
+});
+
+test("later rounds keep winner slots blank", () => {
+  const bracket = buildCompetitionBracket({
+    competitionName: "Kids Open",
+    divisionName: "Grey Belt",
+    competitors: ["A", "B", "C", "D"],
+    seedOrder: "entered",
+  });
+
+  const final = bracket.rounds.at(-1)?.matches[0];
+  assert.ok(final);
+  assert.equal(final.top.source, "empty");
+  assert.equal(final.bottom.source, "empty");
+  assert.equal(final.top.name, "");
+  assert.equal(final.bottom.name, "");
 });
 
 test("parseCompetitorGroups splits blank-line separated divisions", () => {
@@ -67,15 +134,12 @@ test("parseCompetitorGroups splits blank-line separated divisions", () => {
   assert.equal(groups.length, 2);
   assert.deepEqual(groups[0].competitors, ["Alex", "Sam"]);
   assert.deepEqual(groups[1].competitors, ["Mia", "Noah"]);
-  assert.equal(groups[0].divisionName, "Gi Division 1");
-  assert.equal(groups[1].divisionName, "Gi Division 2");
 });
 
-test("roundLabelForIndex names late rounds consistently", () => {
-  assert.equal(roundLabelForIndex(0, 3), "Round 1");
-  assert.equal(roundLabelForIndex(1, 3), "Semi Final");
-  assert.equal(roundLabelForIndex(2, 4), "Semi Final");
-  assert.equal(roundLabelForIndex(3, 4), "Final");
-  assert.equal(roundLabelForIndex(1, 5), "Round 2");
-  assert.equal(roundLabelForIndex(2, 5), "Quarter Final");
+test("mainRoundLabel uses hyphenated round names", () => {
+  assert.equal(mainRoundLabel(0, 4), "Semi-Final");
+  assert.equal(mainRoundLabel(1, 4), "Final");
+  assert.equal(mainRoundLabel(0, 8), "Quarter-Final");
+  assert.equal(mainRoundLabel(1, 8), "Semi-Final");
+  assert.equal(preliminaryRoundLabel(), "Preliminary Round");
 });

@@ -1,6 +1,11 @@
 import type { BracketLayout } from "@/lib/competition-bracket-layout.shared";
 import type { CompetitionBracket } from "@/lib/competition-bracket.shared";
-import { buildBracketLayout, getBracketTitleLines } from "@/lib/competition-bracket-layout.shared";
+import {
+  BRACKET_FONT_FAMILY,
+  buildBracketLayout,
+  findFeederConnectorTargets,
+  getBracketTitleLines,
+} from "@/lib/competition-bracket-layout.shared";
 
 function escapeXml(value: string) {
   return value
@@ -12,61 +17,25 @@ function escapeXml(value: string) {
 
 function renderMatchSvg(
   match: BracketLayout["rounds"][number]["matches"][number],
-  flipY: (y: number) => number,
-) {
-  const stroke = "#000000";
-  const textClass = 'font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#000000"';
-
-  const topName = escapeXml(match.topLabel || " ");
-  const bottomName = escapeXml(match.bottomLabel || " ");
-  const winnerName = escapeXml(match.winnerLabel || " ");
-
-  return `
-    <g data-match="${match.matchNumber}">
-      <text x="${match.nameLineStartX}" y="${flipY(match.topY) - 3}" ${textClass}>${topName}</text>
-      <line x1="${match.nameLineStartX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.topY)}" stroke="${stroke}" stroke-width="1" />
-      <text x="${match.nameLineStartX}" y="${flipY(match.bottomY) - 3}" ${textClass}>${bottomName}</text>
-      <line x1="${match.nameLineStartX}" y1="${flipY(match.bottomY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="1" />
-      <line x1="${match.nameLineEndX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="1" />
-      <line x1="${match.nameLineEndX}" y1="${flipY(match.centerY)}" x2="${match.winnerLineEndX}" y2="${flipY(match.centerY)}" stroke="${stroke}" stroke-width="1" />
-      <text x="${match.connectorX + 4}" y="${flipY(match.centerY) - 3}" ${textClass} font-size="8">#${match.matchNumber}</text>
-      ${
-        match.winnerLabel
-          ? `<text x="${match.connectorX + 4}" y="${flipY(match.centerY) + 8}" ${textClass} font-size="8">${winnerName}</text>`
-          : ""
-      }
-    </g>
-  `;
-}
-
-function renderFeederConnectors(
   layout: BracketLayout,
   flipY: (y: number) => number,
 ) {
   const stroke = "#000000";
-  const segments: string[] = [];
+  const textStyle = `font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.nameFontSize}" fill="#000000"`;
+  const topName = escapeXml(match.topLabel || " ");
+  const bottomName = escapeXml(match.bottomLabel || " ");
 
-  for (let roundIndex = 0; roundIndex < layout.rounds.length - 1; roundIndex += 1) {
-    const currentRound = layout.rounds[roundIndex];
-    const nextRound = layout.rounds[roundIndex + 1];
-
-    for (const match of currentRound.matches) {
-      const nextMatch = nextRound.matches[Math.floor(match.matchIndex / 2)];
-
-      if (!nextMatch) {
-        continue;
-      }
-
-      const targetY =
-        match.matchIndex % 2 === 0 ? nextMatch.topY : nextMatch.bottomY;
-
-      segments.push(
-        `<line x1="${match.winnerLineEndX}" y1="${flipY(match.centerY)}" x2="${nextMatch.nameLineStartX}" y2="${flipY(targetY)}" stroke="${stroke}" stroke-width="1" />`,
-      );
-    }
-  }
-
-  return segments.join("\n");
+  return `
+    <g data-match="${match.matchNumber}">
+      <text x="${match.nameLineStartX}" y="${flipY(match.topY) - 3}" ${textStyle}>${topName}</text>
+      <line x1="${match.nameLineStartX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.topY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
+      <text x="${match.nameLineStartX}" y="${flipY(match.bottomY) - 3}" ${textStyle}>${bottomName}</text>
+      <line x1="${match.nameLineStartX}" y1="${flipY(match.bottomY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
+      <line x1="${match.nameLineEndX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
+      <line x1="${match.nameLineEndX}" y1="${flipY(match.centerY)}" x2="${match.winnerLineEndX}" y2="${flipY(match.centerY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
+      <text x="${match.connectorX + 3}" y="${flipY(match.centerY) - 2}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.nameFontSize - 1.5}" fill="#000000">#${match.matchNumber}</text>
+    </g>
+  `;
 }
 
 export function renderBracketSvg(bracket: CompetitionBracket): string {
@@ -76,24 +45,32 @@ export function renderBracketSvg(bracket: CompetitionBracket): string {
   const flipY = (y: number) => height - y;
 
   const roundHeaders = layout.rounds
-    .map(
-      (round) =>
-        `<text x="${round.columnX + layout.roundColumnWidth / 2}" y="${flipY(layout.titleY - 8)}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#000000">${escapeXml(round.label)}</text>`,
-    )
+    .map((round) => {
+      const labelWidthEstimate = round.label.length * layout.roundHeaderFontSize * 0.55;
+      return `<text x="${round.columnX + layout.roundColumnWidth / 2 - labelWidthEstimate / 2}" y="${flipY(layout.roundHeaderY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.roundHeaderFontSize}" font-weight="700" fill="#000000">${escapeXml(round.label)}</text>`;
+    })
     .join("\n");
+
   const matches = layout.rounds
     .flatMap((round) =>
-      round.matches.map((match) => renderMatchSvg(match, flipY)),
+      round.matches.map((match) => renderMatchSvg(match, layout, flipY)),
+    )
+    .join("\n");
+
+  const connectors = findFeederConnectorTargets(layout)
+    .map(
+      (segment) =>
+        `<line x1="${segment.x1}" y1="${flipY(segment.y1)}" x2="${segment.x2}" y2="${flipY(segment.y2)}" stroke="#000000" stroke-width="${layout.lineThickness}" />`,
     )
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#ffffff" />
-  <text x="${layout.marginX}" y="${flipY(layout.titleY)}" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#000000">${escapeXml(titles.competitionName)}</text>
-  <text x="${layout.marginX}" y="${flipY(layout.titleY - 22)}" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#000000">${escapeXml(titles.divisionName)}</text>
+  <text x="${layout.marginX}" y="${flipY(layout.titleY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="17" font-weight="700" fill="#000000">${escapeXml(titles.competitionName)}</text>
+  <text x="${layout.marginX}" y="${flipY(layout.titleY - 18)}" font-family="${BRACKET_FONT_FAMILY}" font-size="10.5" fill="#000000">${escapeXml(titles.divisionName)}</text>
   ${roundHeaders}
   ${matches}
-  ${renderFeederConnectors(layout, flipY)}
+  ${connectors}
 </svg>`;
 }
