@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   buildAdjacentKidsPromotionDatePath,
   instructorPortalKidsPromotionCandidatesPath,
@@ -71,45 +70,45 @@ export function InstructorKidsPromotionDateSearchForm({
             Show classes
           </button>
           {!isTodayView ? (
-            <Link href={basePath} className={buttonClassName}>
+            <a href={basePath} className={buttonClassName}>
               Clear
-            </Link>
+            </a>
           ) : null}
         </div>
       </form>
 
       <nav aria-label="Promotion candidates date navigation" className="flex flex-wrap gap-2">
-        <Link
+        <a
           href={instructorPortalKidsPromotionCandidatesPath(clubSlug, { date: todayKey })}
           className={quickLinkClassName}
           aria-current={isTodayView ? "page" : undefined}
         >
           Today
-        </Link>
-        <Link
+        </a>
+        <a
           href={buildAdjacentKidsPromotionDatePath(clubSlug, selectedDateKey, -1)}
           className={quickLinkClassName}
         >
           Previous day
-        </Link>
-        <Link
+        </a>
+        <a
           href={buildAdjacentKidsPromotionDatePath(clubSlug, selectedDateKey, 1)}
           className={quickLinkClassName}
         >
           Next day
-        </Link>
-        <Link
+        </a>
+        <a
           href={instructorPortalKidsPromotionCandidatesPath(clubSlug, {
             date: addLondonCalendarDays(todayKey, -1),
           })}
           className={quickLinkClassName}
         >
           Yesterday
-        </Link>
+        </a>
         {!isTodayView ? (
-          <Link href={basePath} className={quickLinkClassName}>
+          <a href={basePath} className={quickLinkClassName}>
             Back to today
-          </Link>
+          </a>
         ) : null}
       </nav>
     </section>

@@ -8,6 +8,7 @@ import {
 import {
   ATTENDANCE_MARK_GENERIC_ERROR_MESSAGE,
   ATTENDANCE_MARK_INVALID_PAYLOAD_MESSAGE,
+  formatAttendanceMarkDevMessage,
   logAttendanceMarking,
   type MarkAttendanceResult,
 } from "@/lib/attendance-marking.shared";
@@ -89,14 +90,25 @@ export async function markAttendance(
       outcome: result.outcome,
     };
   } catch (error) {
-    const message =
-      error instanceof AttendanceMarkingError
-        ? error.safeMessage
-        : ATTENDANCE_MARK_GENERIC_ERROR_MESSAGE;
+    if (error instanceof AttendanceMarkingError) {
+      return {
+        status: "error",
+        message: error.safeMessage,
+        ...(process.env.NODE_ENV === "development"
+          ? { devMessage: formatAttendanceMarkDevMessage(error.logContext) }
+          : {}),
+      };
+    }
 
     return {
       status: "error",
-      message,
+      message: ATTENDANCE_MARK_GENERIC_ERROR_MESSAGE,
+      ...(process.env.NODE_ENV === "development"
+        ? {
+            devMessage:
+              error instanceof Error ? error.message : "Unknown attendance marking error.",
+          }
+        : {}),
     };
   }
 }

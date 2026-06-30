@@ -8,7 +8,6 @@ import {
   promoteJuniorCandidateAction,
 } from "@/app/instructor-portal/(portal)/[clubSlug]/promotion-candidates/actions";
 import {
-  buildDefaultExpandedKidsPromotionSessionIds,
   listKidsPromotionCandidateSessionCards,
   type KidsPromotionCandidateSessionCard,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
@@ -83,8 +82,8 @@ export function InstructorKidsPromotionCandidatesView({
     () => listKidsPromotionCandidateSessionCards(data.dateGroups),
     [data.dateGroups],
   );
-  const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(() =>
-    new Set(buildDefaultExpandedKidsPromotionSessionIds(sessionCards, selectedDateKey)),
+  const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(
+    () => new Set(),
   );
   const [loadedAttendeesBySessionId, setLoadedAttendeesBySessionId] = useState<
     Map<string, KidsPromotionRegisterAttendee[]>
@@ -214,8 +213,7 @@ export function InstructorKidsPromotionCandidatesView({
             Promotion candidates by class
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Expand a class to review eligible students and promote them. Classes on
-            the selected day open by default.
+            Expand a class to review eligible students and promote them.
           </p>
         </div>
         <p className="text-xs text-dojo-muted">

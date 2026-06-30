@@ -22,6 +22,7 @@ import { getClubBySlug } from "@/lib/clubs.server";
 import { readSelectedInstructorPortalClubSlug } from "@/lib/instructor-portal-club.server";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 interface AttendanceSessionPageProps {
   params: {

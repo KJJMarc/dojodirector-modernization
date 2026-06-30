@@ -157,7 +157,13 @@ async function loadGuestBookingForLeadMatch(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Unable to load guest booking for lead match: ${error.message}`);
+    logAttendanceMarking("error", {
+      phase: "loadGuestBookingForLeadMatch",
+      attendeeId: guestBookingId,
+      outcome: "guest_booking_lookup_failed",
+      supabaseError: serializeSupabaseError(error),
+    });
+    return null;
   }
 
   return (data as GuestBookingLeadMatchRow | null) ?? null;
@@ -338,11 +344,23 @@ export async function applySessionAttendeeAttendanceStatus(
       classSession.club_id &&
       classSession.starts_at
     ) {
-      await syncLeadStatusFromAttendanceRegister({
-        attendee,
-        classSession,
-        nextStatus,
-      });
+      try {
+        await syncLeadStatusFromAttendanceRegister({
+          attendee,
+          classSession,
+          nextStatus,
+        });
+      } catch (leadSyncError) {
+        logAttendanceMarking("error", {
+          ...contextWithClub,
+          phase: "syncLeadStatusFromAttendanceRegister",
+          outcome: "lead_sync_failed_attendance_saved",
+          message:
+            leadSyncError instanceof Error
+              ? leadSyncError.message
+              : "Lead sync failed after attendance save.",
+        });
+      }
     }
 
     if (attendee.user_id && classSession.club_id && clubSlug) {

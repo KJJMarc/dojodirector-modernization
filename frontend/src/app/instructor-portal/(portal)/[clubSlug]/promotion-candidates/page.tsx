@@ -77,6 +77,7 @@ export default async function InstructorKidsPromotionCandidatesPage({
       <AttendanceRegisterBackLink context={navContext} />
 
       <InstructorKidsPromotionDateSearchForm
+        key={selectedDateKey}
         clubSlug={club.slug}
         selectedDateKey={selectedDateKey}
         filterHeading={filterHeading}

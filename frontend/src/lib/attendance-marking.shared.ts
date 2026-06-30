@@ -14,7 +14,7 @@ export type AttendanceMarkAction = "present" | "absent" | "not_marked";
 
 export type MarkAttendanceResult =
   | { status: "success"; sessionId: string; outcome: "updated" | "already_marked" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; devMessage?: string };
 
 export interface AttendanceMarkingLogContext {
   phase: string;
@@ -85,4 +85,17 @@ export function logAttendanceMarking(
   }
 
   console.info("[attendance-marking]", payload);
+}
+
+export function formatAttendanceMarkDevMessage(
+  context: AttendanceMarkingLogContext,
+) {
+  const parts = [
+    context.phase,
+    context.outcome,
+    context.supabaseError?.code,
+    context.supabaseError?.message ?? context.message,
+  ].filter(Boolean);
+
+  return parts.join(" · ");
 }
