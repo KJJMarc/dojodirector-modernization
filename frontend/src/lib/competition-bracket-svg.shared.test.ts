@@ -33,3 +33,16 @@ test("renderBracketSvg escapes special characters in all user-facing text", () =
 
   validateBracketSvg(svg);
 });
+
+test("renderBracketSvg does not include match numbers or hashtags", () => {
+  const bracket = buildCompetitionBracketFromForm({
+    competitionName: "Competition Name",
+    divisionName: "Bracket Name",
+    competitorsText: "Alex Smith\nSam Wilson\nMia Patel\nNoah Brown",
+  });
+
+  const svg = renderBracketSvg(bracket);
+
+  assert.doesNotMatch(svg, />#\d+</);
+  assert.doesNotMatch(svg, /data-match="/);
+});

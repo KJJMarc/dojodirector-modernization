@@ -107,14 +107,6 @@ function drawMatch(
     match.centerY,
     layout.lineThickness,
   );
-  drawLabel(
-    page,
-    `#${match.matchNumber}`,
-    match.connectorX + 2,
-    match.matchNumberTextBaselineY,
-    font,
-    layout.nameFontSize - 1.5,
-  );
 }
 
 function drawBracketPage(

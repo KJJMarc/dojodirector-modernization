@@ -20,7 +20,6 @@ export interface BracketParticipant {
 }
 
 export interface BracketMatch {
-  matchNumber: number;
   roundIndex: number;
   matchIndex: number;
   isPreliminary: boolean;
@@ -186,20 +185,16 @@ function pairMainFirstRound(
 function buildMainRounds(
   firstRoundMatches: Array<{ top: BracketParticipant; bottom: BracketParticipant }>,
   mainBracketEntrants: number,
-  startingMatchNumber: number,
   startingRoundIndex: number,
-): { rounds: BracketRound[]; nextMatchNumber: number } {
+): BracketRound[] {
   const rounds: BracketRound[] = [];
-  let matchNumber = startingMatchNumber;
   let currentMatches = firstRoundMatches.map((match, matchIndex) => ({
-    matchNumber: matchNumber + matchIndex,
     roundIndex: startingRoundIndex,
     matchIndex,
     isPreliminary: false,
     top: match.top,
     bottom: match.bottom,
   }));
-  matchNumber += currentMatches.length;
 
   let roundIndex = startingRoundIndex;
   let mainRoundIndex = 0;
@@ -218,14 +213,12 @@ function buildMainRounds(
 
     for (let matchIndex = 0; matchIndex < currentMatches.length / 2; matchIndex += 1) {
       nextMatches.push({
-        matchNumber,
         roundIndex,
         matchIndex,
         isPreliminary: false,
         top: emptySlot(),
         bottom: emptySlot(),
       });
-      matchNumber += 1;
     }
 
     rounds.push({
@@ -238,7 +231,7 @@ function buildMainRounds(
     currentMatches = nextMatches;
   }
 
-  return { rounds, nextMatchNumber: matchNumber };
+  return rounds;
 }
 
 export function buildCompetitionBracket(
@@ -251,7 +244,6 @@ export function buildCompetitionBracket(
       : [...input.competitors];
   const plan = planBracketStructure(orderedNames.length);
   const rounds: BracketRound[] = [];
-  let matchNumber = 1;
 
   const byePlayers = orderedNames.slice(0, plan.byePlayerCount);
   const preliminaryPlayers = orderedNames.slice(plan.byePlayerCount);
@@ -261,7 +253,6 @@ export function buildCompetitionBracket(
 
     for (let index = 0; index < plan.preliminaryMatchCount; index += 1) {
       preliminaryMatches.push({
-        matchNumber,
         roundIndex: 0,
         matchIndex: index,
         isPreliminary: true,
@@ -270,7 +261,6 @@ export function buildCompetitionBracket(
         feedsMainMatchIndex: index,
         feedsMainSlot: "top",
       });
-      matchNumber += 1;
     }
 
     rounds.push({
@@ -287,10 +277,9 @@ export function buildCompetitionBracket(
     plan.preliminaryMatchCount,
   );
 
-  const { rounds: mainRounds } = buildMainRounds(
+  const mainRounds = buildMainRounds(
     firstMainMatches,
     plan.mainBracketEntrants,
-    matchNumber,
     mainStartRoundIndex,
   );
 

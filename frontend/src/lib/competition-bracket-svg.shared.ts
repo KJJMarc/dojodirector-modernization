@@ -63,20 +63,15 @@ function renderMatchSvg(
   const topLineY = bracketSvgTextBaselineY(match.topY, pageHeight);
   const bottomLineY = bracketSvgTextBaselineY(match.bottomY, pageHeight);
   const centerLineY = bracketSvgTextBaselineY(match.centerY, pageHeight);
-  const matchNumberY = bracketSvgTextBaselineY(
-    match.matchNumberTextBaselineY,
-    pageHeight,
-  );
 
   return `
-    <g data-match="${match.matchNumber}">
+    <g>
       <text x="${match.nameLineStartX}" y="${topTextY}" ${textStyle}>${topName}</text>
       <line x1="${match.nameLineStartX}" y1="${topLineY}" x2="${match.nameLineEndX}" y2="${topLineY}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <text x="${match.nameLineStartX}" y="${bottomTextY}" ${textStyle}>${bottomName}</text>
       <line x1="${match.nameLineStartX}" y1="${bottomLineY}" x2="${match.nameLineEndX}" y2="${bottomLineY}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <line x1="${match.nameLineEndX}" y1="${topLineY}" x2="${match.nameLineEndX}" y2="${bottomLineY}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <line x1="${match.nameLineEndX}" y1="${centerLineY}" x2="${match.winnerLineEndX}" y2="${centerLineY}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
-      <text x="${match.connectorX + 4}" y="${matchNumberY}" font-family="${BRACKET_SVG_FONT_FAMILY}" font-size="${layout.nameFontSize - 2}" fill="#000000">#${match.matchNumber}</text>
     </g>
   `;
 }

@@ -25,7 +25,6 @@ export interface BracketPageSize {
 }
 
 export interface BracketLayoutMatch {
-  matchNumber: number;
   matchIndex: number;
   roundIndex: number;
   isPreliminary: boolean;
@@ -41,7 +40,6 @@ export interface BracketLayoutMatch {
   nameLineEndX: number;
   connectorX: number;
   winnerLineEndX: number;
-  matchNumberTextBaselineY: number;
   feedsMainMatchIndex?: number;
   feedsMainSlot?: "top" | "bottom";
 }
@@ -71,7 +69,6 @@ export interface BracketLayout {
   lineThickness: number;
   matchGap: number;
   competitorNameLineGap: number;
-  matchNumberLabelOffset: number;
   rounds: {
     label: string;
     roundIndex: number;
@@ -183,7 +180,6 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
   const roundHeaderFontSize = 13.5 * scale;
   const lineThickness = 1;
   const competitorNameLineGap = BRACKET_COMPETITOR_NAME_LINE_GAP * scale;
-  const matchNumberLabelOffset = 2 * scale;
   const mainMatchCenters = new Map<string, BracketLayoutMatch>();
 
   const rounds = bracket.rounds.map((round, columnIndex) => {
@@ -215,7 +211,6 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
         connectorX,
         winnerLineEndX,
         competitorNameLineGap,
-        matchNumberLabelOffset,
         mainMatchCenters,
       }),
     );
@@ -274,7 +269,6 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
     lineThickness,
     matchGap,
     competitorNameLineGap,
-    matchNumberLabelOffset,
     rounds,
   };
 }
@@ -292,7 +286,6 @@ function layoutMatch(input: {
   connectorX: number;
   winnerLineEndX: number;
   competitorNameLineGap: number;
-  matchNumberLabelOffset: number;
   mainMatchCenters: Map<string, BracketLayoutMatch>;
 }): BracketLayoutMatch {
   const halfGap = input.matchGap + 10;
@@ -320,7 +313,6 @@ function layoutMatch(input: {
   const bottomLineY = centerY - halfGap;
 
   const layoutMatch: BracketLayoutMatch = {
-    matchNumber: input.match.matchNumber,
     matchIndex: input.match.matchIndex,
     roundIndex: input.round.roundIndex,
     isPreliminary: input.round.isPreliminary,
@@ -336,7 +328,6 @@ function layoutMatch(input: {
     nameLineEndX: input.nameLineEndX,
     connectorX: input.connectorX,
     winnerLineEndX: input.winnerLineEndX,
-    matchNumberTextBaselineY: centerY - input.matchNumberLabelOffset,
     feedsMainMatchIndex: input.match.feedsMainMatchIndex,
     feedsMainSlot: input.match.feedsMainSlot,
   };
