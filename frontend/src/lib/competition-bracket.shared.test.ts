@@ -3,10 +3,11 @@ import { test } from "node:test";
 import {
   bracketSizeForCompetitorCount,
   buildCompetitionBracket,
+  buildCompetitionBracketFromForm,
   formatBracketHeaderLine,
   hasByeVersusByeMatch,
   mainRoundLabel,
-  parseCompetitorGroups,
+  parseCompetitorLines,
   planBracketStructure,
   preliminaryRoundLabel,
 } from "@/lib/competition-bracket.shared";
@@ -149,16 +150,19 @@ test("five competitor bracket keeps preliminary winner slot blank in semi-final"
   assert.equal(semiFinals[0].bottom.source, "competitor");
 });
 
-test("parseCompetitorGroups splits blank-line separated divisions", () => {
-  const groups = parseCompetitorGroups(
-    "Alex\nSam\n\nMia\nNoah",
-    "Gi Division",
-    true,
-  );
+test("parseCompetitorLines ignores blank lines in the textarea", () => {
+  assert.deepEqual(parseCompetitorLines("Alex\n\nSam"), ["Alex", "Sam"]);
+});
 
-  assert.equal(groups.length, 2);
-  assert.deepEqual(groups[0].competitors, ["Alex", "Sam"]);
-  assert.deepEqual(groups[1].competitors, ["Mia", "Noah"]);
+test("buildCompetitionBracketFromForm uses the entered division name", () => {
+  const bracket = buildCompetitionBracketFromForm({
+    competitionName: "Kids Open",
+    divisionName: "Grey Belt Under 8",
+    competitorsText: "Alex\nSam",
+  });
+
+  assert.equal(bracket.divisionName, "Grey Belt Under 8");
+  assert.equal(bracket.rounds[0].matches[0].top.name, "Alex");
 });
 
 test("mainRoundLabel uses hyphenated round names", () => {

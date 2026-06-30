@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks } from "@/components/admin/admin-nav-links";
 import { CompetitionBracketGeneratorView } from "@/components/admin/competition-bracket-generator-view";
 import { AppHeader } from "@/components/layout/app-header";
+import { isCompetitionBracketGeneratorClub } from "@/lib/admin-competition-bracket.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,10 @@ export async function generateMetadata({
 export default async function CompetitionBracketGeneratorPage({
   params,
 }: CompetitionBracketGeneratorPageProps) {
+  if (!isCompetitionBracketGeneratorClub(params.clubSlug)) {
+    notFound();
+  }
+
   const club = await requireClubBySlug(params.clubSlug);
 
   return (

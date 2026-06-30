@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
+import { isCompetitionBracketGeneratorClub } from "@/lib/admin-competition-bracket.shared";
 import {
-  buildCompetitionBracketsFromForm,
+  buildCompetitionBracketFromForm,
+  parseCompetitorLines,
   sanitizeBracketFilenamePart,
-  type SeedOrderMode,
 } from "@/lib/competition-bracket.shared";
-import {
-  buildCompetitionBracketPdfBytes,
-  buildCompetitionBracketsPdfBytes,
-} from "@/lib/competition-bracket-pdf.server";
+import { buildCompetitionBracketPdfBytes } from "@/lib/competition-bracket-pdf.server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +16,6 @@ interface BracketPdfRequestBody {
   scheduleTime?: string;
   notes?: string;
   competitorsText?: string;
-  seedOrder?: SeedOrderMode;
-  multipleBrackets?: boolean;
-  mode?: "single" | "all";
-  bracketIndex?: number;
 }
 
 interface BracketPdfRouteProps {
@@ -39,49 +33,28 @@ export async function POST(
   { params }: BracketPdfRouteProps,
 ) {
   try {
+    if (!isCompetitionBracketGeneratorClub(params.clubSlug)) {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
+
     await requireAdminAccessForClubSlug(params.clubSlug);
 
     const body = (await request.json()) as BracketPdfRequestBody;
-    const brackets = buildCompetitionBracketsFromForm({
+    const bracket = buildCompetitionBracketFromForm({
       competitionName: body.competitionName ?? "",
       divisionName: body.divisionName ?? "",
       scheduleTime: body.scheduleTime ?? "",
       notes: body.notes ?? "",
       competitorsText: body.competitorsText ?? "",
-      seedOrder: body.seedOrder === "shuffle" ? "shuffle" : "entered",
-      multipleBrackets: Boolean(body.multipleBrackets),
-    }).filter((bracket) => bracket.mainBracketSize >= 1);
+    });
 
-    if (brackets.length === 0) {
+    if (parseCompetitorLines(body.competitorsText ?? "").length === 0) {
       return NextResponse.json(
         { error: "Enter at least one competitor name." },
         { status: 400 },
       );
     }
 
-    const mode = body.mode === "all" ? "all" : "single";
-    const bracketIndex = Number.isFinite(body.bracketIndex)
-      ? Math.max(0, Number(body.bracketIndex))
-      : 0;
-
-    if (mode === "all") {
-      const pdfBytes = await buildCompetitionBracketsPdfBytes(brackets);
-      const filename = buildPdfFilename([
-        sanitizeBracketFilenamePart(body.competitionName ?? "competition"),
-        "all-brackets",
-      ]);
-
-      return new NextResponse(Buffer.from(pdfBytes), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-          "Cache-Control": "no-store",
-        },
-      });
-    }
-
-    const bracket = brackets[bracketIndex] ?? brackets[0];
     const pdfBytes = await buildCompetitionBracketPdfBytes(bracket);
     const filename = buildPdfFilename([
       sanitizeBracketFilenamePart(body.competitionName ?? "competition"),

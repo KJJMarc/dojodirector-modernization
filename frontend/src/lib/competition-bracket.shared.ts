@@ -50,11 +50,6 @@ export interface CompetitionBracket {
   rounds: BracketRound[];
 }
 
-export interface ParsedBracketGroup {
-  divisionName: string;
-  competitors: string[];
-}
-
 export interface BracketStructurePlan {
   targetBracketSize: number;
   preliminaryMatchCount: number;
@@ -67,34 +62,6 @@ export function parseCompetitorLines(text: string): string[] {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-export function parseCompetitorGroups(
-  text: string,
-  defaultDivisionName: string,
-  multipleBrackets: boolean,
-): ParsedBracketGroup[] {
-  const divisionBase = defaultDivisionName.trim() || "Division";
-
-  if (!multipleBrackets) {
-    const competitors = parseCompetitorLines(text);
-    return [{ divisionName: divisionBase, competitors }];
-  }
-
-  const groups = text
-    .split(/\n\s*\n/)
-    .map((group) => group.trim())
-    .filter(Boolean);
-
-  if (groups.length === 0) {
-    return [{ divisionName: divisionBase, competitors: [] }];
-  }
-
-  return groups.map((group, index) => ({
-    divisionName:
-      groups.length > 1 ? `${divisionBase} ${index + 1}`.trim() : divisionBase,
-    competitors: parseCompetitorLines(group),
-  }));
 }
 
 export function nextPowerOfTwo(value: number): number {
@@ -353,31 +320,21 @@ export function formatBracketNotesForDisplay(notes: string) {
     .join(" · ");
 }
 
-export function buildCompetitionBracketsFromForm(input: {
+export function buildCompetitionBracketFromForm(input: {
   competitionName: string;
   divisionName: string;
   scheduleTime?: string;
   notes?: string;
   competitorsText: string;
-  seedOrder: SeedOrderMode;
-  multipleBrackets: boolean;
-}): CompetitionBracket[] {
-  const groups = parseCompetitorGroups(
-    input.competitorsText,
-    input.divisionName,
-    input.multipleBrackets,
-  );
-
-  return groups.map((group) =>
-    buildCompetitionBracket({
-      competitionName: input.competitionName,
-      divisionName: group.divisionName,
-      scheduleTime: input.scheduleTime,
-      notes: input.notes,
-      competitors: group.competitors,
-      seedOrder: input.seedOrder,
-    }),
-  );
+}): CompetitionBracket {
+  return buildCompetitionBracket({
+    competitionName: input.competitionName,
+    divisionName: input.divisionName,
+    scheduleTime: input.scheduleTime,
+    notes: input.notes,
+    competitors: parseCompetitorLines(input.competitorsText),
+    seedOrder: "entered",
+  });
 }
 
 export function sanitizeBracketFilenamePart(value: string) {
