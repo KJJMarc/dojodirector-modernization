@@ -7,6 +7,7 @@ import {
   isInstructorKidsPromotionCandidatesClub,
   listKidsPromotionCandidateSessionCards,
   prioritizeTodayKidsPromotionRegisterDateGroups,
+  resolveInstructorKidsPromotionScheduleFilter,
   shouldExpandKidsPromotionSessionByDefault,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import {
@@ -79,6 +80,14 @@ test("instructorPortalKidsPromotionCandidatesPath uses instructor portal route",
     }),
     "/instructor-portal/kingston-jiu-jitsu-kids/promotion-candidates?date=2026-06-19",
   );
+});
+
+test("resolveInstructorKidsPromotionScheduleFilter defaults to today only", () => {
+  const filter = resolveInstructorKidsPromotionScheduleFilter({});
+
+  assert.equal(filter.mode, "date-filter");
+  assert.equal(filter.rangeStartKey, filter.rangeEndKey);
+  assert.equal(filter.days, 1);
 });
 
 test("prioritizeTodayKidsPromotionRegisterDateGroups moves today first", () => {

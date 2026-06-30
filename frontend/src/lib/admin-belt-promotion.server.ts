@@ -750,11 +750,43 @@ function logPromotionCandidateDiagnostics(input: {
   );
 }
 
+async function resolveScopedBjjPromotionEvaluationUserIds(
+  clubId: string,
+  requestedUserIds: string[],
+) {
+  const uniqueUserIds = Array.from(new Set(requestedUserIds));
+
+  if (uniqueUserIds.length === 0) {
+    return [];
+  }
+
+  const bjjProgramme = await requireClubBjjProgramme(clubId);
+  const programmeUserIds = new Set(
+    await resolveProgrammeStudentAreaMemberUserIds(clubId, bjjProgramme),
+  );
+  const membershipRows = await loadClubMembershipRows(clubId);
+  const membershipByUserId = new Map(
+    membershipRows.map((membership) => [membership.user_id, membership]),
+  );
+
+  return uniqueUserIds.filter((userId) => {
+    if (!programmeUserIds.has(userId)) {
+      return false;
+    }
+
+    const membership = membershipByUserId.get(userId);
+    return membership ? isActiveMembershipStatus(membership.status) : false;
+  });
+}
+
 /** Shared batched data for promotion candidates (BJJ programme members only). */
 async function loadPromotionEvaluationContext(
   clubId: string,
+  options?: { userIds?: string[] },
 ): Promise<PromotionEvaluationContext> {
-  const userIds = await loadBjjPromotionEvaluationUserIds(clubId);
+  const userIds = options?.userIds
+    ? await resolveScopedBjjPromotionEvaluationUserIds(clubId, options.userIds)
+    : await loadBjjPromotionEvaluationUserIds(clubId);
   const membershipRows = await loadClubMembershipRows(clubId);
 
   if (userIds.length === 0) {
@@ -816,10 +848,18 @@ async function loadPromotionEvaluationContext(
   };
 }
 
+export async function loadPromotionCandidatesForUserIds(
+  clubId: string,
+  userIds: string[],
+): Promise<PromotionCandidate[]> {
+  return loadPromotionCandidates(clubId, { userIds });
+}
+
 export async function loadPromotionCandidates(
   clubId: string,
+  options?: { userIds?: string[] },
 ): Promise<PromotionCandidate[]> {
-  const context = await loadPromotionEvaluationContext(clubId);
+  const context = await loadPromotionEvaluationContext(clubId, options);
   const billyBloggsUserId = PROMOTION_CANDIDATES_VERBOSE_DEBUG
     ? await resolveBillyBloggsUserId(context)
     : null;
@@ -1066,7 +1106,7 @@ export async function resolveEligibleJuniorPromotionAward(input: {
   userId: string;
 }): Promise<EligibleJuniorPromotionAward | null> {
   const candidates = filterJuniorPromotionCandidates(
-    await loadPromotionCandidates(input.clubId),
+    await loadPromotionCandidatesForUserIds(input.clubId, [input.userId]),
   );
   const candidate = candidates.find((item) => item.id === input.userId) ?? null;
 
@@ -1074,7 +1114,9 @@ export async function resolveEligibleJuniorPromotionAward(input: {
     return null;
   }
 
-  const context = await loadPromotionEvaluationContext(input.clubId);
+  const context = await loadPromotionEvaluationContext(input.clubId, {
+    userIds: [input.userId],
+  });
   const latestAward = context.latestAwardByUserId.get(input.userId);
   const nextBelt = getNextBeltLevel(
     latestAward?.belt_level_id ?? null,

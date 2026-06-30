@@ -2,6 +2,7 @@ import "server-only";
 
 import { adminAwardBeltLevel } from "@/lib/admin-change-belt.server";
 import { resolveEligibleJuniorPromotionAward } from "@/lib/admin-belt-promotion.server";
+import { loadKidsPromotionRegisterSessionCandidates } from "@/lib/admin-kids-promotion-registers.server";
 import { getTodayDateInputValue } from "@/lib/admin-belt-levels.shared";
 import { isInstructorKidsPromotionCandidatesClub } from "@/lib/instructor-kids-promotion-candidates.shared";
 
@@ -40,4 +41,20 @@ export async function instructorPromoteJuniorPromotionCandidate(input: {
     studentName: awardTarget.candidate.fullName,
     nextBeltLabel: awardTarget.candidate.assessment.nextBeltLabel,
   };
+}
+
+export async function loadInstructorKidsPromotionSessionCandidates(input: {
+  clubId: string;
+  clubSlug: string;
+  sessionId: string;
+}) {
+  if (!isInstructorKidsPromotionCandidatesClub(input.clubSlug)) {
+    throw new Error("Promotion candidates are only available for Kingston Jiu Jitsu Kids.");
+  }
+
+  return loadKidsPromotionRegisterSessionCandidates(
+    input.clubId,
+    input.clubSlug,
+    input.sessionId,
+  );
 }

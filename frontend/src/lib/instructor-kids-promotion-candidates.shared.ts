@@ -1,6 +1,7 @@
 import {
   isKidsPromotionCandidatesOnRegistersClub,
   filterKidsPromotionRegisterDateGroups,
+  type KidsPromotionRegisterAttendee,
   type KidsPromotionRegisterDateGroup,
   type KidsPromotionRegisterSession,
 } from "@/lib/admin-kids-promotion-registers.shared";
@@ -26,6 +27,16 @@ export type InstructorPromoteJuniorCandidateResult =
       status: "success";
       studentName: string;
       nextBeltLabel: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+
+export type LoadInstructorKidsPromotionSessionResult =
+  | {
+      status: "success";
+      attendees: KidsPromotionRegisterAttendee[];
     }
   | {
       status: "error";
@@ -68,6 +79,19 @@ export function resolveInstructorKidsPromotionScheduleFilter(
   searchParams: InstructorKidsPromotionCandidatesSearchParams,
 ): AttendanceScheduleFilter {
   const context = parseInstructorKidsPromotionCandidatesSearchParams(searchParams);
+
+  if (!context.date && !context.days) {
+    const todayKey = getLondonTodayDateKey();
+
+    return {
+      mode: "date-filter",
+      dateKey: todayKey,
+      rangeStartKey: todayKey,
+      rangeEndKey: todayKey,
+      days: 1,
+    };
+  }
+
   return resolveAttendanceScheduleFilter(context);
 }
 

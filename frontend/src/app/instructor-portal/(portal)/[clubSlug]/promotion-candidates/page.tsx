@@ -57,6 +57,11 @@ export default async function InstructorKidsPromotionCandidatesPage({
     club.slug,
     club.name,
     scheduleFilter,
+    {
+      promotionScope: "session-attendees",
+      attendeesMode: "lazy",
+      filter: "candidates",
+    },
   );
   const navContext = {
     from: ATTENDANCE_REGISTER_NAV_FROM.instructorPortal,

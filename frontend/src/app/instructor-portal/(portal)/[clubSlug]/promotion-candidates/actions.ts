@@ -1,14 +1,62 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { instructorPromoteJuniorPromotionCandidate } from "@/lib/instructor-kids-promotion-candidates.server";
+import {
+  instructorPromoteJuniorPromotionCandidate,
+  loadInstructorKidsPromotionSessionCandidates,
+} from "@/lib/instructor-kids-promotion-candidates.server";
 import {
   instructorPortalKidsPromotionCandidatesPath,
   type InstructorPromoteJuniorCandidateResult,
+  type LoadInstructorKidsPromotionSessionResult,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import { requireInstructorPortalPageContext } from "@/lib/instructor-portal-page.server";
 import { revalidateStudentAdminPaths } from "@/lib/admin-revalidate.server";
 import { clubKidsPromotionCandidatesOnRegistersPath } from "@/lib/admin-kids-promotion-registers.shared";
+
+export async function loadInstructorKidsPromotionSessionAction(
+  clubSlug: string,
+  sessionId: string,
+): Promise<LoadInstructorKidsPromotionSessionResult> {
+  try {
+    const normalizedClubSlug = clubSlug.trim();
+    const normalizedSessionId = sessionId.trim();
+
+    if (!normalizedClubSlug || !normalizedSessionId) {
+      return {
+        status: "error",
+        message: "Missing session details. Please refresh and try again.",
+      };
+    }
+
+    const { club } = await requireInstructorPortalPageContext(normalizedClubSlug);
+    const attendees = await loadInstructorKidsPromotionSessionCandidates({
+      clubId: club.id,
+      clubSlug: club.slug,
+      sessionId: normalizedSessionId,
+    });
+
+    if (!attendees) {
+      return {
+        status: "error",
+        message: "This class session could not be found.",
+      };
+    }
+
+    return {
+      status: "success",
+      attendees,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to load promotion candidates for this class. Please try again.",
+    };
+  }
+}
 
 export async function promoteJuniorCandidateAction(
   formData: FormData,

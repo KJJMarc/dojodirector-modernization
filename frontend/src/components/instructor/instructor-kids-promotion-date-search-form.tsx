@@ -63,7 +63,7 @@ export function InstructorKidsPromotionDateSearchForm({
         <h2 className="text-sm font-semibold text-dojo-white">Search by date</h2>
         <p className="text-xs text-dojo-muted">
           Pick a class date to review promotion candidates from that session. Leave
-          cleared to show today&apos;s classes first with upcoming sessions underneath.
+          cleared to show today&apos;s classes only.
         </p>
       </div>
 
@@ -156,7 +156,7 @@ export function InstructorKidsPromotionDateSearchForm({
             className={quickButtonClassName}
             onClick={() => navigateTo(instructorPortalKidsPromotionCandidatesPath(clubSlug))}
           >
-            Back to upcoming
+            Back to today
           </button>
         ) : null}
       </div>

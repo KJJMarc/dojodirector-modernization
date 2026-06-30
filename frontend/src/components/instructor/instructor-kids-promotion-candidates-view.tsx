@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AttendanceStatusChip } from "@/components/attendance/attendance-status-chip";
 import { InstructorKidsPromotionDateSearchForm } from "@/components/instructor/instructor-kids-promotion-date-search-form";
-import { promoteJuniorCandidateAction } from "@/app/instructor-portal/(portal)/[clubSlug]/promotion-candidates/actions";
+import {
+  loadInstructorKidsPromotionSessionAction,
+  promoteJuniorCandidateAction,
+} from "@/app/instructor-portal/(portal)/[clubSlug]/promotion-candidates/actions";
 import {
   buildDefaultExpandedKidsPromotionSessionIds,
   listKidsPromotionCandidateSessionCards,
   type KidsPromotionCandidateSessionCard,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
-import type { KidsPromotionRegistersViewData } from "@/lib/admin-kids-promotion-registers.shared";
+import type {
+  KidsPromotionRegisterAttendee,
+  KidsPromotionRegistersViewData,
+} from "@/lib/admin-kids-promotion-registers.shared";
 import {
   formatPromotionProgressLabel,
   formatPromotionRequiredTimeLabel,
@@ -87,12 +93,60 @@ export function InstructorKidsPromotionCandidatesView({
   const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(
     () => new Set(buildDefaultExpandedKidsPromotionSessionIds(sessionCards, todayKey)),
   );
+  const [loadedAttendeesBySessionId, setLoadedAttendeesBySessionId] = useState<
+    Map<string, KidsPromotionRegisterAttendee[]>
+  >(() => new Map());
+  const [loadingSessionIds, setLoadingSessionIds] = useState<Set<string>>(new Set());
+  const [sessionLoadErrors, setSessionLoadErrors] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const loadedSessionIdsRef = useRef(new Set<string>());
+  const loadingSessionIdsRef = useRef(new Set<string>());
   const [isPending, startTransition] = useTransition();
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  const loadSessionAttendees = useCallback(
+    async (sessionId: string) => {
+      if (
+        loadedSessionIdsRef.current.has(sessionId) ||
+        loadingSessionIdsRef.current.has(sessionId)
+      ) {
+        return;
+      }
+
+      loadingSessionIdsRef.current.add(sessionId);
+      setLoadingSessionIds(new Set(loadingSessionIdsRef.current));
+      setSessionLoadErrors((previous) => {
+        const next = new Map(previous);
+        next.delete(sessionId);
+        return next;
+      });
+
+      const result = await loadInstructorKidsPromotionSessionAction(
+        data.clubSlug,
+        sessionId,
+      );
+
+      loadingSessionIdsRef.current.delete(sessionId);
+      setLoadingSessionIds(new Set(loadingSessionIdsRef.current));
+
+      if (result.status === "success") {
+        loadedSessionIdsRef.current.add(sessionId);
+        setLoadedAttendeesBySessionId((previous) =>
+          new Map(previous).set(sessionId, result.attendees),
+        );
+      } else {
+        setSessionLoadErrors((previous) =>
+          new Map(previous).set(sessionId, result.message),
+        );
+      }
+    },
+    [data.clubSlug],
+  );
 
   useEffect(() => {
     setExpandedSessionIds((previous) => {
@@ -109,7 +163,18 @@ export function InstructorKidsPromotionCandidatesView({
 
       return next;
     });
+    setLoadedAttendeesBySessionId(new Map());
+    loadedSessionIdsRef.current = new Set();
+    loadingSessionIdsRef.current = new Set();
+    setLoadingSessionIds(new Set());
+    setSessionLoadErrors(new Map());
   }, [sessionCards, todayKey]);
+
+  useEffect(() => {
+    for (const sessionId of Array.from(expandedSessionIds)) {
+      void loadSessionAttendees(sessionId);
+    }
+  }, [expandedSessionIds, loadSessionAttendees]);
 
   const visibleCandidateCount = sessionCards.reduce(
     (count, card) => count + card.session.promotionCandidateCount,
@@ -216,6 +281,10 @@ export function InstructorKidsPromotionCandidatesView({
         <div className="space-y-3">
           {sessionCards.map((card) => {
             const expanded = expandedSessionIds.has(card.session.id);
+            const isLoadingSession = loadingSessionIds.has(card.session.id);
+            const sessionAttendees =
+              loadedAttendeesBySessionId.get(card.session.id) ?? [];
+            const sessionLoadError = sessionLoadErrors.get(card.session.id);
 
             return (
               <article
@@ -232,105 +301,123 @@ export function InstructorKidsPromotionCandidatesView({
                 </button>
 
                 {expanded ? (
-                  <ul className="space-y-2 border-t border-dojo-border px-4 py-4">
-                    {card.session.attendees.map((attendee) => {
-                      const candidate = attendee.promotionCandidate;
+                  <div className="border-t border-dojo-border px-4 py-4">
+                    {isLoadingSession ? (
+                      <p className="text-sm text-dojo-muted" role="status">
+                        Loading promotion candidates…
+                      </p>
+                    ) : sessionLoadError ? (
+                      <p className="text-sm text-dojo-red" role="alert">
+                        {sessionLoadError}
+                      </p>
+                    ) : sessionAttendees.length === 0 ? (
+                      <p className="text-sm text-dojo-muted">
+                        No promotion candidates found for this class.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {sessionAttendees.map((attendee) => {
+                          const candidate = attendee.promotionCandidate;
 
-                      if (!candidate || !attendee.userId) {
-                        return null;
-                      }
+                          if (!candidate || !attendee.userId) {
+                            return null;
+                          }
 
-                      const isPromoting =
-                        isPending && pendingUserId === attendee.userId;
+                          const isPromoting =
+                            isPending && pendingUserId === attendee.userId;
 
-                      return (
-                        <li
-                          key={attendee.attendeeId}
-                          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3"
-                        >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-semibold text-dojo-white">
-                                  {attendee.fullName}
-                                </span>
-                                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                                  Promotion candidate
-                                </span>
-                              </div>
-
-                              <dl className="grid grid-cols-2 gap-2 text-xs">
-                                <div>
-                                  <dt className="uppercase tracking-wide text-dojo-muted">
-                                    Current belt
-                                  </dt>
-                                  <dd className="mt-0.5 text-dojo-white">
-                                    {candidate.assessment.currentBeltLabel}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="uppercase tracking-wide text-dojo-muted">
-                                    Next belt
-                                  </dt>
-                                  <dd className="mt-0.5 text-dojo-white">
-                                    {candidate.assessment.nextBeltLabel}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="uppercase tracking-wide text-dojo-muted">
-                                    Attendance
-                                  </dt>
-                                  <dd className="mt-0.5 tabular-nums text-dojo-white">
-                                    {formatPromotionProgressLabel(
-                                      candidate.assessment.attendanceSinceAward,
-                                      candidate.assessment.requiredAttendance,
-                                    )}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="uppercase tracking-wide text-dojo-muted">
-                                    Time
-                                  </dt>
-                                  <dd className="mt-0.5 tabular-nums text-dojo-white">
-                                    {formatPromotionTimeSinceLabel(candidate.assessment)} /{" "}
-                                    {formatPromotionRequiredTimeLabel(candidate.assessment)}
-                                  </dd>
-                                </div>
-                              </dl>
-
-                              <div className="flex items-center gap-2">
-                                <AttendanceStatusChip
-                                  status={resolveAttendanceChipStatus(
-                                    attendee.attendanceStatus,
-                                  )}
-                                />
-                                <span className="text-xs text-dojo-muted">
-                                  {formatAdminAttendanceStatusLabel(
-                                    attendee.attendanceStatus,
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              disabled={isPending}
-                              onClick={() =>
-                                handlePromote(
-                                  attendee.userId!,
-                                  attendee.fullName,
-                                  candidate.assessment.nextBeltLabel,
-                                )
-                              }
-                              className="inline-flex min-h-[36px] shrink-0 items-center justify-center self-start rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
+                          return (
+                            <li
+                              key={attendee.attendeeId}
+                              className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3"
                             >
-                              {isPromoting ? "Promoting…" : "Promote"}
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-semibold text-dojo-white">
+                                      {attendee.fullName}
+                                    </span>
+                                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                      Promotion candidate
+                                    </span>
+                                  </div>
+
+                                  <dl className="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                      <dt className="uppercase tracking-wide text-dojo-muted">
+                                        Current belt
+                                      </dt>
+                                      <dd className="mt-0.5 text-dojo-white">
+                                        {candidate.assessment.currentBeltLabel}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt className="uppercase tracking-wide text-dojo-muted">
+                                        Next belt
+                                      </dt>
+                                      <dd className="mt-0.5 text-dojo-white">
+                                        {candidate.assessment.nextBeltLabel}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt className="uppercase tracking-wide text-dojo-muted">
+                                        Attendance
+                                      </dt>
+                                      <dd className="mt-0.5 tabular-nums text-dojo-white">
+                                        {formatPromotionProgressLabel(
+                                          candidate.assessment.attendanceSinceAward,
+                                          candidate.assessment.requiredAttendance,
+                                        )}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt className="uppercase tracking-wide text-dojo-muted">
+                                        Time
+                                      </dt>
+                                      <dd className="mt-0.5 tabular-nums text-dojo-white">
+                                        {formatPromotionTimeSinceLabel(candidate.assessment)} /{" "}
+                                        {formatPromotionRequiredTimeLabel(
+                                          candidate.assessment,
+                                        )}
+                                      </dd>
+                                    </div>
+                                  </dl>
+
+                                  <div className="flex items-center gap-2">
+                                    <AttendanceStatusChip
+                                      status={resolveAttendanceChipStatus(
+                                        attendee.attendanceStatus,
+                                      )}
+                                    />
+                                    <span className="text-xs text-dojo-muted">
+                                      {formatAdminAttendanceStatusLabel(
+                                        attendee.attendanceStatus,
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  disabled={isPending}
+                                  onClick={() =>
+                                    handlePromote(
+                                      attendee.userId!,
+                                      attendee.fullName,
+                                      candidate.assessment.nextBeltLabel,
+                                    )
+                                  }
+                                  className="inline-flex min-h-[36px] shrink-0 items-center justify-center self-start rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isPromoting ? "Promoting…" : "Promote"}
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
                 ) : null}
               </article>
             );
