@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
-import { isCompetitionBracketGeneratorClub } from "@/lib/admin-competition-bracket.shared";
 import {
   buildCompetitionBracketsFromForm,
   sanitizeBracketFilenamePart,
@@ -16,6 +15,8 @@ export const dynamic = "force-dynamic";
 interface BracketPdfRequestBody {
   competitionName?: string;
   divisionName?: string;
+  scheduleTime?: string;
+  notes?: string;
   competitorsText?: string;
   seedOrder?: SeedOrderMode;
   multipleBrackets?: boolean;
@@ -38,16 +39,14 @@ export async function POST(
   { params }: BracketPdfRouteProps,
 ) {
   try {
-    if (!isCompetitionBracketGeneratorClub(params.clubSlug)) {
-      return NextResponse.json({ error: "Not found." }, { status: 404 });
-    }
-
     await requireAdminAccessForClubSlug(params.clubSlug);
 
     const body = (await request.json()) as BracketPdfRequestBody;
     const brackets = buildCompetitionBracketsFromForm({
       competitionName: body.competitionName ?? "",
       divisionName: body.divisionName ?? "",
+      scheduleTime: body.scheduleTime ?? "",
+      notes: body.notes ?? "",
       competitorsText: body.competitorsText ?? "",
       seedOrder: body.seedOrder === "shuffle" ? "shuffle" : "entered",
       multipleBrackets: Boolean(body.multipleBrackets),

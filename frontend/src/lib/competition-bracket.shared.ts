@@ -8,6 +8,8 @@ export type BracketSlotSource =
 export interface BracketBuildInput {
   competitionName: string;
   divisionName: string;
+  scheduleTime?: string;
+  notes?: string;
   competitors: string[];
   seedOrder?: SeedOrderMode;
 }
@@ -40,6 +42,8 @@ export interface BracketRound {
 export interface CompetitionBracket {
   competitionName: string;
   divisionName: string;
+  scheduleTime: string;
+  notes: string;
   /** Entrants at the first main-bracket round (after any preliminary). */
   mainBracketSize: number;
   preliminaryMatchCount: number;
@@ -328,15 +332,32 @@ export function buildCompetitionBracket(
   return {
     competitionName: input.competitionName.trim() || "Competition",
     divisionName: input.divisionName.trim() || "Division",
+    scheduleTime: input.scheduleTime?.trim() ?? "",
+    notes: input.notes?.trim() ?? "",
     mainBracketSize: plan.mainBracketEntrants,
     preliminaryMatchCount: plan.preliminaryMatchCount,
     rounds,
   };
 }
 
+export function formatBracketHeaderLine(label: string, value: string) {
+  const trimmed = value.trim();
+  return trimmed ? `${label}: ${trimmed}` : `${label}: `;
+}
+
+export function formatBracketNotesForDisplay(notes: string) {
+  return notes
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export function buildCompetitionBracketsFromForm(input: {
   competitionName: string;
   divisionName: string;
+  scheduleTime?: string;
+  notes?: string;
   competitorsText: string;
   seedOrder: SeedOrderMode;
   multipleBrackets: boolean;
@@ -351,6 +372,8 @@ export function buildCompetitionBracketsFromForm(input: {
     buildCompetitionBracket({
       competitionName: input.competitionName,
       divisionName: group.divisionName,
+      scheduleTime: input.scheduleTime,
+      notes: input.notes,
       competitors: group.competitors,
       seedOrder: input.seedOrder,
     }),
@@ -367,7 +390,7 @@ export function sanitizeBracketFilenamePart(value: string) {
 }
 
 export function displayParticipantLabel(participant: BracketParticipant) {
-  if (participant.source === "preliminary-winner") {
+  if (participant.source !== "competitor") {
     return "";
   }
 

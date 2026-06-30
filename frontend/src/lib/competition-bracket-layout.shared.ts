@@ -1,5 +1,7 @@
 import {
   displayParticipantLabel,
+  formatBracketHeaderLine,
+  formatBracketNotesForDisplay,
   type BracketMatch,
   type CompetitionBracket,
 } from "@/lib/competition-bracket.shared";
@@ -48,6 +50,9 @@ export interface BracketLayout {
   marginTop: number;
   marginBottom: number;
   titleY: number;
+  divisionY: number;
+  timeY: number;
+  notesY: number;
   roundHeaderY: number;
   bracketTop: number;
   bracketBottom: number;
@@ -57,8 +62,11 @@ export interface BracketLayout {
   nameLineLength: number;
   connectorWidth: number;
   nameFontSize: number;
+  titleFontSize: number;
+  metaFontSize: number;
   roundHeaderFontSize: number;
   lineThickness: number;
+  matchGap: number;
   rounds: {
     label: string;
     roundIndex: number;
@@ -78,15 +86,15 @@ function resolvePageSize(mainBracketSize: number): BracketPageSize {
 
 function resolveScale(mainBracketSize: number, roundCount: number): number {
   if (mainBracketSize >= 32 || roundCount >= 5) {
-    return 0.78;
+    return 0.9;
   }
 
   if (mainBracketSize >= 16 || roundCount >= 4) {
-    return 0.86;
+    return 0.96;
   }
 
   if (mainBracketSize >= 8) {
-    return 0.92;
+    return 1;
   }
 
   return 1;
@@ -127,22 +135,27 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
   const page = resolvePageSize(bracket.mainBracketSize);
   const roundCount = bracket.rounds.length;
   const scale = resolveScale(bracket.mainBracketSize, roundCount);
-  const marginX = 48 * scale;
-  const marginTop = 64 * scale;
-  const marginBottom = 32 * scale;
-  const titleY = page.height - 24 * scale;
-  const roundHeaderY = page.height - marginTop - 6 * scale;
-  const bracketTop = page.height - marginTop - 28 * scale;
-  const bracketBottom = marginBottom + 8 * scale;
+  const marginX = 56 * scale;
+  const marginTop = 88 * scale;
+  const marginBottom = 36 * scale;
+  const titleFontSize = 20 * scale;
+  const metaFontSize = 11.5 * scale;
+  const titleY = page.height - 26 * scale;
+  const divisionY = titleY - 22 * scale;
+  const timeY = divisionY - 17 * scale;
+  const notesY = timeY - 17 * scale;
+  const roundHeaderY = notesY - 24 * scale;
+  const bracketTop = roundHeaderY - 20 * scale;
+  const bracketBottom = marginBottom + 10 * scale;
   const bracketLeft = marginX;
-  const bracketRight = page.width - marginX * 0.75;
+  const bracketRight = page.width - marginX * 0.7;
   const bracketWidth = bracketRight - bracketLeft;
   const roundColumnWidth = bracketWidth / roundCount;
-  const nameLineLength = Math.min(104 * scale, roundColumnWidth * 0.4);
-  const connectorWidth = Math.min(28 * scale, roundColumnWidth * 0.16);
-  const matchGap = 5 * scale;
-  const nameFontSize = 8.5 * scale;
-  const roundHeaderFontSize = 11.5 * scale;
+  const nameLineLength = Math.min(132 * scale, roundColumnWidth * 0.44);
+  const connectorWidth = Math.min(32 * scale, roundColumnWidth * 0.15);
+  const matchGap = 9 * scale;
+  const nameFontSize = 11 * scale;
+  const roundHeaderFontSize = 13.5 * scale;
   const lineThickness = 1;
   const mainMatchCenters = new Map<string, BracketLayoutMatch>();
 
@@ -199,7 +212,7 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
           continue;
         }
 
-        const halfGap = matchGap + 5;
+        const halfGap = matchGap + 10;
         prelimMatch.centerY = feederMain.centerY;
         prelimMatch.topY = feederMain.centerY + halfGap;
         prelimMatch.bottomY = feederMain.centerY - halfGap;
@@ -214,6 +227,9 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
     marginTop,
     marginBottom,
     titleY,
+    divisionY,
+    timeY,
+    notesY,
     roundHeaderY,
     bracketTop,
     bracketBottom,
@@ -223,8 +239,11 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
     nameLineLength,
     connectorWidth,
     nameFontSize,
+    titleFontSize,
+    metaFontSize,
     roundHeaderFontSize,
     lineThickness,
+    matchGap,
     rounds,
   };
 }
@@ -243,7 +262,7 @@ function layoutMatch(input: {
   winnerLineEndX: number;
   mainMatchCenters: Map<string, BracketLayoutMatch>;
 }): BracketLayoutMatch {
-  const halfGap = input.matchGap + 5;
+  const halfGap = input.matchGap + 10;
   let centerY = input.bracketTop / 2;
 
   if (!input.round.isPreliminary && input.mainRoundIndex >= 0) {
@@ -297,6 +316,11 @@ export function getBracketTitleLines(bracket: CompetitionBracket) {
   return {
     competitionName: bracket.competitionName,
     divisionName: bracket.divisionName,
+    timeLine: formatBracketHeaderLine("Time", bracket.scheduleTime),
+    notesLine: formatBracketHeaderLine(
+      "Notes",
+      formatBracketNotesForDisplay(bracket.notes),
+    ),
   };
 }
 

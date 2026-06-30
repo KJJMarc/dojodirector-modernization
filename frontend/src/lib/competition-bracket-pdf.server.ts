@@ -139,14 +139,28 @@ function drawBracketPage(
   page.drawText(titles.competitionName, {
     x: layout.marginX,
     y: layout.titleY,
-    size: 17,
+    size: layout.titleFontSize,
     font: bold,
     color: BLACK,
   });
   page.drawText(titles.divisionName, {
     x: layout.marginX,
-    y: layout.titleY - 18,
-    size: 10.5,
+    y: layout.divisionY,
+    size: layout.metaFontSize,
+    font: regular,
+    color: BLACK,
+  });
+  page.drawText(titles.timeLine, {
+    x: layout.marginX,
+    y: layout.timeY,
+    size: layout.metaFontSize,
+    font: regular,
+    color: BLACK,
+  });
+  page.drawText(titles.notesLine, {
+    x: layout.marginX,
+    y: layout.notesY,
+    size: layout.metaFontSize,
     font: regular,
     color: BLACK,
   });

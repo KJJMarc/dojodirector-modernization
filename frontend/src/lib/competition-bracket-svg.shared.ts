@@ -27,13 +27,13 @@ function renderMatchSvg(
 
   return `
     <g data-match="${match.matchNumber}">
-      <text x="${match.nameLineStartX}" y="${flipY(match.topY) - 3}" ${textStyle}>${topName}</text>
+      <text x="${match.nameLineStartX}" y="${flipY(match.topY) - 4}" ${textStyle}>${topName}</text>
       <line x1="${match.nameLineStartX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.topY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
-      <text x="${match.nameLineStartX}" y="${flipY(match.bottomY) - 3}" ${textStyle}>${bottomName}</text>
+      <text x="${match.nameLineStartX}" y="${flipY(match.bottomY) - 4}" ${textStyle}>${bottomName}</text>
       <line x1="${match.nameLineStartX}" y1="${flipY(match.bottomY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <line x1="${match.nameLineEndX}" y1="${flipY(match.topY)}" x2="${match.nameLineEndX}" y2="${flipY(match.bottomY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
       <line x1="${match.nameLineEndX}" y1="${flipY(match.centerY)}" x2="${match.winnerLineEndX}" y2="${flipY(match.centerY)}" stroke="${stroke}" stroke-width="${layout.lineThickness}" />
-      <text x="${match.connectorX + 3}" y="${flipY(match.centerY) - 2}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.nameFontSize - 1.5}" fill="#000000">#${match.matchNumber}</text>
+      <text x="${match.connectorX + 4}" y="${flipY(match.centerY) - 2}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.nameFontSize - 2}" fill="#000000">#${match.matchNumber}</text>
     </g>
   `;
 }
@@ -67,8 +67,10 @@ export function renderBracketSvg(bracket: CompetitionBracket): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#ffffff" />
-  <text x="${layout.marginX}" y="${flipY(layout.titleY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="17" font-weight="700" fill="#000000">${escapeXml(titles.competitionName)}</text>
-  <text x="${layout.marginX}" y="${flipY(layout.titleY - 18)}" font-family="${BRACKET_FONT_FAMILY}" font-size="10.5" fill="#000000">${escapeXml(titles.divisionName)}</text>
+  <text x="${layout.marginX}" y="${flipY(layout.titleY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.titleFontSize}" font-weight="700" fill="#000000">${escapeXml(titles.competitionName)}</text>
+  <text x="${layout.marginX}" y="${flipY(layout.divisionY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.metaFontSize}" fill="#000000">${escapeXml(titles.divisionName)}</text>
+  <text x="${layout.marginX}" y="${flipY(layout.timeY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.metaFontSize}" fill="#000000">${escapeXml(titles.timeLine)}</text>
+  <text x="${layout.marginX}" y="${flipY(layout.notesY)}" font-family="${BRACKET_FONT_FAMILY}" font-size="${layout.metaFontSize}" fill="#000000">${escapeXml(titles.notesLine)}</text>
   ${roundHeaders}
   ${matches}
   ${connectors}

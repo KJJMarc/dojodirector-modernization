@@ -70,6 +70,8 @@ export function CompetitionBracketGeneratorView({
 }: CompetitionBracketGeneratorViewProps) {
   const [competitionName, setCompetitionName] = useState("");
   const [divisionName, setDivisionName] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [notes, setNotes] = useState("");
   const [competitorsText, setCompetitorsText] = useState("");
   const [seedOrder, setSeedOrder] = useState<SeedOrderMode>("entered");
   const [multipleBrackets, setMultipleBrackets] = useState(false);
@@ -82,6 +84,8 @@ export function CompetitionBracketGeneratorView({
       buildCompetitionBracketsFromForm({
         competitionName,
         divisionName,
+        scheduleTime,
+        notes,
         competitorsText,
         seedOrder,
         multipleBrackets,
@@ -89,6 +93,8 @@ export function CompetitionBracketGeneratorView({
     [
       competitionName,
       divisionName,
+      scheduleTime,
+      notes,
       competitorsText,
       seedOrder,
       multipleBrackets,
@@ -106,6 +112,8 @@ export function CompetitionBracketGeneratorView({
   const buildPayload = (mode: "single" | "all") => ({
     competitionName,
     divisionName,
+    scheduleTime,
+    notes,
     competitorsText,
     seedOrder,
     multipleBrackets,
@@ -194,6 +202,36 @@ export function CompetitionBracketGeneratorView({
               className={`${INPUT_CLASS} min-h-[220px] font-mono`}
             />
           </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-dojo-white">Time</span>
+              <span className="block text-xs text-dojo-muted">
+                Printed on the bracket PDF under the division name.
+              </span>
+              <input
+                type="text"
+                value={scheduleTime}
+                onChange={(event) => setScheduleTime(event.target.value)}
+                placeholder="10:30am"
+                className={INPUT_CLASS}
+              />
+            </label>
+
+            <label className="block space-y-1.5 sm:col-span-1">
+              <span className="text-sm font-medium text-dojo-white">Notes</span>
+              <span className="block text-xs text-dojo-muted">
+                Optional. Printed under Time on the PDF.
+              </span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={3}
+                placeholder="Mats 1-2. Gi division."
+                className={INPUT_CLASS}
+              />
+            </label>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <fieldset className="space-y-2">

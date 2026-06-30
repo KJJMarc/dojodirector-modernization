@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   bracketSizeForCompetitorCount,
   buildCompetitionBracket,
+  formatBracketHeaderLine,
   hasByeVersusByeMatch,
   mainRoundLabel,
   parseCompetitorGroups,
@@ -108,6 +109,12 @@ test("buildCompetitionBracket for four competitors uses semi-final and final", (
   );
 });
 
+test("formatBracketHeaderLine keeps a labelled blank line for handwriting", () => {
+  assert.equal(formatBracketHeaderLine("Time", ""), "Time: ");
+  assert.equal(formatBracketHeaderLine("Time", "10:30am"), "Time: 10:30am");
+  assert.equal(formatBracketHeaderLine("Notes", "Mats 1-2"), "Notes: Mats 1-2");
+});
+
 test("later rounds keep winner slots blank", () => {
   const bracket = buildCompetitionBracket({
     competitionName: "Kids Open",
@@ -116,12 +123,30 @@ test("later rounds keep winner slots blank", () => {
     seedOrder: "entered",
   });
 
+  const semiFinal = bracket.rounds[0].matches[0];
+  assert.equal(semiFinal.top.source, "competitor");
+  assert.equal(semiFinal.bottom.source, "competitor");
+
   const final = bracket.rounds.at(-1)?.matches[0];
   assert.ok(final);
   assert.equal(final.top.source, "empty");
   assert.equal(final.bottom.source, "empty");
   assert.equal(final.top.name, "");
   assert.equal(final.bottom.name, "");
+});
+
+test("five competitor bracket keeps preliminary winner slot blank in semi-final", () => {
+  const bracket = buildCompetitionBracket({
+    competitionName: "Kids Open",
+    divisionName: "Grey Belt",
+    competitors: ["A", "B", "C", "D", "E"],
+    seedOrder: "entered",
+  });
+
+  const semiFinals = bracket.rounds[1].matches;
+  assert.equal(semiFinals[0].top.source, "preliminary-winner");
+  assert.equal(semiFinals[0].top.name, "");
+  assert.equal(semiFinals[0].bottom.source, "competitor");
 });
 
 test("parseCompetitorGroups splits blank-line separated divisions", () => {
