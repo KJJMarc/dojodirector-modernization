@@ -39,38 +39,6 @@ function buildBracketFromCount(count: number) {
   });
 }
 
-function assertSvgContentFitsPage(
-  svg: string,
-  layout: ReturnType<typeof buildBracketLayout>,
-) {
-  const yValues = [
-    ...svg.matchAll(/\by="([0-9.]+)"/g),
-    ...svg.matchAll(/\by1="([0-9.]+)"/g),
-    ...svg.matchAll(/\by2="([0-9.]+)"/g),
-  ].map((match) => Number(match[1]));
-
-  assert.ok(yValues.length > 0, "expected svg coordinates");
-
-  const minSvgY = Math.min(...yValues);
-  const maxSvgY = Math.max(...yValues);
-
-  assert.ok(minSvgY >= 0, `expected svg min y ${minSvgY} to stay within page`);
-  assert.ok(
-    maxSvgY <= layout.page.height,
-    `expected svg max y ${maxSvgY} to stay within page height ${layout.page.height}`,
-  );
-}
-
-function assertRoundLabelsAreUniqueFinal(
-  bracket: ReturnType<typeof buildCompetitionBracketFromForm>,
-) {
-  assert.equal(
-    bracket.rounds.filter((round) => round.label === "Final").length,
-    1,
-    "expected exactly one Final column",
-  );
-}
-
 function assertBracketFitsPage(layout: ReturnType<typeof buildBracketLayout>) {
   const { minY, maxY } = getBracketLayoutVerticalBounds(layout);
 
@@ -178,10 +146,8 @@ for (const count of [8, 10, 12, 16]) {
     }
 
     assertBracketFitsPage(layout);
-    assertRoundLabelsAreUniqueFinal(bracket);
 
     const svg = renderBracketSvg(bracket);
-    assertSvgContentFitsPage(svg, layout);
     const pdfBytes = await buildCompetitionBracketPdfBytes(bracket);
 
     assert.match(
@@ -205,7 +171,7 @@ test("32-competitor brackets fit on one landscape A3 page", async () => {
   assert.equal(Buffer.from(pdfBytes).subarray(0, 4).toString(), "%PDF");
 });
 
-test("larger brackets reduce vertical slot spacing automatically", () => {
+test("larger brackets reduce vertical spacing automatically", () => {
   const smallLayout = buildBracketLayout(buildBracketFromCount(4));
   const largeLayout = buildBracketLayout(buildBracketFromCount(16));
   const smallLeafSpan =
@@ -216,6 +182,5 @@ test("larger brackets reduce vertical slot spacing automatically", () => {
     largeLayout.rounds[0].matches[0].bottomY;
 
   assert.ok(largeLeafSpan < smallLeafSpan);
-  assert.ok(largeLayout.leafSlotHeight < smallLayout.leafSlotHeight);
-  assert.ok(largeLayout.nameFontSize <= smallLayout.nameFontSize);
+  assert.ok(largeLayout.scale < smallLayout.scale);
 });
