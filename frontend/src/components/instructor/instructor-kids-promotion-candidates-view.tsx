@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AttendanceStatusChip } from "@/components/attendance/attendance-status-chip";
-import { InstructorKidsPromotionDateSearchForm } from "@/components/instructor/instructor-kids-promotion-date-search-form";
 import {
   loadInstructorKidsPromotionSessionAction,
   promoteJuniorCandidateAction,
@@ -23,14 +22,11 @@ import {
   formatPromotionTimeSinceLabel,
 } from "@/lib/admin-belt-promotion.shared";
 import { formatAdminAttendanceStatusLabel } from "@/lib/admin-session-bookings.shared";
-import { getLondonTodayDateKey } from "@/lib/london-datetime";
 import type { AttendanceStatus } from "@/types/database";
 
 interface InstructorKidsPromotionCandidatesViewProps {
   data: KidsPromotionRegistersViewData;
-  initialDate?: string;
-  initialDays?: number;
-  filterHeading?: string | null;
+  selectedDateKey: string;
 }
 
 function resolveAttendanceChipStatus(status: string | null): AttendanceStatus {
@@ -80,18 +76,15 @@ function SessionAccordionHeader({
 
 export function InstructorKidsPromotionCandidatesView({
   data,
-  initialDate,
-  initialDays,
-  filterHeading = null,
+  selectedDateKey,
 }: InstructorKidsPromotionCandidatesViewProps) {
   const router = useRouter();
-  const todayKey = getLondonTodayDateKey();
   const sessionCards = useMemo(
     () => listKidsPromotionCandidateSessionCards(data.dateGroups),
     [data.dateGroups],
   );
-  const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(
-    () => new Set(buildDefaultExpandedKidsPromotionSessionIds(sessionCards, todayKey)),
+  const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(() =>
+    new Set(buildDefaultExpandedKidsPromotionSessionIds(sessionCards, selectedDateKey)),
   );
   const [loadedAttendeesBySessionId, setLoadedAttendeesBySessionId] = useState<
     Map<string, KidsPromotionRegisterAttendee[]>
@@ -147,28 +140,6 @@ export function InstructorKidsPromotionCandidatesView({
     },
     [data.clubSlug],
   );
-
-  useEffect(() => {
-    setExpandedSessionIds((previous) => {
-      const next = new Set<string>();
-      const defaultExpanded = new Set(
-        buildDefaultExpandedKidsPromotionSessionIds(sessionCards, todayKey),
-      );
-
-      for (const card of sessionCards) {
-        if (previous.has(card.session.id) || defaultExpanded.has(card.session.id)) {
-          next.add(card.session.id);
-        }
-      }
-
-      return next;
-    });
-    setLoadedAttendeesBySessionId(new Map());
-    loadedSessionIdsRef.current = new Set();
-    loadingSessionIdsRef.current = new Set();
-    setLoadingSessionIds(new Set());
-    setSessionLoadErrors(new Map());
-  }, [sessionCards, todayKey]);
 
   useEffect(() => {
     for (const sessionId of Array.from(expandedSessionIds)) {
@@ -237,21 +208,14 @@ export function InstructorKidsPromotionCandidatesView({
 
   return (
     <div className="space-y-6">
-      <InstructorKidsPromotionDateSearchForm
-        clubSlug={data.clubSlug}
-        initialDate={initialDate}
-        initialDays={initialDays}
-        filterHeading={filterHeading}
-      />
-
       <section className="space-y-2 rounded-xl border border-dojo-border bg-dojo-surface p-4">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
             Promotion candidates by class
           </h2>
           <p className="mt-1 text-xs text-dojo-muted">
-            Expand a class to review eligible students and promote them. Today&apos;s
-            classes open by default.
+            Expand a class to review eligible students and promote them. Classes on
+            the selected day open by default.
           </p>
         </div>
         <p className="text-xs text-dojo-muted">
@@ -288,14 +252,14 @@ export function InstructorKidsPromotionCandidatesView({
 
             return (
               <article
-                key={card.session.id}
+                key={`${selectedDateKey}-${card.session.id}`}
                 className="overflow-hidden rounded-lg border border-dojo-border bg-dojo-elevated"
               >
                 <button
                   type="button"
                   onClick={() => toggleSession(card.session.id)}
                   aria-expanded={expanded}
-                  className="flex w-full px-4 py-4 transition hover:bg-dojo-surface/60"
+                  className="flex w-full px-4 py-4 transition hover:bg-dojo-surface/60 active:bg-dojo-surface/80"
                 >
                   <SessionAccordionHeader card={card} expanded={expanded} />
                 </button>
@@ -303,15 +267,41 @@ export function InstructorKidsPromotionCandidatesView({
                 {expanded ? (
                   <div className="border-t border-dojo-border px-4 py-4">
                     {isLoadingSession ? (
-                      <p className="text-sm text-dojo-muted" role="status">
+                      <div
+                        className="flex items-center gap-3 rounded-md border border-dojo-border bg-dojo-surface px-3 py-3 text-sm text-dojo-muted"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <span
+                          aria-hidden
+                          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-dojo-muted border-t-dojo-red"
+                        />
                         Loading promotion candidates…
-                      </p>
+                      </div>
                     ) : sessionLoadError ? (
-                      <p className="text-sm text-dojo-red" role="alert">
-                        {sessionLoadError}
-                      </p>
+                      <div
+                        className="space-y-3 rounded-md border border-dojo-red/40 bg-dojo-red/10 px-3 py-3"
+                        role="alert"
+                      >
+                        <p className="text-sm text-dojo-red">{sessionLoadError}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loadedSessionIdsRef.current.delete(card.session.id);
+                            setLoadedAttendeesBySessionId((previous) => {
+                              const next = new Map(previous);
+                              next.delete(card.session.id);
+                              return next;
+                            });
+                            void loadSessionAttendees(card.session.id);
+                          }}
+                          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-dojo-red/40 px-4 text-sm font-semibold text-dojo-red transition hover:bg-dojo-red/10"
+                        >
+                          Retry
+                        </button>
+                      </div>
                     ) : sessionAttendees.length === 0 ? (
-                      <p className="text-sm text-dojo-muted">
+                      <p className="rounded-md border border-dojo-border bg-dojo-surface px-3 py-3 text-sm text-dojo-muted">
                         No promotion candidates found for this class.
                       </p>
                     ) : (
@@ -407,7 +397,7 @@ export function InstructorKidsPromotionCandidatesView({
                                       candidate.assessment.nextBeltLabel,
                                     )
                                   }
-                                  className="inline-flex min-h-[36px] shrink-0 items-center justify-center self-start rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex min-h-[44px] shrink-0 items-center justify-center self-start rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isPromoting ? "Promoting…" : "Promote"}
                                 </button>

@@ -76,11 +76,12 @@ export function parseInstructorKidsPromotionCandidatesSearchParams(
 
 export function resolveInstructorKidsPromotionScheduleFilter(
   searchParams: InstructorKidsPromotionCandidatesSearchParams,
+  from = new Date(),
 ): AttendanceScheduleFilter {
   const context = parseInstructorKidsPromotionCandidatesSearchParams(searchParams);
 
   if (!context.date && !context.days) {
-    const todayKey = getLondonTodayDateKey();
+    const todayKey = getLondonTodayDateKey(from);
 
     return {
       mode: "date-filter",
@@ -91,7 +92,20 @@ export function resolveInstructorKidsPromotionScheduleFilter(
     };
   }
 
-  return resolveAttendanceScheduleFilter(context);
+  return resolveAttendanceScheduleFilter(context, from);
+}
+
+/** Canonical YYYY-MM-DD for the instructor promotion candidates day view. */
+export function resolveInstructorKidsPromotionSelectedDateKey(
+  searchParams: InstructorKidsPromotionCandidatesSearchParams,
+  from = new Date(),
+): string {
+  const filter = resolveInstructorKidsPromotionScheduleFilter(searchParams, from);
+  return (
+    filter.rangeStartKey ??
+    filter.dateKey ??
+    getLondonTodayDateKey(from)
+  );
 }
 
 export function instructorPortalKidsPromotionCandidatesPath(
@@ -161,17 +175,19 @@ export function listKidsPromotionCandidateSessionCards(
 
 export function shouldExpandKidsPromotionSessionByDefault(
   dateKey: string,
-  todayKey = getLondonTodayDateKey(),
+  viewingDateKey = getLondonTodayDateKey(),
 ): boolean {
-  return dateKey === todayKey;
+  return dateKey === viewingDateKey;
 }
 
 export function buildDefaultExpandedKidsPromotionSessionIds(
   cards: KidsPromotionCandidateSessionCard[],
-  todayKey = getLondonTodayDateKey(),
+  viewingDateKey = getLondonTodayDateKey(),
 ): string[] {
   return cards
-    .filter((card) => shouldExpandKidsPromotionSessionByDefault(card.dateKey, todayKey))
+    .filter((card) =>
+      shouldExpandKidsPromotionSessionByDefault(card.dateKey, viewingDateKey),
+    )
     .map((card) => card.session.id);
 }
 

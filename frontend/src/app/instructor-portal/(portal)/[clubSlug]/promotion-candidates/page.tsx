@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AttendanceRegisterBackLink } from "@/components/attendance/attendance-register-back-link";
 import { InstructorKidsPromotionCandidatesView } from "@/components/instructor/instructor-kids-promotion-candidates-view";
+import { InstructorKidsPromotionDateSearchForm } from "@/components/instructor/instructor-kids-promotion-date-search-form";
 import { AppHeader } from "@/components/layout/app-header";
 import { loadKidsPromotionCandidatesOnRegisters } from "@/lib/admin-kids-promotion-registers.server";
 import { formatAttendanceScheduleFilterHeading } from "@/lib/attendance-schedule";
@@ -10,13 +11,14 @@ import {
 } from "@/lib/attendance-register-navigation.shared";
 import {
   isInstructorKidsPromotionCandidatesClub,
-  parseInstructorKidsPromotionCandidatesSearchParams,
   resolveInstructorKidsPromotionScheduleFilter,
+  resolveInstructorKidsPromotionSelectedDateKey,
   type InstructorKidsPromotionCandidatesSearchParams,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import { requireInstructorPortalPageContext } from "@/lib/instructor-portal-page.server";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 interface InstructorKidsPromotionCandidatesPageProps {
   params: { clubSlug: string };
@@ -49,7 +51,7 @@ export default async function InstructorKidsPromotionCandidatesPage({
   }
 
   const { club } = await requireInstructorPortalPageContext(params.clubSlug);
-  const filterContext = parseInstructorKidsPromotionCandidatesSearchParams(searchParams);
+  const selectedDateKey = resolveInstructorKidsPromotionSelectedDateKey(searchParams);
   const scheduleFilter = resolveInstructorKidsPromotionScheduleFilter(searchParams);
   const filterHeading = formatAttendanceScheduleFilterHeading(scheduleFilter);
   const data = await loadKidsPromotionCandidatesOnRegisters(
@@ -60,6 +62,7 @@ export default async function InstructorKidsPromotionCandidatesPage({
     {
       promotionScope: "session-attendees",
       attendeesMode: "lazy",
+      ensureRecurringSessions: true,
     },
   );
   const navContext = {
@@ -73,11 +76,16 @@ export default async function InstructorKidsPromotionCandidatesPage({
 
       <AttendanceRegisterBackLink context={navContext} />
 
-      <InstructorKidsPromotionCandidatesView
-        data={data}
-        initialDate={filterContext.date}
-        initialDays={filterContext.days}
+      <InstructorKidsPromotionDateSearchForm
+        clubSlug={club.slug}
+        selectedDateKey={selectedDateKey}
         filterHeading={filterHeading}
+      />
+
+      <InstructorKidsPromotionCandidatesView
+        key={selectedDateKey}
+        data={data}
+        selectedDateKey={selectedDateKey}
       />
     </main>
   );

@@ -1,69 +1,41 @@
-"use client";
-
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   buildAdjacentKidsPromotionDatePath,
   instructorPortalKidsPromotionCandidatesPath,
-  resolveKidsPromotionNavigationDateKey,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import { addLondonCalendarDays, getLondonTodayDateKey } from "@/lib/london-datetime";
 
 interface InstructorKidsPromotionDateSearchFormProps {
   clubSlug: string;
-  initialDate?: string;
-  initialDays?: number;
+  selectedDateKey: string;
   filterHeading?: string | null;
 }
 
 const inputClassName =
-  "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
+  "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2.5 text-base text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
 
 const buttonClassName =
-  "inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-3 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
+  "inline-flex min-h-[44px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
 
-const quickButtonClassName =
-  "inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-3 text-xs font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
+const quickLinkClassName =
+  "inline-flex min-h-[44px] items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-4 text-sm font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
 
 export function InstructorKidsPromotionDateSearchForm({
   clubSlug,
-  initialDate = "",
-  initialDays,
+  selectedDateKey,
   filterHeading = null,
 }: InstructorKidsPromotionDateSearchFormProps) {
-  const router = useRouter();
-  const [dateValue, setDateValue] = useState(initialDate);
-
-  function navigateTo(href: string) {
-    router.push(href);
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const trimmedDate = dateValue.trim();
-
-    if (!trimmedDate) {
-      navigateTo(instructorPortalKidsPromotionCandidatesPath(clubSlug));
-      return;
-    }
-
-    navigateTo(
-      instructorPortalKidsPromotionCandidatesPath(clubSlug, { date: trimmedDate }),
-    );
-  }
-
   const todayKey = getLondonTodayDateKey();
-  const navigationDateKey = resolveKidsPromotionNavigationDateKey(initialDate, todayKey);
-  const isFiltered = Boolean(initialDate || initialDays);
+  const basePath = instructorPortalKidsPromotionCandidatesPath(clubSlug);
+  const isTodayView = selectedDateKey === todayKey;
 
   return (
     <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
       <div className="space-y-1">
         <h2 className="text-sm font-semibold text-dojo-white">Search by date</h2>
         <p className="text-xs text-dojo-muted">
-          Pick a class date to review promotion candidates from that session. Leave
-          cleared to show today&apos;s classes only.
+          Pick a class date to review promotion candidates. Leave cleared to show
+          today&apos;s classes.
         </p>
       </div>
 
@@ -73,7 +45,11 @@ export function InstructorKidsPromotionDateSearchForm({
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <form
+        method="get"
+        action={basePath}
+        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+      >
         <div className="min-w-0 flex-1 space-y-1.5">
           <label
             htmlFor="promotion-candidates-date-search"
@@ -85,8 +61,7 @@ export function InstructorKidsPromotionDateSearchForm({
             id="promotion-candidates-date-search"
             name="date"
             type="date"
-            value={dateValue}
-            onChange={(event) => setDateValue(event.target.value)}
+            defaultValue={selectedDateKey}
             className={inputClassName}
           />
         </div>
@@ -95,71 +70,48 @@ export function InstructorKidsPromotionDateSearchForm({
           <button type="submit" className={buttonClassName}>
             Show classes
           </button>
-          {isFiltered ? (
-            <button
-              type="button"
-              className={buttonClassName}
-              onClick={() => navigateTo(instructorPortalKidsPromotionCandidatesPath(clubSlug))}
-            >
+          {!isTodayView ? (
+            <Link href={basePath} className={buttonClassName}>
               Clear
-            </button>
+            </Link>
           ) : null}
         </div>
       </form>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={quickButtonClassName}
-          onClick={() =>
-            navigateTo(
-              instructorPortalKidsPromotionCandidatesPath(clubSlug, { date: todayKey }),
-            )
-          }
+      <nav aria-label="Promotion candidates date navigation" className="flex flex-wrap gap-2">
+        <Link
+          href={instructorPortalKidsPromotionCandidatesPath(clubSlug, { date: todayKey })}
+          className={quickLinkClassName}
+          aria-current={isTodayView ? "page" : undefined}
         >
           Today
-        </button>
-        <button
-          type="button"
-          className={quickButtonClassName}
-          onClick={() =>
-            navigateTo(buildAdjacentKidsPromotionDatePath(clubSlug, navigationDateKey, -1))
-          }
+        </Link>
+        <Link
+          href={buildAdjacentKidsPromotionDatePath(clubSlug, selectedDateKey, -1)}
+          className={quickLinkClassName}
         >
           Previous day
-        </button>
-        <button
-          type="button"
-          className={quickButtonClassName}
-          onClick={() =>
-            navigateTo(buildAdjacentKidsPromotionDatePath(clubSlug, navigationDateKey, 1))
-          }
+        </Link>
+        <Link
+          href={buildAdjacentKidsPromotionDatePath(clubSlug, selectedDateKey, 1)}
+          className={quickLinkClassName}
         >
           Next day
-        </button>
-        <button
-          type="button"
-          className={quickButtonClassName}
-          onClick={() =>
-            navigateTo(
-              instructorPortalKidsPromotionCandidatesPath(clubSlug, {
-                date: addLondonCalendarDays(todayKey, -1),
-              }),
-            )
-          }
+        </Link>
+        <Link
+          href={instructorPortalKidsPromotionCandidatesPath(clubSlug, {
+            date: addLondonCalendarDays(todayKey, -1),
+          })}
+          className={quickLinkClassName}
         >
           Yesterday
-        </button>
-        {isFiltered ? (
-          <button
-            type="button"
-            className={quickButtonClassName}
-            onClick={() => navigateTo(instructorPortalKidsPromotionCandidatesPath(clubSlug))}
-          >
+        </Link>
+        {!isTodayView ? (
+          <Link href={basePath} className={quickLinkClassName}>
             Back to today
-          </button>
+          </Link>
         ) : null}
-      </div>
+      </nav>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import {
   listKidsPromotionCandidateSessionCards,
   prioritizeTodayKidsPromotionRegisterDateGroups,
   resolveInstructorKidsPromotionScheduleFilter,
+  resolveInstructorKidsPromotionSelectedDateKey,
   shouldExpandKidsPromotionSessionByDefault,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
 import {
@@ -83,11 +84,42 @@ test("instructorPortalKidsPromotionCandidatesPath uses instructor portal route",
 });
 
 test("resolveInstructorKidsPromotionScheduleFilter defaults to today only", () => {
-  const filter = resolveInstructorKidsPromotionScheduleFilter({});
+  const from = new Date("2026-06-19T12:00:00.000Z");
+  const filter = resolveInstructorKidsPromotionScheduleFilter({}, from);
 
   assert.equal(filter.mode, "date-filter");
-  assert.equal(filter.rangeStartKey, filter.rangeEndKey);
+  assert.equal(filter.rangeStartKey, "2026-06-19");
+  assert.equal(filter.rangeEndKey, "2026-06-19");
   assert.equal(filter.days, 1);
+});
+
+test("resolveInstructorKidsPromotionScheduleFilter uses explicit date param", () => {
+  const filter = resolveInstructorKidsPromotionScheduleFilter({
+    date: "2026-07-03",
+  });
+
+  assert.equal(filter.mode, "date-filter");
+  assert.equal(filter.rangeStartKey, "2026-07-03");
+  assert.equal(filter.rangeEndKey, "2026-07-03");
+  assert.equal(filter.days, 1);
+});
+
+test("resolveInstructorKidsPromotionSelectedDateKey follows URL date param", () => {
+  assert.equal(
+    resolveInstructorKidsPromotionSelectedDateKey({ date: "2026-07-03" }),
+    "2026-07-03",
+  );
+});
+
+test("resolveInstructorKidsPromotionSelectedDateKey defaults to today without params", () => {
+  const todayKey = "2026-06-19";
+  assert.equal(
+    resolveInstructorKidsPromotionSelectedDateKey(
+      {},
+      new Date(`${todayKey}T12:00:00.000Z`),
+    ),
+    todayKey,
+  );
 });
 
 test("prioritizeTodayKidsPromotionRegisterDateGroups moves today first", () => {
@@ -141,9 +173,34 @@ test("listKidsPromotionCandidateSessionCards returns all sessions for the day", 
   assert.equal(cards[1]?.session.promotionCandidateCount, 0);
 });
 
-test("shouldExpandKidsPromotionSessionByDefault expands today only", () => {
-  assert.equal(shouldExpandKidsPromotionSessionByDefault("2026-06-19", "2026-06-19"), true);
-  assert.equal(shouldExpandKidsPromotionSessionByDefault("2026-06-18", "2026-06-19"), false);
+test("shouldExpandKidsPromotionSessionByDefault expands selected viewing date", () => {
+  assert.equal(shouldExpandKidsPromotionSessionByDefault("2026-07-03", "2026-07-03"), true);
+  assert.equal(shouldExpandKidsPromotionSessionByDefault("2026-07-02", "2026-07-03"), false);
+});
+
+test("buildDefaultExpandedKidsPromotionSessionIds includes selected date sessions", () => {
+  const cards = listKidsPromotionCandidateSessionCards(
+    [
+      {
+        dateKey: "2026-07-03",
+        dateLabel: "Friday 3 July 2026",
+        dayLabel: "Friday",
+        sessions: [buildSession("friday", "2026-07-03T17:00:00.000Z")],
+      },
+      {
+        dateKey: "2026-07-04",
+        dateLabel: "Saturday 4 July 2026",
+        dayLabel: "Saturday",
+        sessions: [buildSession("saturday", "2026-07-04T17:00:00.000Z")],
+      },
+    ],
+    new Date("2026-07-03T12:00:00.000Z"),
+  );
+
+  assert.deepEqual(
+    buildDefaultExpandedKidsPromotionSessionIds(cards, "2026-07-03"),
+    ["friday"],
+  );
 });
 
 test("buildDefaultExpandedKidsPromotionSessionIds includes today sessions", () => {

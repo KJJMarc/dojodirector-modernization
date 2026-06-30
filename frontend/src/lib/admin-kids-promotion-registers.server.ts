@@ -159,6 +159,8 @@ export interface LoadKidsPromotionRegistersOptions {
   attendeesMode?: "full" | "lazy";
   /** Filter sessions before grouping (instructor candidates view uses "candidates"). */
   filter?: KidsPromotionRegistersFilter;
+  /** Materialise recurring sessions before querying (needed for single-day instructor views). */
+  ensureRecurringSessions?: boolean;
 }
 
 function countPromotionCandidatesForSession(
@@ -189,7 +191,8 @@ export async function loadKidsPromotionCandidatesOnRegisters(
   const bjjProgramme = await requireClubBjjProgramme(clubId);
   const bjjClassIds = await loadBjjClassIdsForClub(clubId, bjjProgramme.id);
   const { startIso, endIso } = getAttendanceScheduleFilterDateRange(scheduleFilter);
-  const ensureRecurringSessions = scheduleFilter.mode === "default";
+  const ensureRecurringSessions =
+    options?.ensureRecurringSessions ?? scheduleFilter.mode === "default";
   const promotionScope = options?.promotionScope ?? "club";
   const attendeesMode = options?.attendeesMode ?? "full";
   const registerFilter = options?.filter ?? "all";
