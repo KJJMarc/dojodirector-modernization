@@ -1,10 +1,22 @@
-import { clubAdminPath, KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG } from "@/lib/clubs.shared";
+import {
+  BAHAMAS_JIU_JITSU_CLUB_SLUG,
+  clubAdminPath,
+  KINGSTON_CLUB_SLUG,
+  KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
+} from "@/lib/clubs.shared";
 
-export const COMPETITION_BRACKET_GENERATOR_CLUB_SLUG =
-  KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG;
+export const COMPETITION_BRACKET_GENERATOR_CLUB_SLUGS = [
+  KINGSTON_CLUB_SLUG,
+  KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG,
+  BAHAMAS_JIU_JITSU_CLUB_SLUG,
+] as const;
 
 export function isCompetitionBracketGeneratorClub(clubSlug: string) {
-  return clubSlug.trim() === COMPETITION_BRACKET_GENERATOR_CLUB_SLUG;
+  const normalizedSlug = clubSlug.trim().toLowerCase();
+
+  return COMPETITION_BRACKET_GENERATOR_CLUB_SLUGS.some(
+    (slug) => slug === normalizedSlug,
+  );
 }
 
 export function clubCompetitionBracketGeneratorPath(clubSlug: string) {
