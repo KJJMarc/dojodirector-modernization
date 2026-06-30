@@ -135,7 +135,7 @@ export function CompetitionBracketGeneratorView({
                 type="text"
                 value={competitionName}
                 onChange={(event) => setCompetitionName(event.target.value)}
-                placeholder="Kingston Kids Open 2026"
+                placeholder="Competition Name"
                 className={INPUT_CLASS}
               />
             </label>
@@ -148,7 +148,7 @@ export function CompetitionBracketGeneratorView({
                 type="text"
                 value={divisionName}
                 onChange={(event) => setDivisionName(event.target.value)}
-                placeholder="Grey Belt Under 8"
+                placeholder="Bracket Name"
                 className={INPUT_CLASS}
               />
             </label>
