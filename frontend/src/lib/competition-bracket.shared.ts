@@ -123,30 +123,33 @@ export function preliminaryRoundLabel() {
   return "Preliminary Round";
 }
 
+export function mainRoundLabelForMatchCount(matchCount: number): string {
+  if (matchCount <= 1) {
+    return "Final";
+  }
+
+  if (matchCount === 2) {
+    return "Semi-Final";
+  }
+
+  if (matchCount === 4) {
+    return "Quarter-Final";
+  }
+
+  return `Round of ${matchCount * 2}`;
+}
+
+/** @deprecated Use mainRoundLabelForMatchCount — kept for tests mapping index to count. */
 export function mainRoundLabel(
   roundIndex: number,
   mainBracketEntrants: number,
 ): string {
-  const mainRoundCount = Math.log2(Math.max(mainBracketEntrants, 2));
-  const roundsRemaining = mainRoundCount - roundIndex;
+  const matchCount = Math.max(
+    mainBracketEntrants / 2 ** (roundIndex + 1),
+    1,
+  );
 
-  if (mainBracketEntrants <= 2 && roundIndex === 0) {
-    return "Final";
-  }
-
-  if (roundsRemaining <= 1) {
-    return "Final";
-  }
-
-  if (roundsRemaining === 2) {
-    return "Semi-Final";
-  }
-
-  if (roundsRemaining === 3) {
-    return "Quarter-Final";
-  }
-
-  return `Round ${roundIndex + 1}`;
+  return mainRoundLabelForMatchCount(matchCount);
 }
 
 function pairMainFirstRound(
@@ -198,10 +201,9 @@ function buildMainRounds(
   }));
 
   let roundIndex = startingRoundIndex;
-  let mainRoundIndex = 0;
 
   rounds.push({
-    label: mainRoundLabel(mainRoundIndex, mainBracketEntrants),
+    label: mainRoundLabelForMatchCount(currentMatches.length),
     roundIndex,
     isPreliminary: false,
     matches: currentMatches,
@@ -209,7 +211,6 @@ function buildMainRounds(
 
   while (currentMatches.length > 1) {
     roundIndex += 1;
-    mainRoundIndex += 1;
     const nextMatches: BracketMatch[] = [];
 
     for (let matchIndex = 0; matchIndex < currentMatches.length / 2; matchIndex += 1) {
@@ -223,7 +224,7 @@ function buildMainRounds(
     }
 
     rounds.push({
-      label: mainRoundLabel(mainRoundIndex, mainBracketEntrants),
+      label: mainRoundLabelForMatchCount(nextMatches.length),
       roundIndex,
       isPreliminary: false,
       matches: nextMatches,

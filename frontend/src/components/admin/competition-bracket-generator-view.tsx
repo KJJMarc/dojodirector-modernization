@@ -52,9 +52,9 @@ function BracketPreview({ bracket }: { bracket: CompetitionBracket }) {
   const svg = useMemo(() => renderBracketSvg(bracket), [bracket]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-dojo-border bg-white p-2">
+    <div className="overflow-auto rounded-lg border border-dojo-border bg-white p-2">
       <div
-        className="mx-auto w-full min-w-[720px] max-w-full [&_svg]:h-auto [&_svg]:w-full"
+        className="mx-auto [&_svg]:block"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
     </div>

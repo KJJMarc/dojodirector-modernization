@@ -172,3 +172,22 @@ test("mainRoundLabel uses hyphenated round names", () => {
   assert.equal(mainRoundLabel(1, 8), "Semi-Final");
   assert.equal(preliminaryRoundLabel(), "Preliminary Round");
 });
+
+test("buildCompetitionBracket for sixteen competitors uses one final column", () => {
+  const names = Array.from({ length: 16 }, (_, index) => `P${index + 1}`);
+  const bracket = buildCompetitionBracket({
+    competitionName: "Kids Open",
+    divisionName: "Blue Belt",
+    competitors: names,
+    seedOrder: "entered",
+  });
+
+  assert.deepEqual(
+    bracket.rounds.map((round) => round.label),
+    ["Round of 16", "Quarter-Final", "Semi-Final", "Final"],
+  );
+  assert.equal(
+    bracket.rounds.filter((round) => round.label === "Final").length,
+    1,
+  );
+});
