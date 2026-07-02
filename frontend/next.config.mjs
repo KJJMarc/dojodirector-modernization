@@ -17,15 +17,23 @@ const nextConfig = {
         headers: ICON_CACHE_HEADERS,
       },
       {
-        source: "/icon-16.png",
+        source: "/favicon-16x16.png",
         headers: ICON_CACHE_HEADERS,
       },
       {
-        source: "/icon.png",
+        source: "/favicon-32x32.png",
         headers: ICON_CACHE_HEADERS,
       },
       {
-        source: "/apple-icon.png",
+        source: "/apple-touch-icon.png",
+        headers: ICON_CACHE_HEADERS,
+      },
+      {
+        source: "/android-chrome-192x192.png",
+        headers: ICON_CACHE_HEADERS,
+      },
+      {
+        source: "/android-chrome-512x512.png",
         headers: ICON_CACHE_HEADERS,
       },
       {
@@ -55,7 +63,32 @@ const nextConfig = {
     return [
       {
         source: "/icon.svg",
-        destination: "/icon.png",
+        destination: "/favicon-32x32.png",
+        permanent: false,
+      },
+      {
+        source: "/icon-16.png",
+        destination: "/favicon-16x16.png",
+        permanent: false,
+      },
+      {
+        source: "/icon.png",
+        destination: "/favicon-32x32.png",
+        permanent: false,
+      },
+      {
+        source: "/apple-icon.png",
+        destination: "/apple-touch-icon.png",
+        permanent: false,
+      },
+      {
+        source: "/pwa/icon-192.png",
+        destination: "/android-chrome-192x192.png",
+        permanent: false,
+      },
+      {
+        source: "/pwa/icon-512.png",
+        destination: "/android-chrome-512x512.png",
         permanent: false,
       },
       {

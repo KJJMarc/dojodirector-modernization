@@ -9,19 +9,21 @@ export const PWA_SCOPE = "/";
 export const PWA_APP_ENTRY_PATH = "/app";
 
 /** Bump when favicon/PWA raster assets change to defeat browser and SW caches. */
-export const PWA_ICON_ASSET_VERSION = "3";
+export const PWA_ICON_ASSET_VERSION = "4";
+
+export const PWA_ICON_SOURCE_PATH = "/assets/dojo-director-icon.png";
 
 export function versionedAssetPath(path: string): string {
   return `${path}?v=${PWA_ICON_ASSET_VERSION}`;
 }
 
 export const PWA_ICON_PATHS = {
-  favicon16: versionedAssetPath("/icon-16.png"),
-  favicon32: versionedAssetPath("/icon.png"),
+  favicon16: versionedAssetPath("/favicon-16x16.png"),
+  favicon32: versionedAssetPath("/favicon-32x32.png"),
   faviconIco: versionedAssetPath("/favicon.ico"),
-  apple180: versionedAssetPath("/apple-icon.png"),
-  icon192: versionedAssetPath("/pwa/icon-192.png"),
-  icon512: versionedAssetPath("/pwa/icon-512.png"),
+  apple180: versionedAssetPath("/apple-touch-icon.png"),
+  icon192: versionedAssetPath("/android-chrome-192x192.png"),
+  icon512: versionedAssetPath("/android-chrome-512x512.png"),
   maskable512: versionedAssetPath("/pwa/icon-maskable-512.png"),
   splash1290: versionedAssetPath("/pwa/apple-splash-1290x2796.png"),
   manifest: versionedAssetPath("/manifest.webmanifest"),

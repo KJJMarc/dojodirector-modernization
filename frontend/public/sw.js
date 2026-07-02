@@ -1,6 +1,6 @@
-const CACHE_VERSION = "dojo-director-pwa-v2";
+const CACHE_VERSION = "dojo-director-pwa-v3";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const ICON_ASSET_VERSION = "3";
+const ICON_ASSET_VERSION = "4";
 
 function versionedAsset(path) {
   return `${path}?v=${ICON_ASSET_VERSION}`;
@@ -9,11 +9,11 @@ function versionedAsset(path) {
 const STATIC_ASSETS = [
   versionedAsset("/manifest.webmanifest"),
   versionedAsset("/favicon.ico"),
-  versionedAsset("/icon-16.png"),
-  versionedAsset("/icon.png"),
-  versionedAsset("/apple-icon.png"),
-  versionedAsset("/pwa/icon-192.png"),
-  versionedAsset("/pwa/icon-512.png"),
+  versionedAsset("/favicon-16x16.png"),
+  versionedAsset("/favicon-32x32.png"),
+  versionedAsset("/apple-touch-icon.png"),
+  versionedAsset("/android-chrome-192x192.png"),
+  versionedAsset("/android-chrome-512x512.png"),
   versionedAsset("/pwa/icon-maskable-512.png"),
 ];
 
