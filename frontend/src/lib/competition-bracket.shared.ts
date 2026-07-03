@@ -145,38 +145,80 @@ export function mainRoundLabelForMatchCount(matchCount: number): string {
   return `Round of ${matchCount * 2}`;
 }
 
-function pairMainFirstRound(
+export interface MainFirstRoundSeeding {
+  matches: Array<{ top: BracketParticipant; bottom: BracketParticipant }>;
+  /**
+   * For each preliminary match (by index) the main-bracket slot its winner
+   * advances into. Ordered to match the preliminary matches produced by
+   * `buildCompetitionBracket`.
+   */
+  preliminaryFeeds: Array<{ mainMatchIndex: number; slot: "top" | "bottom" }>;
+}
+
+/**
+ * Distributes preliminary winners and bye competitors across the main bracket's
+ * first round.
+ *
+ * The main first round always has exactly `mainBracketSize / 2` matches (a power
+ * of two), and every slot is filled with a real participant — either a bye
+ * competitor or a preliminary-winner placeholder. No phantom empty-vs-empty
+ * matches are ever created.
+ *
+ * When there are more preliminary matches than main matches (e.g. 7 entrants →
+ * 3 play-ins into 2 semi-finals), the surplus preliminary matches "double up",
+ * feeding both the top and bottom slot of the same main match.
+ */
+export function seedMainFirstRound(
   byePlayers: string[],
   preliminaryMatchCount: number,
-): Array<{ top: BracketParticipant; bottom: BracketParticipant }> {
-  const matches: Array<{ top: BracketParticipant; bottom: BracketParticipant }> =
-    [];
+  mainBracketSize: number,
+): MainFirstRoundSeeding {
+  const matchCount = Math.max(Math.floor(mainBracketSize / 2), 1);
+  const doubleUpMatches = Math.max(0, preliminaryMatchCount - matchCount);
+  const singlePreliminaryMatches = preliminaryMatchCount - doubleUpMatches * 2;
+  const byeByeMatches = matchCount - doubleUpMatches - singlePreliminaryMatches;
+
   const byeQueue = [...byePlayers];
+  const matches: MainFirstRoundSeeding["matches"] = [];
+  const preliminaryFeeds: MainFirstRoundSeeding["preliminaryFeeds"] = [];
 
-  for (let index = 0; index < preliminaryMatchCount; index += 1) {
-    const byePlayer = byeQueue.shift();
+  const takeBye = (): BracketParticipant => {
+    const name = byeQueue.shift();
+    return name ? competitor(name) : emptySlot();
+  };
 
+  const takePreliminary = (
+    mainMatchIndex: number,
+    slot: "top" | "bottom",
+  ): BracketParticipant => {
+    preliminaryFeeds.push({ mainMatchIndex, slot });
+    return preliminaryWinner();
+  };
+
+  // Byes are seeded at the top so top-of-list competitors skip the play-in
+  // round, followed by play-in matches feeding a single slot, then the doubled
+  // up play-in matches at the bottom near the preliminary column.
+  for (let index = 0; index < byeByeMatches; index += 1) {
+    matches.push({ top: takeBye(), bottom: takeBye() });
+  }
+
+  for (let index = 0; index < singlePreliminaryMatches; index += 1) {
+    const mainMatchIndex = matches.length;
     matches.push({
-      top: preliminaryWinner(),
-      bottom: byePlayer ? competitor(byePlayer) : emptySlot(),
+      top: takePreliminary(mainMatchIndex, "top"),
+      bottom: takeBye(),
     });
   }
 
-  while (byeQueue.length >= 2) {
+  for (let index = 0; index < doubleUpMatches; index += 1) {
+    const mainMatchIndex = matches.length;
     matches.push({
-      top: competitor(byeQueue.shift() ?? ""),
-      bottom: competitor(byeQueue.shift() ?? ""),
+      top: takePreliminary(mainMatchIndex, "top"),
+      bottom: takePreliminary(mainMatchIndex, "bottom"),
     });
   }
 
-  if (byeQueue.length === 1) {
-    matches.push({
-      top: competitor(byeQueue[0] ?? ""),
-      bottom: emptySlot(),
-    });
-  }
-
-  return matches;
+  return { matches, preliminaryFeeds };
 }
 
 function buildMainRounds(
@@ -242,18 +284,26 @@ export function buildCompetitionBracket(
   const byePlayers = orderedNames.slice(0, plan.byePlayerCount);
   const preliminaryPlayers = orderedNames.slice(plan.byePlayerCount);
 
+  const seeding = seedMainFirstRound(
+    byePlayers,
+    plan.preliminaryMatchCount,
+    plan.mainBracketEntrants,
+  );
+
   if (plan.preliminaryMatchCount > 0) {
     const preliminaryMatches: BracketMatch[] = [];
 
     for (let index = 0; index < plan.preliminaryMatchCount; index += 1) {
+      const feed = seeding.preliminaryFeeds[index];
+
       preliminaryMatches.push({
         roundIndex: 0,
         matchIndex: index,
         isPreliminary: true,
         top: competitor(preliminaryPlayers[index * 2] ?? ""),
         bottom: competitor(preliminaryPlayers[index * 2 + 1] ?? ""),
-        feedsMainMatchIndex: index,
-        feedsMainSlot: "top",
+        feedsMainMatchIndex: feed?.mainMatchIndex ?? index,
+        feedsMainSlot: feed?.slot ?? "top",
       });
     }
 
@@ -266,12 +316,7 @@ export function buildCompetitionBracket(
   }
 
   const mainStartRoundIndex = plan.preliminaryMatchCount > 0 ? 1 : 0;
-  const firstMainMatches = pairMainFirstRound(
-    byePlayers,
-    plan.preliminaryMatchCount,
-  );
-
-  const mainRounds = buildMainRounds(firstMainMatches, mainStartRoundIndex);
+  const mainRounds = buildMainRounds(seeding.matches, mainStartRoundIndex);
 
   rounds.push(...mainRounds);
 
@@ -334,12 +379,25 @@ export function displayParticipantLabel(participant: BracketParticipant) {
   return participant.name;
 }
 
+/**
+ * A "BYE vs BYE" match is a played starting-round match (preliminary or the
+ * first main round) that has no real participant on either side. Later rounds
+ * are intentionally blank for handwriting, so they are excluded.
+ */
 export function hasByeVersusByeMatch(bracket: CompetitionBracket) {
-  return bracket.rounds.some((round) =>
-    round.matches.some(
+  const firstMainRoundIndex = bracket.preliminaryMatchCount > 0 ? 1 : 0;
+
+  return bracket.rounds.some((round) => {
+    const isStartingRound =
+      round.isPreliminary || round.roundIndex === firstMainRoundIndex;
+
+    if (!isStartingRound) {
+      return false;
+    }
+
+    return round.matches.some(
       (match) =>
-        match.top.name === "BYE" &&
-        match.bottom.name === "BYE",
-    ),
-  );
+        match.top.source === "empty" && match.bottom.source === "empty",
+    );
+  });
 }

@@ -263,6 +263,10 @@ function layoutRoundsForTypography(
     Math.min(typography.matchHalfGap, maxHalfGap),
   );
 
+  // Preliminary matches sit slightly tighter than main matches so that two
+  // play-ins feeding the top and bottom slot of the same main match (e.g. 7 or
+  // 15 entrants) never overlap.
+  const prelimHalfGap = Math.max(MATCH_HALF_GAP_MIN, matchHalfGap * 0.5);
   const mainMatchCenters = new Map<number, number>();
 
   const rounds = bracket.rounds.map((round, columnIndex) => {
@@ -287,11 +291,13 @@ function layoutRoundsForTypography(
         mainRoundIndex,
         frame,
         leafSlotHeight,
+        matchHalfGap,
         mainMatchCenters,
       });
 
-      const topY = centerY + matchHalfGap;
-      const bottomY = centerY - matchHalfGap;
+      const halfGap = round.isPreliminary ? prelimHalfGap : matchHalfGap;
+      const topY = centerY + halfGap;
+      const bottomY = centerY - halfGap;
 
       const layoutMatch: BracketLayoutMatch = {
         matchIndex: match.matchIndex,
@@ -338,19 +344,23 @@ function resolveMatchCenterY(input: {
   mainRoundIndex: number;
   frame: BracketFrame;
   leafSlotHeight: number;
+  matchHalfGap: number;
   mainMatchCenters: Map<number, number>;
 }): number {
   const { match, isPreliminary, mainRoundIndex, frame, leafSlotHeight } = input;
 
   if (isPreliminary) {
     const feederIndex = match.feedsMainMatchIndex ?? match.matchIndex;
-    const feederCenter = input.mainMatchCenters.get(feederIndex);
+    const feederCenter =
+      input.mainMatchCenters.get(feederIndex) ??
+      mainMatchCenterY(frame, leafSlotHeight, 0, feederIndex);
 
-    if (feederCenter !== undefined) {
-      return feederCenter;
-    }
-
-    return mainMatchCenterY(frame, leafSlotHeight, 0, feederIndex);
+    // Centre the play-in on the exact slot line it feeds so its winner line
+    // continues straight into the main match, and so two play-ins feeding the
+    // same main match land on separate (top/bottom) lines.
+    return match.feedsMainSlot === "bottom"
+      ? feederCenter - input.matchHalfGap
+      : feederCenter + input.matchHalfGap;
   }
 
   if (mainRoundIndex >= 0) {

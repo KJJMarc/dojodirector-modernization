@@ -135,7 +135,7 @@ test("svg competitor text uses the same baseline coordinates as pdf layout", () 
   );
 });
 
-for (const count of [4, 5, 8, 10, 12, 16]) {
+for (const count of [4, 5, 6, 7, 8, 9, 10, 12, 15, 16]) {
   test(`${count}-competitor brackets fit on one landscape page`, async () => {
     const bracket = buildBracketFromCount(count);
     const layout = buildBracketLayout(bracket);
@@ -194,8 +194,31 @@ test("larger brackets pack more first-round slots into the same height", () => {
 });
 
 test("all supported bracket sizes fit inside the printable area", () => {
-  for (const count of [4, 5, 8, 10, 12, 16]) {
+  for (const count of [4, 5, 6, 7, 8, 9, 10, 12, 15, 16]) {
     const layout = buildBracketLayout(buildBracketFromCount(count));
     assertBracketFitsPage(layout);
+  }
+});
+
+test("preliminary matches never overlap within their column", () => {
+  // 7 and 15 entrants force two play-ins to feed the top and bottom slot of the
+  // same main match; their competitor lines must stay separated.
+  for (const count of [7, 15]) {
+    const layout = buildBracketLayout(buildBracketFromCount(count));
+    const preliminaryRound = layout.rounds.find((round) => round.isPreliminary);
+    assert.ok(preliminaryRound, `expected a preliminary round for ${count}`);
+
+    const ordered = [...preliminaryRound.matches].sort(
+      (a, b) => b.topY - a.topY,
+    );
+
+    for (let index = 0; index < ordered.length - 1; index += 1) {
+      const upper = ordered[index];
+      const lower = ordered[index + 1];
+      assert.ok(
+        upper.bottomY > lower.topY,
+        `preliminary matches overlap for ${count} entrants`,
+      );
+    }
   }
 });

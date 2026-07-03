@@ -50,18 +50,25 @@ test("buildCompetitionBracket for five competitors uses preliminary and semi-fin
     ["Preliminary Round", "Semi-Final", "Final"],
   );
 
-  const preliminary = bracket.rounds[0].matches[0];
-  assert.deepEqual(
-    [preliminary.top.name, preliminary.bottom.name],
-    ["D", "E"],
-  );
+  const preliminary = bracket.rounds[0].matches;
+  assert.equal(preliminary.length, 1);
+  assert.equal(preliminary[0].top.source, "competitor");
+  assert.equal(preliminary[0].bottom.source, "competitor");
 
   const semiFinals = bracket.rounds[1].matches;
   assert.equal(semiFinals.length, 2);
-  assert.equal(semiFinals[0].top.source, "preliminary-winner");
-  assert.equal(semiFinals[0].bottom.name, "A");
-  assert.equal(semiFinals[1].top.name, "B");
-  assert.equal(semiFinals[1].bottom.name, "C");
+
+  const slots = semiFinals.flatMap((match) => [match.top, match.bottom]);
+  const competitorSlots = slots.filter((slot) => slot.source === "competitor");
+  const preliminaryWinnerSlots = slots.filter(
+    (slot) => slot.source === "preliminary-winner",
+  );
+  const emptySlots = slots.filter((slot) => slot.source === "empty");
+
+  // 3 byes advance directly, 1 slot awaits the single preliminary winner.
+  assert.equal(competitorSlots.length, 3);
+  assert.equal(preliminaryWinnerSlots.length, 1);
+  assert.equal(emptySlots.length, 0);
 });
 
 test("buildCompetitionBracket for six competitors pairs preliminary winners with bye players", () => {
@@ -75,8 +82,17 @@ test("buildCompetitionBracket for six competitors pairs preliminary winners with
   assert.equal(bracket.preliminaryMatchCount, 2);
   assert.equal(bracket.rounds[0].matches.length, 2);
   assert.equal(bracket.rounds[1].label, "Semi-Final");
-  assert.equal(bracket.rounds[1].matches[0].bottom.name, "A");
-  assert.equal(bracket.rounds[1].matches[1].bottom.name, "B");
+
+  const semiFinals = bracket.rounds[1].matches;
+  const slots = semiFinals.flatMap((match) => [match.top, match.bottom]);
+  assert.equal(
+    slots.filter((slot) => slot.source === "competitor").length,
+    2,
+  );
+  assert.equal(
+    slots.filter((slot) => slot.source === "preliminary-winner").length,
+    2,
+  );
   assert.equal(hasByeVersusByeMatch(bracket), false);
 });
 
@@ -145,9 +161,12 @@ test("five competitor bracket keeps preliminary winner slot blank in semi-final"
   });
 
   const semiFinals = bracket.rounds[1].matches;
-  assert.equal(semiFinals[0].top.source, "preliminary-winner");
-  assert.equal(semiFinals[0].top.name, "");
-  assert.equal(semiFinals[0].bottom.source, "competitor");
+  const preliminaryWinnerSlot = semiFinals
+    .flatMap((match) => [match.top, match.bottom])
+    .find((slot) => slot.source === "preliminary-winner");
+
+  assert.ok(preliminaryWinnerSlot, "expected a preliminary-winner slot");
+  assert.equal(preliminaryWinnerSlot.name, "");
 });
 
 test("parseCompetitorLines ignores blank lines in the textarea", () => {
@@ -190,6 +209,75 @@ test("sixteen competitor bracket labels every column without repeating Final", (
   ]);
   assert.equal(labels.filter((label) => label === "Final").length, 1);
 });
+
+const BRACKET_STRUCTURE_EXPECTATIONS = [
+  { entrants: 5, preliminaryMatches: 1, byes: 3, mainSize: 4 },
+  { entrants: 6, preliminaryMatches: 2, byes: 2, mainSize: 4 },
+  { entrants: 7, preliminaryMatches: 3, byes: 1, mainSize: 4 },
+  { entrants: 8, preliminaryMatches: 0, byes: 8, mainSize: 8 },
+  { entrants: 9, preliminaryMatches: 1, byes: 7, mainSize: 8 },
+  { entrants: 10, preliminaryMatches: 2, byes: 6, mainSize: 8 },
+  { entrants: 12, preliminaryMatches: 4, byes: 4, mainSize: 8 },
+  { entrants: 15, preliminaryMatches: 7, byes: 1, mainSize: 8 },
+  { entrants: 16, preliminaryMatches: 0, byes: 16, mainSize: 16 },
+] as const;
+
+for (const expectation of BRACKET_STRUCTURE_EXPECTATIONS) {
+  test(`${expectation.entrants} entrants award byes and play-ins correctly`, () => {
+    const bracket = buildCompetitionBracketFromForm({
+      competitionName: "Competition",
+      divisionName: "Division",
+      competitorsText: Array.from(
+        { length: expectation.entrants },
+        (_, index) => `Name ${index + 1}`,
+      ).join("\n"),
+    });
+
+    assert.equal(
+      bracket.preliminaryMatchCount,
+      expectation.preliminaryMatches,
+      "preliminary match count",
+    );
+    assert.equal(bracket.mainBracketSize, expectation.mainSize, "main size");
+
+    // Every preliminary match must have two real competitors — never a bye.
+    for (const match of bracket.rounds
+      .filter((round) => round.isPreliminary)
+      .flatMap((round) => round.matches)) {
+      assert.equal(match.top.source, "competitor");
+      assert.equal(match.bottom.source, "competitor");
+    }
+
+    // The first main round has exactly `mainSize / 2` matches (a power of two)
+    // and awards the expected number of byes as real competitors.
+    const firstMainRoundIndex = bracket.preliminaryMatchCount > 0 ? 1 : 0;
+    const firstMainRound = bracket.rounds.find(
+      (round) => !round.isPreliminary && round.roundIndex === firstMainRoundIndex,
+    );
+    assert.ok(firstMainRound, "expected a first main round");
+    assert.equal(firstMainRound.matches.length, expectation.mainSize / 2);
+
+    const firstMainSlots = firstMainRound.matches.flatMap((match) => [
+      match.top,
+      match.bottom,
+    ]);
+    assert.equal(
+      firstMainSlots.filter((slot) => slot.source === "competitor").length,
+      expectation.byes,
+      "bye competitors placed in the first main round",
+    );
+    assert.equal(
+      firstMainSlots.filter((slot) => slot.source === "empty").length,
+      0,
+      "no phantom empty slots in the first main round",
+    );
+
+    assert.equal(hasByeVersusByeMatch(bracket), false, "no BYE vs BYE");
+
+    const finals = bracket.rounds.filter((round) => round.label === "Final");
+    assert.equal(finals.length, 1, "exactly one Final");
+  });
+}
 
 test("round headings never repeat Final across supported sizes", () => {
   for (const count of [4, 5, 8, 10, 12, 16]) {
