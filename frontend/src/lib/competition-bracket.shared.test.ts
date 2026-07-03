@@ -6,7 +6,7 @@ import {
   buildCompetitionBracketFromForm,
   formatBracketHeaderLine,
   hasByeVersusByeMatch,
-  mainRoundLabel,
+  mainRoundLabelForMatchCount,
   parseCompetitorLines,
   planBracketStructure,
   preliminaryRoundLabel,
@@ -165,10 +165,49 @@ test("buildCompetitionBracketFromForm uses the entered division name", () => {
   assert.equal(bracket.rounds[0].matches[0].top.name, "Alex");
 });
 
-test("mainRoundLabel uses hyphenated round names", () => {
-  assert.equal(mainRoundLabel(0, 4), "Semi-Final");
-  assert.equal(mainRoundLabel(1, 4), "Final");
-  assert.equal(mainRoundLabel(0, 8), "Quarter-Final");
-  assert.equal(mainRoundLabel(1, 8), "Semi-Final");
+test("mainRoundLabelForMatchCount maps match counts to canonical labels", () => {
+  assert.equal(mainRoundLabelForMatchCount(1), "Final");
+  assert.equal(mainRoundLabelForMatchCount(2), "Semi-Final");
+  assert.equal(mainRoundLabelForMatchCount(4), "Quarter-Final");
+  assert.equal(mainRoundLabelForMatchCount(8), "Round of 16");
   assert.equal(preliminaryRoundLabel(), "Preliminary Round");
+});
+
+test("sixteen competitor bracket labels every column without repeating Final", () => {
+  const bracket = buildCompetitionBracket({
+    competitionName: "Kids Open",
+    divisionName: "Blue Belt",
+    competitors: Array.from({ length: 16 }, (_, index) => `C${index + 1}`),
+    seedOrder: "entered",
+  });
+
+  const labels = bracket.rounds.map((round) => round.label);
+  assert.deepEqual(labels, [
+    "Round of 16",
+    "Quarter-Final",
+    "Semi-Final",
+    "Final",
+  ]);
+  assert.equal(labels.filter((label) => label === "Final").length, 1);
+});
+
+test("round headings never repeat Final across supported sizes", () => {
+  for (const count of [4, 5, 8, 10, 12, 16]) {
+    const bracket = buildCompetitionBracketFromForm({
+      competitionName: "Competition",
+      divisionName: "Division",
+      competitorsText: Array.from(
+        { length: count },
+        (_, index) => `Name ${index + 1}`,
+      ).join("\n"),
+    });
+
+    const finals = bracket.rounds.filter((round) => round.label === "Final");
+    assert.equal(
+      finals.length,
+      1,
+      `expected exactly one Final column for ${count} competitors`,
+    );
+    assert.equal(bracket.rounds.at(-1)?.label, "Final");
+  }
 });

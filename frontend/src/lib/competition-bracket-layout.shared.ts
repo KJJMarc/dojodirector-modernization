@@ -46,7 +46,6 @@ export interface BracketLayoutMatch {
 
 export interface BracketLayout {
   page: BracketPageSize;
-  scale: number;
   marginX: number;
   marginTop: number;
   marginBottom: number;
@@ -67,7 +66,10 @@ export interface BracketLayout {
   metaFontSize: number;
   roundHeaderFontSize: number;
   lineThickness: number;
-  matchGap: number;
+  /** Vertical space allocated to each first-round match. */
+  leafSlotHeight: number;
+  /** Half the vertical distance between the two competitor lines of a match. */
+  matchHalfGap: number;
   competitorNameLineGap: number;
   rounds: {
     label: string;
@@ -78,14 +80,43 @@ export interface BracketLayout {
   }[];
 }
 
-export const BRACKET_COMPETITOR_NAME_LINE_GAP = 8;
+export const BRACKET_COMPETITOR_NAME_LINE_GAP = 7;
 
-const BRACKET_NAME_FONT_SIZE = 11;
-const BRACKET_MATCH_GAP_EXTRA = 10;
-const BRACKET_MATCH_GAP_BASE = 9;
-const BRACKET_HEADER_SCALE_HEIGHT = 26 + 22 + 17 + 17 + 24 + 20;
-const BRACKET_FOOTER_SCALE_HEIGHT = 36 + 10;
-const BRACKET_MIN_LAYOUT_SCALE = 0.58;
+// Fixed header geometry (measured down from the top of the page). The header is
+// reserved first and never scaled, so the bracket always renders in the space
+// that remains below it.
+const HEADER_TITLE_FONT_SIZE = 20;
+const HEADER_META_FONT_SIZE = 11.5;
+const HEADER_ROUND_FONT_SIZE = 13.5;
+const HEADER_TITLE_OFFSET = 30;
+const HEADER_DIVISION_GAP = 22;
+const HEADER_TIME_GAP = 16;
+const HEADER_NOTES_GAP = 16;
+const HEADER_ROUND_GAP = 26;
+const HEADER_BRACKET_GAP = 16;
+
+const MARGIN_X = 44;
+const MARGIN_BOTTOM = 34;
+const LINE_THICKNESS = 1;
+
+// Base typography for the bracket body. When a dense bracket does not fit in the
+// available height these values are reduced together until it does.
+const NAME_FONT_SIZE_BASE = 11;
+const NAME_FONT_SIZE_MIN = 6.5;
+const NAME_LINE_GAP_BASE = BRACKET_COMPETITOR_NAME_LINE_GAP;
+const NAME_LINE_GAP_MIN = 3.5;
+const MATCH_HALF_GAP_BASE = 16;
+const MATCH_HALF_GAP_MIN = 3;
+const TYPOGRAPHY_STEP = 0.95;
+// Approximate cap height ratio for Helvetica, used to keep the tallest name
+// glyphs inside the printable area.
+const NAME_ASCENT_RATIO = 0.72;
+
+interface BracketTypography {
+  nameFontSize: number;
+  nameLineGap: number;
+  matchHalfGap: number;
+}
 
 export function bracketSvgTextBaselineY(
   pdfBaselineY: number,
@@ -113,55 +144,6 @@ function resolvePageSize(mainBracketSize: number): BracketPageSize {
   return BRACKET_PAGE_A4_LANDSCAPE;
 }
 
-function computeFitScale(pageHeight: number, leafCount: number): number {
-  const perLeafAtUnitScale =
-    2 *
-    (BRACKET_MATCH_GAP_BASE +
-      BRACKET_MATCH_GAP_EXTRA +
-      BRACKET_COMPETITOR_NAME_LINE_GAP +
-      BRACKET_NAME_FONT_SIZE);
-  const denominator =
-    BRACKET_HEADER_SCALE_HEIGHT +
-    BRACKET_FOOTER_SCALE_HEIGHT +
-    leafCount * perLeafAtUnitScale;
-
-  if (denominator <= 0) {
-    return 1;
-  }
-
-  const idealScale = (pageHeight / denominator) * 0.98;
-
-  return Math.max(BRACKET_MIN_LAYOUT_SCALE, Math.min(1, idealScale));
-}
-
-function resolveLayoutScale(
-  page: BracketPageSize,
-  mainBracketSize: number,
-): number {
-  const leafCount = Math.max(mainBracketSize / 2, 1);
-  return computeFitScale(page.height, leafCount);
-}
-
-export function getBracketLayoutVerticalBounds(layout: BracketLayout) {
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-
-  for (const round of layout.rounds) {
-    for (const match of round.matches) {
-      minY = Math.min(minY, match.bottomY);
-      maxY = Math.max(
-        maxY,
-        match.topTextBaselineY + layout.nameFontSize,
-      );
-    }
-  }
-
-  return {
-    minY: Number.isFinite(minY) ? minY : layout.bracketBottom,
-    maxY: Number.isFinite(maxY) ? maxY : layout.bracketTop,
-  };
-}
-
 function getMainRoundIndex(
   bracket: CompetitionBracket,
   roundIndex: number,
@@ -174,132 +156,71 @@ function getMainRoundIndex(
   return roundIndex - (bracket.preliminaryMatchCount > 0 ? 1 : 0);
 }
 
-function layoutMainMatchCenterY(input: {
-  mainRoundIndex: number;
-  matchIndex: number;
-  mainBracketSize: number;
-  bracketTop: number;
-  bracketBottom: number;
-}) {
-  const bracketHeight = input.bracketTop - input.bracketBottom;
-  const leafCount = Math.max(input.mainBracketSize / 2, 1);
-  const leafSlotHeight = bracketHeight / leafCount;
-  const matchSpan = leafSlotHeight * 2 ** input.mainRoundIndex;
+export function getBracketLayoutVerticalBounds(layout: BracketLayout) {
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  const ascent = layout.nameFontSize * NAME_ASCENT_RATIO;
 
-  return (
-    input.bracketTop -
-    matchSpan * input.matchIndex -
-    matchSpan / 2
-  );
-}
-
-export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
-  const page = resolvePageSize(bracket.mainBracketSize);
-  const roundCount = bracket.rounds.length;
-  const leafCount = Math.max(bracket.mainBracketSize / 2, 1);
-  const scale = resolveLayoutScale(page, bracket.mainBracketSize);
-  const marginX = 56 * scale;
-  const marginBottom = 36 * scale;
-  const titleFontSize = 20 * scale;
-  const metaFontSize = 11.5 * scale;
-  const titleY = page.height - 26 * scale;
-  const divisionY = titleY - 22 * scale;
-  const timeY = divisionY - 17 * scale;
-  const notesY = timeY - 17 * scale;
-  const roundHeaderY = notesY - 24 * scale;
-  const bracketTop = roundHeaderY - 20 * scale;
-  const bracketBottom = marginBottom + 10 * scale;
-  const bracketLeft = marginX;
-  const bracketRight = page.width - marginX * 0.7;
-  const bracketWidth = bracketRight - bracketLeft;
-  const roundColumnWidth = bracketWidth / roundCount;
-  const nameLineLength = Math.min(132 * scale, roundColumnWidth * 0.44);
-  const connectorWidth = Math.min(32 * scale, roundColumnWidth * 0.15);
-  const nameFontSize = BRACKET_NAME_FONT_SIZE * scale;
-  const roundHeaderFontSize = 13.5 * scale;
-  const lineThickness = 1;
-  const competitorNameLineGap = BRACKET_COMPETITOR_NAME_LINE_GAP * scale;
-  const availableBracketHeight = bracketTop - bracketBottom;
-  const leafSlotHeight = availableBracketHeight / leafCount;
-  const desiredHalfGap = (BRACKET_MATCH_GAP_BASE + BRACKET_MATCH_GAP_EXTRA) * scale;
-  const maxHalfGap = Math.max(
-    4 * scale,
-    leafSlotHeight / 2 - competitorNameLineGap - nameFontSize,
-  );
-  const halfGap = Math.min(desiredHalfGap, maxHalfGap);
-  const matchGap = Math.max(0, halfGap - BRACKET_MATCH_GAP_EXTRA * scale);
-  const mainMatchCenters = new Map<string, BracketLayoutMatch>();
-
-  const rounds = bracket.rounds.map((round, columnIndex) => {
-    const columnX = bracketLeft + columnIndex * roundColumnWidth;
-    const nameLineStartX = columnX + 10 * scale;
-    const nameLineEndX = nameLineStartX + nameLineLength;
-    const connectorX = nameLineEndX + connectorWidth;
-    const winnerLineEndX =
-      columnIndex === roundCount - 1
-        ? connectorX + 8 * scale
-        : columnX + roundColumnWidth - 8 * scale;
-    const mainRoundIndex = getMainRoundIndex(
-      bracket,
-      round.roundIndex,
-      round.isPreliminary,
-    );
-
-    const matches = round.matches.map((match) =>
-      layoutMatch({
-        match,
-        round,
-        mainRoundIndex,
-        bracket,
-        bracketTop,
-        bracketBottom,
-        halfGap,
-        nameLineStartX,
-        nameLineEndX,
-        connectorX,
-        winnerLineEndX,
-        competitorNameLineGap,
-        mainMatchCenters,
-      }),
-    );
-
-    return {
-      label: round.label,
-      roundIndex: round.roundIndex,
-      isPreliminary: round.isPreliminary,
-      columnX,
-      matches,
-    };
-  });
-
-  if (bracket.preliminaryMatchCount > 0) {
-    const preliminaryRound = rounds.find((round) => round.isPreliminary);
-    const firstMainRound = rounds.find((round) => !round.isPreliminary);
-
-    if (preliminaryRound && firstMainRound) {
-      for (const prelimMatch of preliminaryRound.matches) {
-        const feederMain = firstMainRound.matches[prelimMatch.feedsMainMatchIndex ?? 0];
-
-        if (!feederMain) {
-          continue;
-        }
-
-        prelimMatch.centerY = feederMain.centerY;
-        prelimMatch.topY = feederMain.centerY + halfGap;
-        prelimMatch.bottomY = feederMain.centerY - halfGap;
-        prelimMatch.topTextBaselineY = prelimMatch.topY + competitorNameLineGap;
-        prelimMatch.bottomTextBaselineY =
-          prelimMatch.bottomY + competitorNameLineGap;
-      }
+  for (const round of layout.rounds) {
+    for (const match of round.matches) {
+      minY = Math.min(minY, match.bottomY, match.topY);
+      maxY = Math.max(
+        maxY,
+        match.topY,
+        match.topTextBaselineY + ascent,
+        match.bottomTextBaselineY + ascent,
+      );
     }
   }
 
   return {
+    minY: Number.isFinite(minY) ? minY : layout.bracketBottom,
+    maxY: Number.isFinite(maxY) ? maxY : layout.bracketTop,
+  };
+}
+
+interface BracketFrame {
+  page: BracketPageSize;
+  marginX: number;
+  marginBottom: number;
+  titleY: number;
+  divisionY: number;
+  timeY: number;
+  notesY: number;
+  roundHeaderY: number;
+  bracketTop: number;
+  bracketBottom: number;
+  bracketLeft: number;
+  bracketRight: number;
+  roundColumnWidth: number;
+  nameLineLength: number;
+  connectorWidth: number;
+  availableHeight: number;
+  leafCount: number;
+}
+
+function buildFrame(bracket: CompetitionBracket): BracketFrame {
+  const page = resolvePageSize(bracket.mainBracketSize);
+  const roundCount = Math.max(bracket.rounds.length, 1);
+
+  const titleY = page.height - HEADER_TITLE_OFFSET;
+  const divisionY = titleY - HEADER_DIVISION_GAP;
+  const timeY = divisionY - HEADER_TIME_GAP;
+  const notesY = timeY - HEADER_NOTES_GAP;
+  const roundHeaderY = notesY - HEADER_ROUND_GAP;
+  const bracketTop = roundHeaderY - HEADER_BRACKET_GAP;
+  const bracketBottom = MARGIN_BOTTOM;
+
+  const bracketLeft = MARGIN_X;
+  const bracketRight = page.width - MARGIN_X * 0.6;
+  const roundColumnWidth = (bracketRight - bracketLeft) / roundCount;
+  const nameLineLength = Math.min(140, roundColumnWidth * 0.5);
+  const connectorWidth = Math.min(30, roundColumnWidth * 0.14);
+
+  return {
     page,
-    scale,
-    marginX,
-    marginTop: page.height - titleY,
-    marginBottom,
+    marginX: MARGIN_X,
+    marginBottom: MARGIN_BOTTOM,
     titleY,
     divisionY,
     timeY,
@@ -312,84 +233,226 @@ export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
     roundColumnWidth,
     nameLineLength,
     connectorWidth,
-    nameFontSize,
-    titleFontSize,
-    metaFontSize,
-    roundHeaderFontSize,
-    lineThickness,
-    matchGap,
-    competitorNameLineGap,
-    rounds,
+    availableHeight: bracketTop - bracketBottom,
+    leafCount: Math.max(bracket.mainBracketSize / 2, 1),
   };
 }
 
-function layoutMatch(input: {
-  match: BracketMatch;
-  round: CompetitionBracket["rounds"][number];
-  mainRoundIndex: number;
-  bracket: CompetitionBracket;
-  bracketTop: number;
-  bracketBottom: number;
-  halfGap: number;
-  nameLineStartX: number;
-  nameLineEndX: number;
-  connectorX: number;
-  winnerLineEndX: number;
-  competitorNameLineGap: number;
-  mainMatchCenters: Map<string, BracketLayoutMatch>;
-}): BracketLayoutMatch {
-  const halfGap = input.halfGap;
-  let centerY = input.bracketTop / 2;
+function mainMatchCenterY(
+  frame: BracketFrame,
+  leafSlotHeight: number,
+  mainRoundIndex: number,
+  matchIndex: number,
+) {
+  const span = leafSlotHeight * 2 ** mainRoundIndex;
 
-  if (!input.round.isPreliminary && input.mainRoundIndex >= 0) {
-    centerY = layoutMainMatchCenterY({
-      mainRoundIndex: input.mainRoundIndex,
-      matchIndex: input.match.matchIndex,
-      mainBracketSize: input.bracket.mainBracketSize,
-      bracketTop: input.bracketTop,
-      bracketBottom: input.bracketBottom,
+  return frame.bracketTop - span * matchIndex - span / 2;
+}
+
+function layoutRoundsForTypography(
+  bracket: CompetitionBracket,
+  frame: BracketFrame,
+  typography: BracketTypography,
+): { rounds: BracketLayout["rounds"]; leafSlotHeight: number; matchHalfGap: number } {
+  const roundCount = Math.max(bracket.rounds.length, 1);
+  const leafSlotHeight = frame.availableHeight / frame.leafCount;
+  const maxHalfGap =
+    (leafSlotHeight - typography.nameLineGap - typography.nameFontSize) / 2;
+  const matchHalfGap = Math.max(
+    MATCH_HALF_GAP_MIN,
+    Math.min(typography.matchHalfGap, maxHalfGap),
+  );
+
+  const mainMatchCenters = new Map<number, number>();
+
+  const rounds = bracket.rounds.map((round, columnIndex) => {
+    const columnX = frame.bracketLeft + columnIndex * frame.roundColumnWidth;
+    const nameLineStartX = columnX + 8;
+    const nameLineEndX = nameLineStartX + frame.nameLineLength;
+    const connectorX = nameLineEndX + frame.connectorWidth;
+    const winnerLineEndX =
+      columnIndex === roundCount - 1
+        ? connectorX + 8
+        : columnX + frame.roundColumnWidth - 8;
+    const mainRoundIndex = getMainRoundIndex(
+      bracket,
+      round.roundIndex,
+      round.isPreliminary,
+    );
+
+    const matches = round.matches.map((match) => {
+      const centerY = resolveMatchCenterY({
+        match,
+        isPreliminary: round.isPreliminary,
+        mainRoundIndex,
+        frame,
+        leafSlotHeight,
+        mainMatchCenters,
+      });
+
+      const topY = centerY + matchHalfGap;
+      const bottomY = centerY - matchHalfGap;
+
+      const layoutMatch: BracketLayoutMatch = {
+        matchIndex: match.matchIndex,
+        roundIndex: round.roundIndex,
+        isPreliminary: round.isPreliminary,
+        roundLabel: round.label,
+        topLabel: displayParticipantLabel(match.top),
+        bottomLabel: displayParticipantLabel(match.bottom),
+        topY,
+        bottomY,
+        topTextBaselineY: topY + typography.nameLineGap,
+        bottomTextBaselineY: bottomY + typography.nameLineGap,
+        centerY,
+        nameLineStartX,
+        nameLineEndX,
+        connectorX,
+        winnerLineEndX,
+        feedsMainMatchIndex: match.feedsMainMatchIndex,
+        feedsMainSlot: match.feedsMainSlot,
+      };
+
+      if (!round.isPreliminary && mainRoundIndex === 0) {
+        mainMatchCenters.set(match.matchIndex, centerY);
+      }
+
+      return layoutMatch;
     });
-  } else if (input.round.isPreliminary) {
-    centerY = layoutMainMatchCenterY({
-      mainRoundIndex: 0,
-      matchIndex: input.match.feedsMainMatchIndex ?? input.match.matchIndex,
-      mainBracketSize: input.bracket.mainBracketSize,
-      bracketTop: input.bracketTop,
-      bracketBottom: input.bracketBottom,
-    });
+
+    return {
+      label: round.label,
+      roundIndex: round.roundIndex,
+      isPreliminary: round.isPreliminary,
+      columnX,
+      matches,
+    };
+  });
+
+  return { rounds, leafSlotHeight, matchHalfGap };
+}
+
+function resolveMatchCenterY(input: {
+  match: BracketMatch;
+  isPreliminary: boolean;
+  mainRoundIndex: number;
+  frame: BracketFrame;
+  leafSlotHeight: number;
+  mainMatchCenters: Map<number, number>;
+}): number {
+  const { match, isPreliminary, mainRoundIndex, frame, leafSlotHeight } = input;
+
+  if (isPreliminary) {
+    const feederIndex = match.feedsMainMatchIndex ?? match.matchIndex;
+    const feederCenter = input.mainMatchCenters.get(feederIndex);
+
+    if (feederCenter !== undefined) {
+      return feederCenter;
+    }
+
+    return mainMatchCenterY(frame, leafSlotHeight, 0, feederIndex);
   }
 
-  const topLineY = centerY + halfGap;
-  const bottomLineY = centerY - halfGap;
-
-  const layoutMatch: BracketLayoutMatch = {
-    matchIndex: input.match.matchIndex,
-    roundIndex: input.round.roundIndex,
-    isPreliminary: input.round.isPreliminary,
-    roundLabel: input.round.label,
-    topLabel: displayParticipantLabel(input.match.top),
-    bottomLabel: displayParticipantLabel(input.match.bottom),
-    topY: topLineY,
-    bottomY: bottomLineY,
-    topTextBaselineY: topLineY + input.competitorNameLineGap,
-    bottomTextBaselineY: bottomLineY + input.competitorNameLineGap,
-    centerY,
-    nameLineStartX: input.nameLineStartX,
-    nameLineEndX: input.nameLineEndX,
-    connectorX: input.connectorX,
-    winnerLineEndX: input.winnerLineEndX,
-    feedsMainMatchIndex: input.match.feedsMainMatchIndex,
-    feedsMainSlot: input.match.feedsMainSlot,
-  };
-
-  if (!input.round.isPreliminary && input.mainRoundIndex === 0) {
-    input.mainMatchCenters.set(
-      `${input.match.matchIndex}`,
-      layoutMatch,
+  if (mainRoundIndex >= 0) {
+    return mainMatchCenterY(
+      frame,
+      leafSlotHeight,
+      mainRoundIndex,
+      match.matchIndex,
     );
   }
 
-  return layoutMatch;
+  return frame.bracketTop - frame.availableHeight / 2;
+}
+
+function measureBounds(
+  rounds: BracketLayout["rounds"],
+  nameFontSize: number,
+): { minY: number; maxY: number } {
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  const ascent = nameFontSize * NAME_ASCENT_RATIO;
+
+  for (const round of rounds) {
+    for (const match of round.matches) {
+      minY = Math.min(minY, match.bottomY, match.topY);
+      maxY = Math.max(
+        maxY,
+        match.topY,
+        match.topTextBaselineY + ascent,
+        match.bottomTextBaselineY + ascent,
+      );
+    }
+  }
+
+  return { minY, maxY };
+}
+
+function buildTypographySteps(): BracketTypography[] {
+  const steps: BracketTypography[] = [];
+  let nameFontSize = NAME_FONT_SIZE_BASE;
+  let nameLineGap = NAME_LINE_GAP_BASE;
+  let matchHalfGap = MATCH_HALF_GAP_BASE;
+
+  while (nameFontSize >= NAME_FONT_SIZE_MIN - 0.01) {
+    steps.push({ nameFontSize, nameLineGap, matchHalfGap });
+    nameFontSize *= TYPOGRAPHY_STEP;
+    nameLineGap = Math.max(NAME_LINE_GAP_MIN, nameLineGap * TYPOGRAPHY_STEP);
+    matchHalfGap = Math.max(MATCH_HALF_GAP_MIN, matchHalfGap * TYPOGRAPHY_STEP);
+  }
+
+  return steps;
+}
+
+export function buildBracketLayout(bracket: CompetitionBracket): BracketLayout {
+  const frame = buildFrame(bracket);
+  const steps = buildTypographySteps();
+
+  let chosen = steps[0];
+  let chosenLayout = layoutRoundsForTypography(bracket, frame, chosen);
+
+  for (const typography of steps) {
+    const candidate = layoutRoundsForTypography(bracket, frame, typography);
+    const { minY, maxY } = measureBounds(
+      candidate.rounds,
+      typography.nameFontSize,
+    );
+
+    chosen = typography;
+    chosenLayout = candidate;
+
+    if (minY >= frame.bracketBottom - 0.5 && maxY <= frame.bracketTop + 0.5) {
+      break;
+    }
+  }
+
+  return {
+    page: frame.page,
+    marginX: frame.marginX,
+    marginTop: frame.page.height - frame.titleY,
+    marginBottom: frame.marginBottom,
+    titleY: frame.titleY,
+    divisionY: frame.divisionY,
+    timeY: frame.timeY,
+    notesY: frame.notesY,
+    roundHeaderY: frame.roundHeaderY,
+    bracketTop: frame.bracketTop,
+    bracketBottom: frame.bracketBottom,
+    bracketLeft: frame.bracketLeft,
+    bracketRight: frame.bracketRight,
+    roundColumnWidth: frame.roundColumnWidth,
+    nameLineLength: frame.nameLineLength,
+    connectorWidth: frame.connectorWidth,
+    nameFontSize: chosen.nameFontSize,
+    titleFontSize: HEADER_TITLE_FONT_SIZE,
+    metaFontSize: HEADER_META_FONT_SIZE,
+    roundHeaderFontSize: HEADER_ROUND_FONT_SIZE,
+    lineThickness: LINE_THICKNESS,
+    leafSlotHeight: chosenLayout.leafSlotHeight,
+    matchHalfGap: chosenLayout.matchHalfGap,
+    competitorNameLineGap: chosen.nameLineGap,
+    rounds: chosenLayout.rounds,
+  };
 }
 
 export function getBracketTitleLines(bracket: CompetitionBracket) {

@@ -1,10 +1,13 @@
-import { clubAdminPath, KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG } from "@/lib/clubs.shared";
+import { clubAdminPath } from "@/lib/clubs.shared";
 
-export const COMPETITION_BRACKET_GENERATOR_CLUB_SLUG =
-  KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG;
-
+/**
+ * The competition bracket generator is available to every academy/admin area.
+ * Access to the underlying club is still guarded by `requireClubBySlug` and the
+ * admin auth checks in the page and API route, so a valid club slug is all that
+ * is required here.
+ */
 export function isCompetitionBracketGeneratorClub(clubSlug: string) {
-  return clubSlug.trim() === COMPETITION_BRACKET_GENERATOR_CLUB_SLUG;
+  return clubSlug.trim().length > 0;
 }
 
 export function clubCompetitionBracketGeneratorPath(clubSlug: string) {

@@ -8,7 +8,7 @@ import {
   clubProgrammesAdminPath,
 } from "@/lib/admin-programmes.shared";
 import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
-import { clubAdminPath, KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG } from "@/lib/clubs.shared";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import { clubLeadSourceAnalyticsAdminPath } from "@/lib/lead-source-analytics.shared";
 
 interface DashboardAction {
@@ -56,13 +56,11 @@ function buildDashboardSections(
     },
   );
 
-  if (clubSlug === KINGSTON_JIU_JITSU_KIDS_CLUB_SLUG) {
-    programmeActions.push({
-      label: "Competition Bracket Generator",
-      href: clubCompetitionBracketGeneratorPath(clubSlug),
-      description: "Create printable knockout tournament brackets",
-    });
-  }
+  programmeActions.push({
+    label: "Competition Bracket Generator",
+    href: clubCompetitionBracketGeneratorPath(clubSlug),
+    description: "Create printable knockout tournament brackets",
+  });
 
   return [
     {

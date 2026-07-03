@@ -123,30 +123,26 @@ export function preliminaryRoundLabel() {
   return "Preliminary Round";
 }
 
-export function mainRoundLabel(
-  roundIndex: number,
-  mainBracketEntrants: number,
-): string {
-  const mainRoundCount = Math.log2(Math.max(mainBracketEntrants, 2));
-  const roundsRemaining = mainRoundCount - roundIndex;
-
-  if (mainBracketEntrants <= 2 && roundIndex === 0) {
+/**
+ * Derives a round heading from the number of matches in that round. Because the
+ * main bracket is always a power of two, match counts are always powers of two
+ * and every round maps to exactly one canonical label. "Final" is only ever
+ * produced for the single-match round, so it can never appear twice.
+ */
+export function mainRoundLabelForMatchCount(matchCount: number): string {
+  if (matchCount <= 1) {
     return "Final";
   }
 
-  if (roundsRemaining <= 1) {
-    return "Final";
-  }
-
-  if (roundsRemaining === 2) {
+  if (matchCount === 2) {
     return "Semi-Final";
   }
 
-  if (roundsRemaining === 3) {
+  if (matchCount === 4) {
     return "Quarter-Final";
   }
 
-  return `Round ${roundIndex + 1}`;
+  return `Round of ${matchCount * 2}`;
 }
 
 function pairMainFirstRound(
@@ -185,7 +181,6 @@ function pairMainFirstRound(
 
 function buildMainRounds(
   firstRoundMatches: Array<{ top: BracketParticipant; bottom: BracketParticipant }>,
-  mainBracketEntrants: number,
   startingRoundIndex: number,
 ): BracketRound[] {
   const rounds: BracketRound[] = [];
@@ -198,10 +193,9 @@ function buildMainRounds(
   }));
 
   let roundIndex = startingRoundIndex;
-  let mainRoundIndex = 0;
 
   rounds.push({
-    label: mainRoundLabel(mainRoundIndex, mainBracketEntrants),
+    label: mainRoundLabelForMatchCount(currentMatches.length),
     roundIndex,
     isPreliminary: false,
     matches: currentMatches,
@@ -209,7 +203,6 @@ function buildMainRounds(
 
   while (currentMatches.length > 1) {
     roundIndex += 1;
-    mainRoundIndex += 1;
     const nextMatches: BracketMatch[] = [];
 
     for (let matchIndex = 0; matchIndex < currentMatches.length / 2; matchIndex += 1) {
@@ -223,7 +216,7 @@ function buildMainRounds(
     }
 
     rounds.push({
-      label: mainRoundLabel(mainRoundIndex, mainBracketEntrants),
+      label: mainRoundLabelForMatchCount(nextMatches.length),
       roundIndex,
       isPreliminary: false,
       matches: nextMatches,
@@ -278,11 +271,7 @@ export function buildCompetitionBracket(
     plan.preliminaryMatchCount,
   );
 
-  const mainRounds = buildMainRounds(
-    firstMainMatches,
-    plan.mainBracketEntrants,
-    mainStartRoundIndex,
-  );
+  const mainRounds = buildMainRounds(firstMainMatches, mainStartRoundIndex);
 
   rounds.push(...mainRounds);
 

@@ -135,7 +135,7 @@ test("svg competitor text uses the same baseline coordinates as pdf layout", () 
   );
 });
 
-for (const count of [8, 10, 12, 16]) {
+for (const count of [4, 5, 8, 10, 12, 16]) {
   test(`${count}-competitor brackets fit on one landscape page`, async () => {
     const bracket = buildBracketFromCount(count);
     const layout = buildBracketLayout(bracket);
@@ -171,16 +171,31 @@ test("32-competitor brackets fit on one landscape A3 page", async () => {
   assert.equal(Buffer.from(pdfBytes).subarray(0, 4).toString(), "%PDF");
 });
 
-test("larger brackets reduce vertical spacing automatically", () => {
+test("larger brackets pack more first-round slots into the same height", () => {
   const smallLayout = buildBracketLayout(buildBracketFromCount(4));
   const largeLayout = buildBracketLayout(buildBracketFromCount(16));
-  const smallLeafSpan =
-    smallLayout.rounds[0].matches[0].topY -
-    smallLayout.rounds[0].matches[0].bottomY;
-  const largeLeafSpan =
-    largeLayout.rounds[0].matches[0].topY -
-    largeLayout.rounds[0].matches[0].bottomY;
 
-  assert.ok(largeLeafSpan < smallLeafSpan);
-  assert.ok(largeLayout.scale < smallLayout.scale);
+  assert.ok(
+    largeLayout.leafSlotHeight < smallLayout.leafSlotHeight,
+    "denser brackets should allocate less height per first-round match",
+  );
+  assert.ok(
+    largeLayout.nameFontSize <= smallLayout.nameFontSize,
+    "denser brackets should never use a larger name font than sparse ones",
+  );
+
+  const smallAvailable = smallLayout.bracketTop - smallLayout.bracketBottom;
+  const largeAvailable = largeLayout.bracketTop - largeLayout.bracketBottom;
+  assert.equal(
+    Math.round(smallAvailable),
+    Math.round(largeAvailable),
+    "the reserved header keeps the bracket area identical across sizes",
+  );
+});
+
+test("all supported bracket sizes fit inside the printable area", () => {
+  for (const count of [4, 5, 8, 10, 12, 16]) {
+    const layout = buildBracketLayout(buildBracketFromCount(count));
+    assertBracketFitsPage(layout);
+  }
 });
