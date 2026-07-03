@@ -238,15 +238,35 @@ function buildFrame(bracket: CompetitionBracket): BracketFrame {
   };
 }
 
-function mainMatchCenterY(
-  frame: BracketFrame,
-  leafSlotHeight: number,
-  mainRoundIndex: number,
-  matchIndex: number,
-) {
-  const span = leafSlotHeight * 2 ** mainRoundIndex;
+/**
+ * Standard single-elimination geometry built on evenly spaced rows.
+ *
+ * The first clean power-of-two round has `mainBracketSize` rows spread evenly
+ * across the available height. Each match occupies two adjacent rows; every
+ * later round's match sits centred between the two matches that feed it.
+ */
+interface BracketGeometry {
+  slotSpacing: number;
+  /** Y of the centre line for a first-round slot (0 = topmost). */
+  rowY: (slot: number) => number;
+  /** Y of the centre of a main-bracket match in round `r` (0 = first clean round). */
+  mainCenter: (roundFromClean: number, matchIndex: number) => number;
+}
 
-  return frame.bracketTop - span * matchIndex - span / 2;
+function buildGeometry(
+  bracket: CompetitionBracket,
+  frame: BracketFrame,
+): BracketGeometry {
+  const mainSize = Math.max(bracket.mainBracketSize, 2);
+  const slotSpacing = frame.availableHeight / mainSize;
+
+  return {
+    slotSpacing,
+    rowY: (slot) => frame.bracketTop - (slot + 0.5) * slotSpacing,
+    mainCenter: (roundFromClean, matchIndex) =>
+      frame.bracketTop -
+      slotSpacing * 2 ** roundFromClean * (2 * matchIndex + 1),
+  };
 }
 
 function layoutRoundsForTypography(
@@ -255,19 +275,18 @@ function layoutRoundsForTypography(
   typography: BracketTypography,
 ): { rounds: BracketLayout["rounds"]; leafSlotHeight: number; matchHalfGap: number } {
   const roundCount = Math.max(bracket.rounds.length, 1);
-  const leafSlotHeight = frame.availableHeight / frame.leafCount;
-  const maxHalfGap =
-    (leafSlotHeight - typography.nameLineGap - typography.nameFontSize) / 2;
-  const matchHalfGap = Math.max(
-    MATCH_HALF_GAP_MIN,
-    Math.min(typography.matchHalfGap, maxHalfGap),
-  );
+  const geometry = buildGeometry(bracket, frame);
+  const { slotSpacing } = geometry;
+  const leafSlotHeight = slotSpacing * 2;
 
-  // Preliminary matches sit slightly tighter than main matches so that two
-  // play-ins feeding the top and bottom slot of the same main match (e.g. 7 or
-  // 15 entrants) never overlap.
-  const prelimHalfGap = Math.max(MATCH_HALF_GAP_MIN, matchHalfGap * 0.5);
-  const mainMatchCenters = new Map<number, number>();
+  // Play-in matches are centred on the exact row they feed. Their two entry
+  // lines are kept within a fraction of a slot so play-ins feeding adjacent
+  // rows never overlap.
+  const prelimHalfGap = Math.max(
+    MATCH_HALF_GAP_MIN,
+    Math.min(typography.matchHalfGap, slotSpacing * 0.32),
+  );
+  const matchHalfGap = slotSpacing / 2;
 
   const rounds = bracket.rounds.map((round, columnIndex) => {
     const columnX = frame.bracketLeft + columnIndex * frame.roundColumnWidth;
@@ -285,45 +304,33 @@ function layoutRoundsForTypography(
     );
 
     const matches = round.matches.map((match) => {
-      const centerY = resolveMatchCenterY({
+      const position = resolveMatchPosition({
         match,
         isPreliminary: round.isPreliminary,
         mainRoundIndex,
-        frame,
-        leafSlotHeight,
-        matchHalfGap,
-        mainMatchCenters,
+        geometry,
+        prelimHalfGap,
       });
 
-      const halfGap = round.isPreliminary ? prelimHalfGap : matchHalfGap;
-      const topY = centerY + halfGap;
-      const bottomY = centerY - halfGap;
-
-      const layoutMatch: BracketLayoutMatch = {
+      return {
         matchIndex: match.matchIndex,
         roundIndex: round.roundIndex,
         isPreliminary: round.isPreliminary,
         roundLabel: round.label,
         topLabel: displayParticipantLabel(match.top),
         bottomLabel: displayParticipantLabel(match.bottom),
-        topY,
-        bottomY,
-        topTextBaselineY: topY + typography.nameLineGap,
-        bottomTextBaselineY: bottomY + typography.nameLineGap,
-        centerY,
+        topY: position.topY,
+        bottomY: position.bottomY,
+        topTextBaselineY: position.topY + typography.nameLineGap,
+        bottomTextBaselineY: position.bottomY + typography.nameLineGap,
+        centerY: position.centerY,
         nameLineStartX,
         nameLineEndX,
         connectorX,
         winnerLineEndX,
         feedsMainMatchIndex: match.feedsMainMatchIndex,
         feedsMainSlot: match.feedsMainSlot,
-      };
-
-      if (!round.isPreliminary && mainRoundIndex === 0) {
-        mainMatchCenters.set(match.matchIndex, centerY);
-      }
-
-      return layoutMatch;
+      } satisfies BracketLayoutMatch;
     });
 
     return {
@@ -338,41 +345,42 @@ function layoutRoundsForTypography(
   return { rounds, leafSlotHeight, matchHalfGap };
 }
 
-function resolveMatchCenterY(input: {
+function resolveMatchPosition(input: {
   match: BracketMatch;
   isPreliminary: boolean;
   mainRoundIndex: number;
-  frame: BracketFrame;
-  leafSlotHeight: number;
-  matchHalfGap: number;
-  mainMatchCenters: Map<number, number>;
-}): number {
-  const { match, isPreliminary, mainRoundIndex, frame, leafSlotHeight } = input;
+  geometry: BracketGeometry;
+  prelimHalfGap: number;
+}): { topY: number; bottomY: number; centerY: number } {
+  const { match, isPreliminary, mainRoundIndex, geometry, prelimHalfGap } = input;
 
   if (isPreliminary) {
     const feederIndex = match.feedsMainMatchIndex ?? match.matchIndex;
-    const feederCenter =
-      input.mainMatchCenters.get(feederIndex) ??
-      mainMatchCenterY(frame, leafSlotHeight, 0, feederIndex);
+    const fedRow = feederIndex * 2 + (match.feedsMainSlot === "bottom" ? 1 : 0);
+    const centerY = geometry.rowY(fedRow);
 
-    // Centre the play-in on the exact slot line it feeds so its winner line
-    // continues straight into the main match, and so two play-ins feeding the
-    // same main match land on separate (top/bottom) lines.
-    return match.feedsMainSlot === "bottom"
-      ? feederCenter - input.matchHalfGap
-      : feederCenter + input.matchHalfGap;
+    return {
+      topY: centerY + prelimHalfGap,
+      bottomY: centerY - prelimHalfGap,
+      centerY,
+    };
   }
 
-  if (mainRoundIndex >= 0) {
-    return mainMatchCenterY(
-      frame,
-      leafSlotHeight,
-      mainRoundIndex,
-      match.matchIndex,
-    );
+  const round = Math.max(mainRoundIndex, 0);
+
+  if (round === 0) {
+    const topY = geometry.rowY(match.matchIndex * 2);
+    const bottomY = geometry.rowY(match.matchIndex * 2 + 1);
+
+    return { topY, bottomY, centerY: (topY + bottomY) / 2 };
   }
 
-  return frame.bracketTop - frame.availableHeight / 2;
+  // Later rounds: the two entry lines align with the centres of the two
+  // matches that feed this one, giving straight horizontal connectors.
+  const topY = geometry.mainCenter(round - 1, match.matchIndex * 2);
+  const bottomY = geometry.mainCenter(round - 1, match.matchIndex * 2 + 1);
+
+  return { topY, bottomY, centerY: (topY + bottomY) / 2 };
 }
 
 function measureBounds(

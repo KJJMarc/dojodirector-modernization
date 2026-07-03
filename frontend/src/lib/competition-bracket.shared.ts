@@ -204,9 +204,12 @@ export function seedMainFirstRound(
 
   for (let index = 0; index < singlePreliminaryMatches; index += 1) {
     const mainMatchIndex = matches.length;
+    // Bye competitor sits on the top line (a real name), the play-in winner
+    // feeds the blank bottom line — this keeps play-in brackets away from the
+    // very top row of the main bracket.
     matches.push({
-      top: takePreliminary(mainMatchIndex, "top"),
-      bottom: takeBye(),
+      top: takeBye(),
+      bottom: takePreliminary(mainMatchIndex, "bottom"),
     });
   }
 
