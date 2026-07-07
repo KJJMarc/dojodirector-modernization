@@ -319,7 +319,14 @@ export function compareJuniorBeltStripeGroups(
   });
 }
 
-export function formatJuniorStripeGroupDisplayTitle(stripeCount: number) {
+export function formatJuniorStripeGroupDisplayTitle(
+  stripeCount: number,
+  options?: { sectionKey?: string; rankLabel?: string },
+) {
+  if (options?.sectionKey === "white" && options.rankLabel) {
+    return options.rankLabel;
+  }
+
   if (stripeCount === 0) {
     return "0 Stripes";
   }

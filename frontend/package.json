@@ -11,6 +11,7 @@
     "test:waitlist": "npx --yes tsx --test src/lib/session-waitlist.shared.test.ts",
     "test:portal-auth-errors": "npx --yes tsx --test src/lib/portal-auth-errors.shared.test.ts",
     "test:junior-belt-rankings": "npx --yes tsx --test src/lib/junior-belt-rankings.shared.test.ts",
+    "test:belt-levels": "npx --yes tsx --test src/lib/admin-belt-levels.shared.test.ts",
     "test:grade-awards": "npx --yes tsx --test src/lib/admin-belt-promotion.shared.test.ts",
     "test:change-belt": "npx --yes tsx --test src/lib/admin-change-belt.shared.test.ts",
     "test:grade-award-delete": "npx --yes tsx --test src/lib/admin-grade-award.shared.test.ts",

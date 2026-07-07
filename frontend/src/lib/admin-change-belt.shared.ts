@@ -2,6 +2,7 @@ import {
   isAdultBeltCategory,
   isJuniorBeltCategory,
   isJuniorBeltLevel,
+  isPlainWhiteBeltLevel,
 } from "@/lib/admin-belt-levels.shared";
 
 export interface BeltLevelSelectionRow {
@@ -17,7 +18,8 @@ export type AwardBeltLevelValidationFailureCode =
   | "missing_belt"
   | "inactive_belt"
   | "category_mismatch"
-  | "invalid_date";
+  | "invalid_date"
+  | "unsupported_rank";
 
 export interface AwardBeltLevelValidationFailure {
   code: AwardBeltLevelValidationFailureCode;
@@ -87,6 +89,17 @@ export function validateAwardBeltLevelSelection(input: {
         code: "inactive_belt",
         message:
           "Selected belt level is no longer active for this club. Choose another belt.",
+      },
+    };
+  }
+
+  if (isPlainWhiteBeltLevel(input.selectedBelt)) {
+    return {
+      ok: false,
+      failure: {
+        code: "unsupported_rank",
+        message:
+          "Plain White Belt is not a valid rank. Choose White Belt – 1 Stripe instead.",
       },
     };
   }

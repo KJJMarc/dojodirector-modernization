@@ -1,3 +1,4 @@
+import { formatBeltOptionLabel } from "@/lib/admin-belt-levels.shared";
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import { collectGradingMarkerDates } from "@/lib/attendance-card-grading.shared";
 import {
@@ -45,7 +46,11 @@ const MONTH_LABELS = [
 ] as const;
 
 export function formatBeltLabel(belt: BeltLevel | null): string | null {
-  return formatAttendanceCardRankLabel(belt?.name ?? null);
+  if (!belt) {
+    return null;
+  }
+
+  return formatBeltOptionLabel(belt);
 }
 
 /** Belt name for the card header — strips redundant "(N stripes)" suffixes. */

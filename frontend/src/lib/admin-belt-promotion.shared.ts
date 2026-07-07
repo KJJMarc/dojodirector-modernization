@@ -6,6 +6,7 @@ import {
 import { normalizeToDateKey } from "@/lib/attendance-card-dates";
 import {
   isJuniorBeltCategory,
+  isPlainWhiteBeltLevel,
   type BeltCategory,
 } from "@/lib/admin-belt-levels.shared";
 import { formatAdminBeltLabel } from "@/lib/admin-students";
@@ -134,8 +135,30 @@ export function getNextBeltLevel(
 
   const sorted = [...beltLevels].sort((left, right) => left.sort_order - right.sort_order);
 
+  const findNextAfter = (sortOrder: number) => {
+    let next =
+      sorted.find((belt) => belt.sort_order > sortOrder) ?? null;
+
+    while (next && isPlainWhiteBeltLevel(next)) {
+      next =
+        sorted.find((belt) => belt.sort_order > next!.sort_order) ?? null;
+    }
+
+    return next;
+  };
+
   if (!currentBeltLevelId) {
-    return sorted[0] ?? null;
+    const first = sorted[0] ?? null;
+
+    if (!first) {
+      return null;
+    }
+
+    if (isPlainWhiteBeltLevel(first)) {
+      return findNextAfter(first.sort_order) ?? first;
+    }
+
+    return first;
   }
 
   const current = sorted.find((belt) => belt.id === currentBeltLevelId);
@@ -144,7 +167,7 @@ export function getNextBeltLevel(
     return null;
   }
 
-  return sorted.find((belt) => belt.sort_order > current.sort_order) ?? null;
+  return findNextAfter(current.sort_order);
 }
 
 export function weeksElapsedSinceAward(
@@ -507,7 +530,7 @@ export function assessJuniorStudentBeltPromotion(input: {
   const currentBelt = beltLevelById.get(currentBeltId);
   const nextBelt = beltLevelById.get(requirement.to_belt_level_id);
 
-  if (!currentBelt || !nextBelt) {
+  if (!currentBelt || !nextBelt || isPlainWhiteBeltLevel(nextBelt)) {
     return null;
   }
 
@@ -576,7 +599,7 @@ export function assessStudentBeltPromotion(input: {
 
   const nextBelt = getNextBeltLevel(latestAward.belt_level_id, input.beltLevels);
 
-  if (!nextBelt) {
+  if (!nextBelt || isPlainWhiteBeltLevel(nextBelt)) {
     return null;
   }
 
@@ -626,7 +649,7 @@ export function computeGradingProgress(input: {
 
   const nextBelt = getNextBeltLevel(latestAward.belt_level_id, input.beltLevels);
 
-  if (!nextBelt) {
+  if (!nextBelt || isPlainWhiteBeltLevel(nextBelt)) {
     return null;
   }
 

@@ -21,7 +21,21 @@ function getMajorAdultBeltColor(beltName, beltType) {
   return null;
 }
 
+function isAdultPlainWhiteBelt(belt) {
+  const normalizedName = belt.name.trim().toLowerCase();
+  if (!/\bwhite\b/.test(normalizedName)) return false;
+  const withoutWhite = normalizedName.replace(/\bwhite\b/g, "").trim();
+  if (/\b(grey|gray|yellow|orange|green|blue|purple|brown|black)\b/.test(withoutWhite)) {
+    return false;
+  }
+  const stripeCount = belt.stripe_count ?? 0;
+  return stripeCount <= 0 && !/\d+\s*stripe/i.test(belt.name);
+}
+
 function getBeltStripeCount(belt) {
+  if (isAdultPlainWhiteBelt(belt)) {
+    return 1;
+  }
   if (typeof belt.stripe_count === "number" && belt.stripe_count >= 0) {
     return belt.stripe_count;
   }
@@ -73,7 +87,12 @@ function compareStudentsBySurnameFirstName(left, right) {
 assert.equal(getMajorAdultBeltColor("Black Belt 3rd Degree", "degree"), "black");
 assert.equal(getMajorAdultBeltColor("Blue Belt, 2 Stripes", null), "blue");
 assert.equal(getBeltStripeCount({ name: "Brown Belt, 4 Stripes", stripe_count: 4 }), 4);
+assert.equal(
+  getBeltStripeCount({ name: "White Belt", stripe_count: 0, belt_category: "adult" }),
+  1,
+);
 assert.equal(shouldIncludeRankedStudent("white", 0), false);
+assert.equal(shouldIncludeRankedStudent("white", 1), true);
 assert.equal(shouldIncludeRankedStudent("white", 2), true);
 assert.equal(shouldIncludeRankedStudent("blue", 0), true);
 
