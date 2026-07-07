@@ -213,13 +213,7 @@ export function buildAdminStudentsListHref(options: {
 }
 
 export function formatAdminBeltLabel(
-  belt:
-    | (Pick<BeltLevel, "name" | "stripe_count"> & {
-        belt_category?: string | null;
-        type?: string | null;
-      })
-    | null
-    | undefined,
+  belt: Pick<BeltLevel, "name" | "stripe_count"> | null | undefined,
 ): string {
   if (!belt) {
     return "Not set";

@@ -75,10 +75,7 @@ function BeltRankingsSection({ group }: { group: JuniorBeltRankingGroup }) {
         {group.stripeGroups.map((stripeGroup, index) => (
           <RankSubsection
             key={stripeGroup.beltLevelId}
-            title={formatJuniorStripeGroupDisplayTitle(stripeGroup.stripeCount, {
-              sectionKey: group.sectionKey,
-              rankLabel: stripeGroup.rankLabel,
-            })}
+            title={formatJuniorStripeGroupDisplayTitle(stripeGroup.stripeCount)}
             students={stripeGroup.students}
             isLast={index === group.stripeGroups.length - 1}
           />

@@ -25,6 +25,7 @@ import {
   getJuniorBeltSectionKey,
   getJuniorBeltSectionLabel,
   getJuniorBeltSectionSortKey,
+  shouldIncludeJuniorRankedStudent,
   JUNIOR_BELT_RANKINGS_RECENT_PROMOTION_DAYS,
   JUNIOR_BELT_SECTIONS,
   parseJuniorBeltRankParts,
@@ -274,6 +275,13 @@ function buildRankedJuniorStudentEntries(input: {
       beltLevel.stripe_count,
       beltLevel.colour ?? null,
     );
+    const sectionKey = getJuniorBeltSectionKey(rankParts);
+    const stripeCount = getBeltStripeCount(beltLevel);
+
+    if (!shouldIncludeJuniorRankedStudent(sectionKey, stripeCount)) {
+      continue;
+    }
+
     const profile =
       input.studentProfilesByUserId.get(userId) ??
       ({
@@ -292,7 +300,7 @@ function buildRankedJuniorStudentEntries(input: {
       lastName: profile.lastName,
       currentRankLabel: formatAdminBeltLabel(beltLevel),
       beltLevel,
-      sectionKey: getJuniorBeltSectionKey(rankParts),
+      sectionKey,
     });
   }
 

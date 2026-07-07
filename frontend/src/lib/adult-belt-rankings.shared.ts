@@ -1,7 +1,3 @@
-import { getBeltStripeCount } from "@/lib/admin-belt-levels.shared";
-
-export { getBeltStripeCount };
-
 export interface AdultBeltRankingStudent {
   userId: string;
   fullName: string;
@@ -105,6 +101,18 @@ export function getMajorAdultBeltColor(
   }
 
   return null;
+}
+
+export function getBeltStripeCount(belt: {
+  name: string;
+  stripe_count: number | null;
+}) {
+  if (typeof belt.stripe_count === "number" && belt.stripe_count >= 0) {
+    return belt.stripe_count;
+  }
+
+  const stripeMatch = belt.name.match(/(\d+)\s*stripe/i);
+  return stripeMatch ? Number.parseInt(stripeMatch[1] ?? "0", 10) : 0;
 }
 
 export function getBlackBeltDegreeSortKey(

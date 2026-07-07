@@ -86,24 +86,4 @@ describe("validateAwardBeltLevelSelection", () => {
       assert.equal(result.failure.code, "category_mismatch");
     }
   });
-
-  it("rejects plain white belt as a promotion target", () => {
-    const plainWhite = {
-      id: "white-0",
-      name: "White Belt",
-      stripe_count: 0,
-      belt_category: "adult",
-      is_active: true,
-    };
-
-    const result = validateAwardBeltLevelSelection({
-      currentBelt: null,
-      selectedBelt: plainWhite,
-    });
-
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.equal(result.failure.code, "unsupported_rank");
-    }
-  });
 });

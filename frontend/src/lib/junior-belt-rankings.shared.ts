@@ -319,14 +319,7 @@ export function compareJuniorBeltStripeGroups(
   });
 }
 
-export function formatJuniorStripeGroupDisplayTitle(
-  stripeCount: number,
-  options?: { sectionKey?: string; rankLabel?: string },
-) {
-  if (options?.sectionKey === "white" && options.rankLabel) {
-    return options.rankLabel;
-  }
-
+export function formatJuniorStripeGroupDisplayTitle(stripeCount: number) {
   if (stripeCount === 0) {
     return "0 Stripes";
   }
@@ -336,6 +329,18 @@ export function formatJuniorStripeGroupDisplayTitle(
   }
 
   return `${stripeCount} Stripes`;
+}
+
+/** Public junior rankings hide plain white (0 stripes) — display starts at 1 stripe. */
+export function shouldIncludeJuniorRankedStudent(
+  sectionKey: string,
+  stripeCount: number,
+) {
+  if (sectionKey === "white") {
+    return stripeCount >= 1;
+  }
+
+  return true;
 }
 
 export function getJuniorBeltSectionTheme(
