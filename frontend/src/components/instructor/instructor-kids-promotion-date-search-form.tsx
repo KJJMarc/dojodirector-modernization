@@ -11,10 +11,17 @@ interface InstructorKidsPromotionDateSearchFormProps {
   filterHeading?: string | null;
 }
 
-const inputClassName = [
-  DATE_SEARCH_FORM_LAYOUT.fieldInput,
+const dateInputClassName = [
+  "date-search-input",
   "rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2.5 text-base text-dojo-white",
   "outline-none transition focus:border-dojo-red/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dojo-red/30",
+].join(" ");
+
+const actionButtonClassName = [
+  "date-controls-action-button",
+  "flex min-h-[44px] items-center justify-center rounded-md border border-dojo-border",
+  "bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition",
+  "hover:border-dojo-red/50 hover:text-dojo-red",
 ].join(" ");
 
 export function InstructorKidsPromotionDateSearchForm({
@@ -44,36 +51,32 @@ export function InstructorKidsPromotionDateSearchForm({
         </p>
       ) : null}
 
-      <form
-        method="get"
-        action={basePath}
-        className={DATE_SEARCH_FORM_LAYOUT.form}
-      >
-        <div className={DATE_SEARCH_FORM_LAYOUT.controls}>
-          <div className={DATE_SEARCH_FORM_LAYOUT.fieldWrapper}>
+      <form method="get" action={basePath} className="min-w-0 w-full max-w-full box-border">
+        <div className="date-controls-inner">
+          <div className="date-controls-field">
             <label
               htmlFor="promotion-candidates-date-search"
-              className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted"
+              className="date-controls-label text-[11px] font-medium uppercase tracking-wide text-dojo-muted"
             >
               Session date
             </label>
-            <div className={DATE_SEARCH_FORM_LAYOUT.fieldInputWrapper}>
+            <div className="date-controls-input-wrap">
               <input
                 id="promotion-candidates-date-search"
                 name="date"
                 type="date"
                 defaultValue={selectedDateKey}
-                className={inputClassName}
+                className={dateInputClassName}
               />
             </div>
           </div>
 
-          <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
-            <button type="submit" className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
+          <div className="date-controls-actions">
+            <button type="submit" className={actionButtonClassName}>
               Show classes
             </button>
             {!isTodayView ? (
-              <a href={basePath} className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
+              <a href={basePath} className={actionButtonClassName}>
                 Clear
               </a>
             ) : null}

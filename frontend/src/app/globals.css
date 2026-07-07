@@ -67,6 +67,93 @@ a {
     margin: 0;
     padding: 0;
   }
+
+  .date-controls-inner {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .date-controls-inner > * {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .date-controls-field {
+    margin: 0;
+    padding: 0;
+  }
+
+  .date-controls-label {
+    display: block;
+    margin: 0 0 6px;
+    padding: 0;
+  }
+
+  .date-controls-input-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .date-controls-input-wrap .date-search-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .date-controls-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .date-controls-actions > * {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .date-controls-inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 12px;
+    }
+
+    .date-controls-actions {
+      width: auto;
+      max-width: none;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    .date-controls-actions > * {
+      width: auto;
+      max-width: none;
+    }
+  }
 }
 
 @layer utilities {
