@@ -40,12 +40,32 @@ a {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    margin: 0;
     box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   .date-search-input::-webkit-date-and-time-value {
     min-width: 0;
     text-align: left;
+  }
+
+  .date-search-input::-webkit-datetime-edit {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    flex: 1 1 auto;
+  }
+
+  .date-search-input::-webkit-datetime-edit-fields-wrapper {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .date-search-input::-webkit-calendar-picker-indicator {
+    margin: 0;
+    padding: 0;
   }
 }
 

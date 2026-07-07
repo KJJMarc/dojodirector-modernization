@@ -1,41 +1,56 @@
+const DATE_SEARCH_WIDTH =
+  "min-w-0 w-full max-w-full box-border" as const;
+
 /**
  * Shared responsive layout for admin/instructor date search toolbars.
  *
  * Stacked through lg (<1024px) for portrait phones, landscape PWA, and tablets.
- * Date field and action buttons sit side-by-side only at lg+ when width is sufficient.
+ * Date field and action buttons share one width-constrained controls wrapper.
  */
 export const DATE_SEARCH_FORM_LAYOUT = {
-  card: "min-w-0 w-full max-w-full overflow-hidden box-border",
+  card: `${DATE_SEARCH_WIDTH} overflow-hidden`,
 
-  form: [
-    "grid w-full min-w-0 max-w-full gap-3 box-border",
+  form: DATE_SEARCH_WIDTH,
+
+  controls: [
+    DATE_SEARCH_WIDTH,
+    "grid gap-3 overflow-hidden",
     "grid-cols-1",
     "lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end",
   ].join(" "),
 
-  fieldWrapper: "min-w-0 w-full max-w-full space-y-1.5 box-border",
+  fieldWrapper: `${DATE_SEARCH_WIDTH} space-y-1.5 overflow-hidden`,
 
-  fieldInput: "date-search-input box-border block min-w-0 w-full max-w-full",
+  fieldInputWrapper: `${DATE_SEARCH_WIDTH} overflow-hidden`,
+
+  fieldInput: "date-search-input",
 
   actionRow: [
-    "flex w-full min-w-0 max-w-full flex-wrap gap-2 box-border",
-    "lg:w-auto lg:max-w-none lg:justify-end",
+    DATE_SEARCH_WIDTH,
+    "flex flex-col gap-2 overflow-hidden",
+    "lg:w-auto lg:max-w-none lg:flex-row lg:flex-wrap",
   ].join(" "),
 
-  nav: "flex w-full min-w-0 max-w-full flex-wrap gap-2 box-border",
+  nav: [
+    DATE_SEARCH_WIDTH,
+    "grid grid-cols-2 gap-2 overflow-hidden",
+    "sm:flex sm:flex-wrap",
+  ].join(" "),
 
   actionButton: [
-    "inline-flex min-h-[44px] min-w-0 w-full max-w-full items-center justify-center",
+    DATE_SEARCH_WIDTH,
+    "flex min-h-[44px] items-center justify-center overflow-hidden",
     "rounded-md border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold",
     "text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red",
     "lg:w-auto lg:max-w-none lg:shrink-0",
   ].join(" "),
 
   navButton: [
-    "inline-flex min-h-[44px] min-w-0 max-w-full flex-1 basis-[calc(50%-0.25rem)]",
-    "items-center justify-center rounded-md border border-dojo-border bg-dojo-black",
+    DATE_SEARCH_WIDTH,
+    "flex min-h-[44px] items-center justify-center overflow-hidden",
+    "rounded-md border border-dojo-border bg-dojo-black",
     "px-3 text-xs font-semibold text-dojo-muted transition",
     "hover:border-dojo-red/50 hover:text-dojo-white",
-    "sm:basis-auto sm:flex-none sm:px-4 sm:text-sm lg:shrink-0",
+    "sm:w-auto sm:max-w-none sm:flex-none sm:px-4 sm:text-sm lg:shrink-0",
   ].join(" "),
 } as const;

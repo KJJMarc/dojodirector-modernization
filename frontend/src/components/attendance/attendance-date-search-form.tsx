@@ -22,7 +22,7 @@ interface AttendanceDateSearchFormProps {
 const inputClassName = [
   DATE_SEARCH_FORM_LAYOUT.fieldInput,
   "rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white",
-  "outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30",
+  "outline-none transition focus:border-dojo-red/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dojo-red/30",
 ].join(" ");
 
 const quickButtonClassName = DATE_SEARCH_FORM_LAYOUT.navButton;
@@ -97,36 +97,40 @@ export function AttendanceDateSearchForm({
       ) : null}
 
       <form onSubmit={handleSubmit} className={DATE_SEARCH_FORM_LAYOUT.form}>
-        <div className={DATE_SEARCH_FORM_LAYOUT.fieldWrapper}>
-          <label
-            htmlFor="attendance-date-search"
-            className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted"
-          >
-            Session date
-          </label>
-          <input
-            id="attendance-date-search"
-            name="date"
-            type="date"
-            value={dateValue}
-            onChange={(event) => setDateValue(event.target.value)}
-            className={inputClassName}
-          />
-        </div>
-
-        <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
-          <button type="submit" className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
-            Show sessions
-          </button>
-          {isFiltered ? (
-            <button
-              type="button"
-              className={DATE_SEARCH_FORM_LAYOUT.actionButton}
-              onClick={() => navigateTo(buildRegisterHref(navContext))}
+        <div className={DATE_SEARCH_FORM_LAYOUT.controls}>
+          <div className={DATE_SEARCH_FORM_LAYOUT.fieldWrapper}>
+            <label
+              htmlFor="attendance-date-search"
+              className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted"
             >
-              Clear
+              Session date
+            </label>
+            <div className={DATE_SEARCH_FORM_LAYOUT.fieldInputWrapper}>
+              <input
+                id="attendance-date-search"
+                name="date"
+                type="date"
+                value={dateValue}
+                onChange={(event) => setDateValue(event.target.value)}
+                className={inputClassName}
+              />
+            </div>
+          </div>
+
+          <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
+            <button type="submit" className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
+              Show sessions
             </button>
-          ) : null}
+            {isFiltered ? (
+              <button
+                type="button"
+                className={DATE_SEARCH_FORM_LAYOUT.actionButton}
+                onClick={() => navigateTo(buildRegisterHref(navContext))}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
         </div>
       </form>
 
