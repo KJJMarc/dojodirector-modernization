@@ -19,14 +19,13 @@ interface AttendanceDateSearchFormProps {
   filterHeading?: string | null;
 }
 
-const inputClassName =
-  `${DATE_SEARCH_FORM_LAYOUT.fieldInput} rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30`;
+const inputClassName = [
+  DATE_SEARCH_FORM_LAYOUT.fieldInput,
+  "rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white",
+  "outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30",
+].join(" ");
 
-const buttonClassName =
-  "inline-flex min-h-[40px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-3 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
-
-const quickButtonClassName =
-  "inline-flex min-h-[36px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-3 text-xs font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
+const quickButtonClassName = DATE_SEARCH_FORM_LAYOUT.navButton;
 
 function buildRegisterHref(
   navContext: AttendanceRegisterNavContext,
@@ -80,8 +79,10 @@ export function AttendanceDateSearchForm({
   const isFiltered = Boolean(initialDate || initialDays);
 
   return (
-    <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-      <div className="space-y-1">
+    <section
+      className={`${DATE_SEARCH_FORM_LAYOUT.card} space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4`}
+    >
+      <div className="min-w-0 space-y-1">
         <h2 className="text-sm font-semibold text-dojo-white">Search by date</h2>
         <p className="text-xs text-dojo-muted">
           Pick a date to review or recover attendance registers. Leave cleared to
@@ -114,13 +115,13 @@ export function AttendanceDateSearchForm({
         </div>
 
         <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
-          <button type="submit" className={buttonClassName}>
+          <button type="submit" className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
             Show sessions
           </button>
           {isFiltered ? (
             <button
               type="button"
-              className={buttonClassName}
+              className={DATE_SEARCH_FORM_LAYOUT.actionButton}
               onClick={() => navigateTo(buildRegisterHref(navContext))}
             >
               Clear

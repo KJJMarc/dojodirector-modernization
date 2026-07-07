@@ -11,14 +11,11 @@ interface InstructorKidsPromotionDateSearchFormProps {
   filterHeading?: string | null;
 }
 
-const inputClassName =
-  `${DATE_SEARCH_FORM_LAYOUT.fieldInput} rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2.5 text-base text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30`;
-
-const buttonClassName =
-  "inline-flex min-h-[44px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
-
-const quickLinkClassName =
-  "inline-flex min-h-[44px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-4 text-sm font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
+const inputClassName = [
+  DATE_SEARCH_FORM_LAYOUT.fieldInput,
+  "rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2.5 text-base text-dojo-white",
+  "outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30",
+].join(" ");
 
 export function InstructorKidsPromotionDateSearchForm({
   clubSlug,
@@ -30,8 +27,10 @@ export function InstructorKidsPromotionDateSearchForm({
   const isTodayView = selectedDateKey === todayKey;
 
   return (
-    <section className="space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4">
-      <div className="space-y-1">
+    <section
+      className={`${DATE_SEARCH_FORM_LAYOUT.card} space-y-3 rounded-xl border border-dojo-border bg-dojo-surface p-4`}
+    >
+      <div className="min-w-0 space-y-1">
         <h2 className="text-sm font-semibold text-dojo-white">Search by date</h2>
         <p className="text-xs text-dojo-muted">
           Pick a class date to review promotion candidates. Leave cleared to show
@@ -40,7 +39,7 @@ export function InstructorKidsPromotionDateSearchForm({
       </div>
 
       {filterHeading ? (
-        <p className="rounded-lg border border-dojo-red/30 bg-dojo-red/10 px-3 py-2 text-sm font-medium text-dojo-white">
+        <p className="min-w-0 rounded-lg border border-dojo-red/30 bg-dojo-red/10 px-3 py-2 text-sm font-medium text-dojo-white">
           {filterHeading}
         </p>
       ) : null}
@@ -67,11 +66,11 @@ export function InstructorKidsPromotionDateSearchForm({
         </div>
 
         <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
-          <button type="submit" className={buttonClassName}>
+          <button type="submit" className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
             Show classes
           </button>
           {!isTodayView ? (
-            <a href={basePath} className={buttonClassName}>
+            <a href={basePath} className={DATE_SEARCH_FORM_LAYOUT.actionButton}>
               Clear
             </a>
           ) : null}
@@ -84,20 +83,20 @@ export function InstructorKidsPromotionDateSearchForm({
       >
         <a
           href={instructorPortalKidsPromotionCandidatesPath(clubSlug, { date: todayKey })}
-          className={quickLinkClassName}
+          className={DATE_SEARCH_FORM_LAYOUT.navButton}
           aria-current={isTodayView ? "page" : undefined}
         >
           Today
         </a>
         <a
           href={buildAdjacentKidsPromotionDatePath(clubSlug, selectedDateKey, -1)}
-          className={quickLinkClassName}
+          className={DATE_SEARCH_FORM_LAYOUT.navButton}
         >
           Previous day
         </a>
         <a
           href={buildAdjacentKidsPromotionDatePath(clubSlug, selectedDateKey, 1)}
-          className={quickLinkClassName}
+          className={DATE_SEARCH_FORM_LAYOUT.navButton}
         >
           Next day
         </a>
@@ -105,12 +104,12 @@ export function InstructorKidsPromotionDateSearchForm({
           href={instructorPortalKidsPromotionCandidatesPath(clubSlug, {
             date: addLondonCalendarDays(todayKey, -1),
           })}
-          className={quickLinkClassName}
+          className={DATE_SEARCH_FORM_LAYOUT.navButton}
         >
           Yesterday
         </a>
         {!isTodayView ? (
-          <a href={basePath} className={quickLinkClassName}>
+          <a href={basePath} className={DATE_SEARCH_FORM_LAYOUT.navButton}>
             Back to today
           </a>
         ) : null}

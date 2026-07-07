@@ -34,6 +34,21 @@ a {
   @apply text-dojo-red transition-colors hover:text-dojo-red-hover;
 }
 
+@layer components {
+  .date-search-input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .date-search-input::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

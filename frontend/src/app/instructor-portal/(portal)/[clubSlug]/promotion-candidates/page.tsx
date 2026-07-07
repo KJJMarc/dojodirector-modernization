@@ -71,7 +71,7 @@ export default async function InstructorKidsPromotionCandidatesPage({
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
+    <main className="mx-auto min-h-screen w-full min-w-0 max-w-3xl space-y-6 overflow-x-hidden px-3 py-4 pb-20 sm:px-5">
       <AppHeader pageTitle="Promotion Candidates" clubName={club.name} />
 
       <AttendanceRegisterBackLink context={navContext} />
