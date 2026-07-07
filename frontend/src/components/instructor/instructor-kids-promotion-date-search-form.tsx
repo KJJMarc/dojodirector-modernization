@@ -2,6 +2,7 @@ import {
   buildAdjacentKidsPromotionDatePath,
   instructorPortalKidsPromotionCandidatesPath,
 } from "@/lib/instructor-kids-promotion-candidates.shared";
+import { DATE_SEARCH_FORM_LAYOUT } from "@/lib/date-search-form-layout.shared";
 import { addLondonCalendarDays, getLondonTodayDateKey } from "@/lib/london-datetime";
 
 interface InstructorKidsPromotionDateSearchFormProps {
@@ -11,13 +12,13 @@ interface InstructorKidsPromotionDateSearchFormProps {
 }
 
 const inputClassName =
-  "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2.5 text-base text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
+  `${DATE_SEARCH_FORM_LAYOUT.fieldInput} rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2.5 text-base text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30`;
 
 const buttonClassName =
-  "inline-flex min-h-[44px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
+  "inline-flex min-h-[44px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-4 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
 
 const quickLinkClassName =
-  "inline-flex min-h-[44px] items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-4 text-sm font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
+  "inline-flex min-h-[44px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-4 text-sm font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
 
 export function InstructorKidsPromotionDateSearchForm({
   clubSlug,
@@ -47,9 +48,9 @@ export function InstructorKidsPromotionDateSearchForm({
       <form
         method="get"
         action={basePath}
-        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+        className={DATE_SEARCH_FORM_LAYOUT.form}
       >
-        <div className="min-w-0 flex-1 space-y-1.5">
+        <div className={DATE_SEARCH_FORM_LAYOUT.fieldWrapper}>
           <label
             htmlFor="promotion-candidates-date-search"
             className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted"
@@ -65,7 +66,7 @@ export function InstructorKidsPromotionDateSearchForm({
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
           <button type="submit" className={buttonClassName}>
             Show classes
           </button>
@@ -77,7 +78,10 @@ export function InstructorKidsPromotionDateSearchForm({
         </div>
       </form>
 
-      <nav aria-label="Promotion candidates date navigation" className="flex flex-wrap gap-2">
+      <nav
+        aria-label="Promotion candidates date navigation"
+        className={DATE_SEARCH_FORM_LAYOUT.nav}
+      >
         <a
           href={instructorPortalKidsPromotionCandidatesPath(clubSlug, { date: todayKey })}
           className={quickLinkClassName}

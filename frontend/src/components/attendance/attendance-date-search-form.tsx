@@ -10,6 +10,7 @@ import {
   attendanceRegisterPath,
   type AttendanceRegisterNavContext,
 } from "@/lib/attendance-register-navigation.shared";
+import { DATE_SEARCH_FORM_LAYOUT } from "@/lib/date-search-form-layout.shared";
 
 interface AttendanceDateSearchFormProps {
   navContext: AttendanceRegisterNavContext;
@@ -19,13 +20,13 @@ interface AttendanceDateSearchFormProps {
 }
 
 const inputClassName =
-  "w-full rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30";
+  `${DATE_SEARCH_FORM_LAYOUT.fieldInput} rounded-md border border-dojo-border bg-dojo-elevated px-3 py-2 text-sm text-dojo-white outline-none transition focus:border-dojo-red/50 focus:ring-2 focus:ring-dojo-red/30`;
 
 const buttonClassName =
-  "inline-flex min-h-[40px] items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-3 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
+  "inline-flex min-h-[40px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-elevated px-3 text-sm font-semibold text-dojo-white transition hover:border-dojo-red/50 hover:text-dojo-red";
 
 const quickButtonClassName =
-  "inline-flex min-h-[36px] items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-3 text-xs font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
+  "inline-flex min-h-[36px] max-w-full shrink-0 items-center justify-center rounded-md border border-dojo-border bg-dojo-black px-3 text-xs font-semibold text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white";
 
 function buildRegisterHref(
   navContext: AttendanceRegisterNavContext,
@@ -94,8 +95,8 @@ export function AttendanceDateSearchForm({
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1 space-y-1.5">
+      <form onSubmit={handleSubmit} className={DATE_SEARCH_FORM_LAYOUT.form}>
+        <div className={DATE_SEARCH_FORM_LAYOUT.fieldWrapper}>
           <label
             htmlFor="attendance-date-search"
             className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted"
@@ -112,7 +113,7 @@ export function AttendanceDateSearchForm({
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className={DATE_SEARCH_FORM_LAYOUT.actionRow}>
           <button type="submit" className={buttonClassName}>
             Show sessions
           </button>
@@ -128,7 +129,7 @@ export function AttendanceDateSearchForm({
         </div>
       </form>
 
-      <div className="flex flex-wrap gap-2">
+      <div className={DATE_SEARCH_FORM_LAYOUT.nav}>
         <button
           type="button"
           className={quickButtonClassName}
