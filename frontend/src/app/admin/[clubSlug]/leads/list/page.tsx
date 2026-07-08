@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { LeadsSummaryCards } from "@/components/admin/leads-summary-cards";
-import { LeadsTable } from "@/components/admin/leads-table";
+import { LeadsListClient } from "@/components/admin/leads-list-client";
 import { AppHeader } from "@/components/layout/app-header";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { LEADS_NOT_CONFIGURED_MESSAGE, loadAdminLeads } from "@/lib/leads.server";
@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 interface LeadsListPageProps {
   params: { clubSlug: string };
+  searchParams?: { q?: string };
 }
 
 export async function generateMetadata({ params }: LeadsListPageProps): Promise<Metadata> {
@@ -24,9 +25,13 @@ export async function generateMetadata({ params }: LeadsListPageProps): Promise<
   };
 }
 
-export default async function LeadsListPage({ params }: LeadsListPageProps) {
+export default async function LeadsListPage({
+  params,
+  searchParams,
+}: LeadsListPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
   const { leadsTableAvailable, leads, summary } = await loadAdminLeads(club.id);
+  const initialSearchQuery = searchParams?.q?.trim() ?? "";
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -41,7 +46,8 @@ export default async function LeadsListPage({ params }: LeadsListPageProps) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-dojo-muted">
-          Leads sorted by most recent activity first. Click a name to view and edit details.
+          Sort by column header, search, and filter without reloading the page. Your
+          last chosen sort order is remembered on this device.
         </p>
         <Link
           href={clubLeadNewAdminPath(club.slug)}
@@ -61,7 +67,11 @@ export default async function LeadsListPage({ params }: LeadsListPageProps) {
       ) : (
         <>
           <LeadsSummaryCards summary={summary} />
-          <LeadsTable clubSlug={club.slug} leads={leads} />
+          <LeadsListClient
+            clubSlug={club.slug}
+            leads={leads}
+            initialSearchQuery={initialSearchQuery}
+          />
         </>
       )}
     </main>

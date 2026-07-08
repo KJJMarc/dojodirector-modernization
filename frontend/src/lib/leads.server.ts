@@ -666,6 +666,7 @@ function mapLeadListRow(
     trialAttendedAt,
     joinedAt: row.joined_at ?? null,
     lastActivityAt: resolveLastActivityAt(row),
+    updatedAt: row.updated_at ?? row.created_at,
     linkedTrialSessionStartsAt,
     followUpStatus: computeLeadFollowUpStatus({
       status,

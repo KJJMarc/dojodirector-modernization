@@ -206,6 +206,7 @@ export interface AdminLeadListRow {
   trialAttendedAt: string | null;
   joinedAt: string | null;
   lastActivityAt: string;
+  updatedAt: string;
   linkedTrialSessionStartsAt: string | null;
   followUpStatus: LeadFollowUpStatus;
   leadSourceLabel: string;
