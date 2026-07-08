@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: LeadsListPageProps): Promise<
   const club = await requireClubBySlug(params.clubSlug);
 
   return {
-    title: `Dojo Director | ${club.name} Leads`,
-    description: `Trial enquiry leads for ${club.name}.`,
+    title: `Dojo Director | ${club.name} Active Leads`,
+    description: `Active trial enquiry leads for ${club.name}.`,
   };
 }
 
@@ -35,7 +35,7 @@ export default async function LeadsListPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle="Leads" clubName={club.name} />
+      <AppHeader pageTitle="Active Leads" clubName={club.name} />
 
       <AdminNavLinks>
         <AdminBackLink clubSlug={club.slug} />

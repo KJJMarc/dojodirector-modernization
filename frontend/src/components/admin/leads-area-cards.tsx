@@ -18,7 +18,7 @@ export function LeadsAreaCards({ clubSlug }: LeadsAreaCardsProps) {
   return (
     <div className="grid gap-3">
       <Link href={clubLeadsListAdminPath(clubSlug)} className={actionCardClassName}>
-        <span className="text-base font-semibold text-dojo-white">View Leads</span>
+        <span className="text-base font-semibold text-dojo-white">Active Leads</span>
         <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
           List trial enquiries for this academy, most recent activity first.
         </span>
