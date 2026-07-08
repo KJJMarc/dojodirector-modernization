@@ -22,6 +22,7 @@ import {
 } from "@/lib/lead-source-analytics.shared";
 import {
   LEADS_NOT_CONFIGURED_MESSAGE,
+  buildAdminLeadHistorySummary,
   buildAdminLeadsSummary,
   computeLeadFollowUpStatus,
   formatLeadStatusLabel,
@@ -31,6 +32,8 @@ import {
   parseLeadSubmission,
   type AdminArchivedLeadListRow,
   type AdminLeadDetail,
+  type AdminLeadHistoryRow,
+  type AdminLeadHistorySummary,
   type AdminLeadListRow,
   type AdminLeadsSummary,
   type LeadSubmission,
@@ -908,6 +911,106 @@ export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadR
     leadsTableAvailable: true,
     leads,
     summary: buildAdminLeadsSummary(leads),
+  };
+}
+
+function mapLeadHistoryRow(
+  row: LeadRecordRow,
+  linkedTrialSessionStartsAt: string | null,
+): AdminLeadHistoryRow {
+  return {
+    ...mapLeadListRow(row, linkedTrialSessionStartsAt),
+    archivedAt: row.archived_at ?? null,
+  };
+}
+
+export interface AdminLeadHistoryLoadResult {
+  leadsTableAvailable: boolean;
+  leads: AdminLeadHistoryRow[];
+  summary: AdminLeadHistorySummary;
+}
+
+export async function loadAdminLeadHistory(
+  academyId: string,
+): Promise<AdminLeadHistoryLoadResult> {
+  const tableAvailable = await checkLeadsTableAvailable();
+
+  if (!tableAvailable) {
+    return {
+      leadsTableAvailable: false,
+      leads: [],
+      summary: buildAdminLeadHistorySummary([]),
+    };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const archivedColumnAvailable = await checkLeadArchivedColumnAvailable();
+  const trackingSelect =
+    "id, full_name, email, phone, programme_interest, experience_level, lead_source, status, created_at, updated_at, submitted_at, contacted_at, trial_booked_at, trial_attended_at, joined_at, last_activity_at";
+  const historyTrackingSelect = `${trackingSelect}, archived_at`;
+
+  const { data, error } = archivedColumnAvailable
+    ? await supabase
+        .from("leads")
+        .select(historyTrackingSelect)
+        .eq("academy_id", academyId)
+        .order("submitted_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+    : await supabase
+        .from("leads")
+        .select(trackingSelect)
+        .eq("academy_id", academyId)
+        .order("submitted_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+
+  let rows = (data ?? []) as LeadRecordRow[];
+
+  if (error) {
+    if (isMissingLeadTrackingColumnsError(error)) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("leads")
+        .select(
+          "id, full_name, email, phone, programme_interest, experience_level, lead_source, status, created_at, updated_at",
+        )
+        .eq("academy_id", academyId)
+        .order("created_at", { ascending: false });
+
+      if (fallbackError) {
+        if (isMissingLeadsTableError(fallbackError)) {
+          leadsTableAvailable = false;
+          return {
+            leadsTableAvailable: false,
+            leads: [],
+            summary: buildAdminLeadHistorySummary([]),
+          };
+        }
+
+        throw new Error(`Failed to load lead history: ${fallbackError.message}`);
+      }
+
+      rows = (fallbackData ?? []) as LeadRecordRow[];
+    } else if (isMissingLeadsTableError(error)) {
+      leadsTableAvailable = false;
+      return {
+        leadsTableAvailable: false,
+        leads: [],
+        summary: buildAdminLeadHistorySummary([]),
+      };
+    } else {
+      throw new Error(`Failed to load lead history: ${error.message}`);
+    }
+  }
+
+  leadsTableAvailable = true;
+  const linkedSessions = await loadLinkedTrialSessionStartsAtByLeadId(rows.map((row) => row.id));
+  const leads = rows.map((row) =>
+    mapLeadHistoryRow(row, linkedSessions.get(row.id) ?? null),
+  );
+
+  return {
+    leadsTableAvailable: true,
+    leads,
+    summary: buildAdminLeadHistorySummary(leads),
   };
 }
 

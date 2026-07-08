@@ -6,6 +6,7 @@ import {
 } from "@/lib/clubs.shared";
 import {
   formatAnalyticsLeadSourceLabel,
+  formatLeadSourceConversionPercent,
   normalizeLeadSourceForAnalytics,
 } from "@/lib/lead-source-analytics.shared";
 import type { LeadAttribution } from "@/lib/lead-attribution.shared";
@@ -245,6 +246,21 @@ export interface AdminLeadsSummary {
   joinedThisMonth: number;
 }
 
+export interface AdminLeadHistoryRow extends AdminLeadListRow {
+  archivedAt: string | null;
+}
+
+export interface AdminLeadHistorySummary {
+  totalLeads: number;
+  joinedLeads: number;
+  trialAttended: number;
+  trialBooked: number;
+  trialMissed: number;
+  newEnquiries: number;
+  archivedLeads: number;
+  conversionRateLabel: string;
+}
+
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -283,6 +299,10 @@ export function clubLeadsAdminPath(clubSlug: string) {
 
 export function clubLeadsListAdminPath(clubSlug: string) {
   return clubAdminPath(clubSlug, "leads/list");
+}
+
+export function clubLeadsHistoryAdminPath(clubSlug: string) {
+  return clubAdminPath(clubSlug, "leads/history");
 }
 
 export function clubLeadsArchivedAdminPath(clubSlug: string) {
@@ -491,6 +511,24 @@ export function buildAdminLeadsSummary(leads: AdminLeadListRow[]): AdminLeadsSum
 
       return !Number.isNaN(joinedAt.getTime()) && joinedAt >= monthStart;
     }).length,
+  };
+}
+
+export function buildAdminLeadHistorySummary(
+  leads: AdminLeadHistoryRow[],
+): AdminLeadHistorySummary {
+  const totalLeads = leads.length;
+  const joinedLeads = leads.filter((lead) => lead.status === "joined").length;
+
+  return {
+    totalLeads,
+    joinedLeads,
+    trialAttended: leads.filter((lead) => lead.status === "trial_attended").length,
+    trialBooked: leads.filter((lead) => lead.status === "trial_booked").length,
+    trialMissed: leads.filter((lead) => lead.status === "trial_missed").length,
+    newEnquiries: leads.filter((lead) => lead.status === "new_enquiry").length,
+    archivedLeads: leads.filter((lead) => Boolean(lead.archivedAt)).length,
+    conversionRateLabel: formatLeadSourceConversionPercent(joinedLeads, totalLeads),
   };
 }
 

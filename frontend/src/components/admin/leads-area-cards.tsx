@@ -3,6 +3,7 @@ import {
   clubLeadEmailSettingsAdminPath,
   clubLeadNewAdminPath,
   clubLeadsArchivedAdminPath,
+  clubLeadsHistoryAdminPath,
   clubLeadsListAdminPath,
 } from "@/lib/leads.shared";
 
@@ -20,6 +21,13 @@ export function LeadsAreaCards({ clubSlug }: LeadsAreaCardsProps) {
         <span className="text-base font-semibold text-dojo-white">View Leads</span>
         <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
           List trial enquiries for this academy, most recent activity first.
+        </span>
+      </Link>
+
+      <Link href={clubLeadsHistoryAdminPath(clubSlug)} className={actionCardClassName}>
+        <span className="text-base font-semibold text-dojo-white">Lead History</span>
+        <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
+          View all leads ever recorded, including joined and archived leads.
         </span>
       </Link>
 
