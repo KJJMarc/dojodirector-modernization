@@ -19,6 +19,7 @@ import {
 } from "@/lib/instructor-portal-auth.server";
 import { setProfileLoginPassword } from "@/lib/profile-login-access.server";
 import { sendPortalSetupEmailForMember } from "@/lib/portal-setup.server";
+import type { PortalSetupEmailActionResult } from "@/lib/portal-setup.shared";
 import { revalidatePath } from "next/cache";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
 import {
@@ -74,49 +75,81 @@ export async function setProfileLoginPasswordAction(
   };
 }
 
-export async function sendPortalSetupEmailAction(clubSlug: string, userId: string) {
-  const club = await requireClubBySlug(clubSlug);
-  await requireAdminAccessForClubSlug(clubSlug);
+export async function sendPortalSetupEmailAction(
+  clubSlug: string,
+  userId: string,
+): Promise<PortalSetupEmailActionResult> {
+  try {
+    const club = await requireClubBySlug(clubSlug);
+    await requireAdminAccessForClubSlug(clubSlug);
 
-  const supabase = getSupabaseAdminClient();
-  const [{ data: user, error: userError }, { data: membership, error: membershipError }] =
-    await Promise.all([
-      supabase.from("users").select("email").eq("id", userId).maybeSingle(),
-      supabase
-        .from("memberships")
-        .select("role, status")
-        .eq("user_id", userId)
-        .eq("club_id", club.id)
-        .maybeSingle(),
-    ]);
+    const supabase = getSupabaseAdminClient();
+    const [{ data: user, error: userError }, { data: membership, error: membershipError }] =
+      await Promise.all([
+        supabase.from("users").select("email").eq("id", userId).maybeSingle(),
+        supabase
+          .from("memberships")
+          .select("role, status")
+          .eq("user_id", userId)
+          .eq("club_id", club.id)
+          .maybeSingle(),
+      ]);
 
-  if (userError) {
-    throw new Error(`Failed to load member: ${userError.message}`);
+    if (userError) {
+      throw new Error(`Failed to load member: ${userError.message}`);
+    }
+
+    if (membershipError) {
+      throw new Error(`Failed to load membership: ${membershipError.message}`);
+    }
+
+    if (!membership) {
+      throw new Error("Member not found at this academy.");
+    }
+
+    const result = await sendPortalSetupEmailForMember({
+      userId,
+      clubSlug: club.slug,
+      academyName: club.name,
+      membershipRole: membership.role,
+      membershipStatus: membership.status,
+      profileEmail: user?.email ?? null,
+    });
+
+    revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
+
+    return {
+      ok: true,
+      message: result.message,
+      loginEmail: result.loginEmail,
+    };
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unable to send portal setup email.";
+
+    console.error("[sendPortalSetupEmailAction] failed", {
+      clubSlug,
+      userId,
+      message,
+    });
+
+    return {
+      ok: false,
+      error: message,
+    };
   }
-
-  if (membershipError) {
-    throw new Error(`Failed to load membership: ${membershipError.message}`);
-  }
-
-  if (!membership) {
-    throw new Error("Member not found at this academy.");
-  }
-
-  const result = await sendPortalSetupEmailForMember({
-    userId,
-    clubSlug: club.slug,
-    academyName: club.name,
-    membershipRole: membership.role,
-    membershipStatus: membership.status,
-    profileEmail: user?.email ?? null,
-  });
-
-  revalidatePath(clubAdminPath(clubSlug, `students/${userId}/profile`));
-
-  return result;
 }
 
-export async function sendStudentPortalInviteAction(clubSlug: string, userId: string) {
+export async function sendStudentPortalInviteAction(
+  clubSlug: string,
+  userId: string,
+): Promise<PortalSetupEmailActionResult> {
   return sendPortalSetupEmailAction(clubSlug, userId);
 }
 

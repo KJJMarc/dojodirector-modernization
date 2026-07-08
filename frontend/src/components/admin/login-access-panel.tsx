@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   sendStudentPortalInviteAction,
@@ -41,6 +42,7 @@ export function LoginAccessPanel({
   const [inviteErrorMessage, setInviteErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isInvitePending, startInviteTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <section className={profileSectionClassName}>
@@ -78,16 +80,15 @@ export function LoginAccessPanel({
               setInviteErrorMessage(null);
 
               startInviteTransition(async () => {
-                try {
-                  const result = await sendStudentPortalInviteAction(clubSlug, userId);
+                const result = await sendStudentPortalInviteAction(clubSlug, userId);
+
+                if (result.ok) {
                   setInviteSuccessMessage(result.message);
-                } catch (error) {
-                  setInviteErrorMessage(
-                    error instanceof Error
-                      ? error.message
-                      : "Unable to send portal invite.",
-                  );
+                  router.refresh();
+                  return;
                 }
+
+                setInviteErrorMessage(result.error);
               });
             }}
             className="inline-flex min-h-[36px] items-center justify-center rounded-md bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"
@@ -111,6 +112,10 @@ export function LoginAccessPanel({
             </p>
           ) : null}
         </div>
+      ) : loginAccess.loginEmail ? (
+        <p className="text-sm leading-snug text-dojo-muted">
+          Portal setup email can only be sent for members with an active membership.
+        </p>
       ) : null}
 
       {!loginAccess.canSetPassword ? (

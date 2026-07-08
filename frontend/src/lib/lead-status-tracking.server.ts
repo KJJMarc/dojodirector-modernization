@@ -1,11 +1,8 @@
 import "server-only";
 
-import {
-  appendLeadNote,
-  normalizeLeadMatchEmail,
-  normalizeLeadMatchPhone,
-} from "@/lib/lead-guest-booking-match.shared";
+import { appendLeadNote } from "@/lib/lead-guest-booking-match.shared";
 import { preserveStudentOriginalLeadSource } from "@/lib/lead-source-analytics.server";
+import { findCanonicalLeadForMatch } from "@/lib/lead-match.server";
 import {
   resolveLeadStatusAfterAttendanceRegisterMark,
   shouldUpdateLeadFromAttendanceRegisterMark,
@@ -30,37 +27,6 @@ interface LeadTrackingRow {
   joined_at: string | null;
 }
 
-const LEAD_TRACKING_SELECT =
-  "id, full_name, email, phone, lead_source, status, notes, trial_attended_at, joined_at";
-
-function normalizeLeadMatchFullName(fullName: string | null | undefined): string | null {
-  const normalized = fullName?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
-
-  return normalized.length >= 3 ? normalized : null;
-}
-
-function leadMatchPriority(status: string): number {
-  const normalized = status.trim().toLowerCase();
-
-  if (normalized === "trial_booked") {
-    return 0;
-  }
-
-  if (normalized === "new_enquiry" || normalized === "new" || normalized === "contacted") {
-    return 1;
-  }
-
-  if (normalized === "trial_missed") {
-    return 2;
-  }
-
-  if (normalized === "trial_attended") {
-    return 3;
-  }
-
-  return 4;
-}
-
 function isMissingLeadsTableError(error: SupabaseErrorLike) {
   const message = error.message?.toLowerCase() ?? "";
 
@@ -72,121 +38,6 @@ function isMissingLeadsTableError(error: SupabaseErrorLike) {
   );
 }
 
-async function findLeadById(
-  academyId: string,
-  leadId: string,
-): Promise<LeadTrackingRow | null> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .select(LEAD_TRACKING_SELECT)
-    .eq("academy_id", academyId)
-    .eq("id", leadId)
-    .maybeSingle();
-
-  if (error) {
-    if (isMissingLeadsTableError(error)) {
-      return null;
-    }
-
-    throw new Error(`Failed to match lead by id: ${error.message}`);
-  }
-
-  return (data as LeadTrackingRow | null) ?? null;
-}
-
-async function findLeadByEmail(academyId: string, email: string): Promise<LeadTrackingRow | null> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .select(LEAD_TRACKING_SELECT)
-    .eq("academy_id", academyId)
-    .ilike("email", email)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    if (isMissingLeadsTableError(error)) {
-      return null;
-    }
-
-    throw new Error(`Failed to match lead by email: ${error.message}`);
-  }
-
-  return (data as LeadTrackingRow | null) ?? null;
-}
-
-async function findLeadByPhone(
-  academyId: string,
-  normalizedPhone: string,
-): Promise<LeadTrackingRow | null> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .select(LEAD_TRACKING_SELECT)
-    .eq("academy_id", academyId)
-    .not("phone", "is", null)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    if (isMissingLeadsTableError(error)) {
-      return null;
-    }
-
-    throw new Error(`Failed to match lead by phone: ${error.message}`);
-  }
-
-  for (const row of (data ?? []) as LeadTrackingRow[]) {
-    if (normalizeLeadMatchPhone(row.phone) === normalizedPhone) {
-      return row;
-    }
-  }
-
-  return null;
-}
-
-async function findLeadByFullName(
-  academyId: string,
-  fullName: string,
-): Promise<LeadTrackingRow | null> {
-  const normalizedFullName = normalizeLeadMatchFullName(fullName);
-
-  if (!normalizedFullName) {
-    return null;
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("leads")
-    .select(LEAD_TRACKING_SELECT)
-    .eq("academy_id", academyId)
-    .is("archived_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    if (isMissingLeadsTableError(error)) {
-      return null;
-    }
-
-    throw new Error(`Failed to match lead by name: ${error.message}`);
-  }
-
-  const matches = ((data ?? []) as LeadTrackingRow[]).filter(
-    (row) => normalizeLeadMatchFullName(row.full_name) === normalizedFullName,
-  );
-
-  if (matches.length === 0) {
-    return null;
-  }
-
-  matches.sort(
-    (left, right) => leadMatchPriority(left.status) - leadMatchPriority(right.status),
-  );
-
-  return matches[0] ?? null;
-}
-
 async function findLeadForMatch(input: {
   academyId: string;
   email: string;
@@ -194,39 +45,15 @@ async function findLeadForMatch(input: {
   fullName?: string | null;
   leadId?: string | null;
 }): Promise<LeadTrackingRow | null> {
-  if (input.leadId) {
-    const byId = await findLeadById(input.academyId, input.leadId);
+  const lead = await findCanonicalLeadForMatch({
+    academyId: input.academyId,
+    email: input.email,
+    phone: input.phone,
+    fullName: input.fullName,
+    leadId: input.leadId,
+  });
 
-    if (byId) {
-      return byId;
-    }
-  }
-
-  const normalizedEmail = normalizeLeadMatchEmail(input.email);
-
-  if (normalizedEmail) {
-    const byEmail = await findLeadByEmail(input.academyId, normalizedEmail);
-
-    if (byEmail) {
-      return byEmail;
-    }
-  }
-
-  const normalizedPhone = normalizeLeadMatchPhone(input.phone);
-
-  if (normalizedPhone) {
-    const byPhone = await findLeadByPhone(input.academyId, normalizedPhone);
-
-    if (byPhone) {
-      return byPhone;
-    }
-  }
-
-  if (input.fullName) {
-    return findLeadByFullName(input.academyId, input.fullName);
-  }
-
-  return null;
+  return (lead as LeadTrackingRow | null) ?? null;
 }
 
 async function updateLeadTracking(input: {

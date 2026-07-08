@@ -1,7 +1,21 @@
 import "server-only";
 
-import { sendLeadEmailsAfterSubmission } from "@/lib/leads-email.server";
+import { appendLeadNote } from "@/lib/lead-guest-booking-match.shared";
 import type { LeadAttribution } from "@/lib/lead-attribution.shared";
+import { LEAD_ATTRIBUTION_FORM_FIELDS } from "@/lib/lead-attribution.shared";
+import {
+  type CanonicalLeadMatchRow,
+  findCanonicalLeadForMatch,
+} from "@/lib/lead-match.server";
+import {
+  buildRepeatEnquiryNote,
+  mergeLeadExperienceLevel,
+  mergeLeadPhone,
+  mergeLeadProgrammeInterest,
+  mergeLeadSource,
+  mergeLeadStatusOnRepeatEnquiry,
+} from "@/lib/lead-match.shared";
+import { sendLeadEmailsAfterSubmission } from "@/lib/leads-email.server";
 import {
   formatAnalyticsLeadSourceLabel,
   normalizeLeadSourceForAnalytics,
@@ -181,6 +195,218 @@ function mapLeadAttributionFromRow(row: LeadRecordRow): LeadAttribution {
     utm_content: row.utm_content ?? null,
     utm_term: row.utm_term ?? null,
     referrer_url: row.referrer_url ?? null,
+  };
+}
+
+function mergeAttributionOntoLeadUpdate(
+  existing: CanonicalLeadMatchRow,
+  incoming: LeadAttribution | undefined,
+): Partial<LeadAttribution> {
+  if (!incoming) {
+    return {};
+  }
+
+  const update: Partial<LeadAttribution> = {};
+
+  for (const field of LEAD_ATTRIBUTION_FORM_FIELDS) {
+    const existingValue = existing[field]?.trim() ?? "";
+    const incomingValue = incoming[field]?.trim() ?? "";
+
+    if (!existingValue && incomingValue) {
+      update[field] = incomingValue;
+    }
+  }
+
+  return update;
+}
+
+function buildStatusTimestampsForMerge(input: {
+  existingStatus: string;
+  nextStatus: LeadStatus;
+  trackingAvailable: boolean;
+  now: string;
+  existingTimestamps?: {
+    trial_booked_at?: string | null;
+    trial_attended_at?: string | null;
+    joined_at?: string | null;
+  };
+}) {
+  if (!input.trackingAvailable) {
+    return {};
+  }
+
+  const timestamps: Record<string, string> = {};
+
+  if (input.nextStatus === "trial_booked" && input.existingStatus !== "trial_booked") {
+    timestamps.trial_booked_at = input.now;
+  }
+
+  if (input.nextStatus === "trial_attended" && !input.existingTimestamps?.trial_attended_at) {
+    timestamps.trial_attended_at = input.now;
+  }
+
+  if (input.nextStatus === "joined" && !input.existingTimestamps?.joined_at) {
+    timestamps.joined_at = input.now;
+  }
+
+  return timestamps;
+}
+
+async function mergeExistingLeadFromEnquiry(input: {
+  academyId: string;
+  existing: CanonicalLeadMatchRow;
+  submission: LeadSubmission;
+  status: LeadStatus;
+  attribution?: LeadAttribution;
+  trackingAvailable: boolean;
+  now: string;
+}): Promise<{ leadId: string; createdAt: string }> {
+  const supabase = getSupabaseAdminClient();
+  const repeatNote = buildRepeatEnquiryNote(input.submission.notes, input.now);
+  const nextNotes = repeatNote
+    ? appendLeadNote(input.existing.notes, repeatNote)
+    : input.existing.notes;
+  const nextStatus = mergeLeadStatusOnRepeatEnquiry(
+    input.existing.status,
+    input.status,
+  );
+  const update: Record<string, string | null> = {
+    programme_interest: mergeLeadProgrammeInterest(
+      input.existing.programme_interest,
+      input.submission.programmeInterest,
+    ),
+    experience_level: mergeLeadExperienceLevel(
+      input.existing.experience_level,
+      input.submission.experienceLevel,
+    ),
+    lead_source: mergeLeadSource(input.existing.lead_source, input.submission.leadSource),
+    phone: mergeLeadPhone(input.existing.phone, input.submission.phone || null),
+    notes: nextNotes,
+    status: nextStatus,
+    ...mergeAttributionOntoLeadUpdate(input.existing, input.attribution),
+  };
+
+  if (input.trackingAvailable) {
+    update.last_activity_at = input.now;
+    update.updated_at = input.now;
+    Object.assign(
+      update,
+      buildStatusTimestampsForMerge({
+        existingStatus: input.existing.status,
+        nextStatus,
+        trackingAvailable: input.trackingAvailable,
+        now: input.now,
+      }),
+    );
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .update(update)
+    .eq("academy_id", input.academyId)
+    .eq("id", input.existing.id);
+
+  if (error) {
+    throw new Error(`Failed to update existing lead: ${error.message}`);
+  }
+
+  console.info("[leads] merged repeat enquiry into existing lead", {
+    academyId: input.academyId,
+    leadId: input.existing.id,
+    email: input.submission.email,
+  });
+
+  return {
+    leadId: input.existing.id,
+    createdAt: input.existing.created_at,
+  };
+}
+
+async function resolveLeadCreation(input: {
+  academyId: string;
+  submission: LeadSubmission;
+  status: LeadStatus;
+  attribution?: LeadAttribution;
+  trackingAvailable: boolean;
+  statusTimestamps?: Record<string, string>;
+  now: string;
+}): Promise<{ leadId: string; createdAt: string; merged: boolean }> {
+  const existing = await findCanonicalLeadForMatch({
+    academyId: input.academyId,
+    email: input.submission.email,
+    phone: input.submission.phone || null,
+  });
+
+  if (existing) {
+    const merged = await mergeExistingLeadFromEnquiry({
+      academyId: input.academyId,
+      existing,
+      submission: input.submission,
+      status: input.status,
+      attribution: input.attribution,
+      trackingAvailable: input.trackingAvailable,
+      now: input.now,
+    });
+
+    return { ...merged, merged: true };
+  }
+
+  const insertRow = input.attribution
+    ? appendAttributionToInsertRow(
+        buildLeadInsertRow(
+          {
+            academy_id: input.academyId,
+            full_name: input.submission.fullName,
+            email: input.submission.email,
+            phone: input.submission.phone || null,
+            programme_interest: input.submission.programmeInterest,
+            experience_level: input.submission.experienceLevel,
+            lead_source: input.submission.leadSource,
+            notes: input.submission.notes || null,
+            status: input.status,
+          },
+          input.now,
+          input.trackingAvailable,
+          input.statusTimestamps,
+        ),
+        input.attribution,
+      )
+    : buildLeadInsertRow(
+        {
+          academy_id: input.academyId,
+          full_name: input.submission.fullName,
+          email: input.submission.email,
+          phone: input.submission.phone || null,
+          programme_interest: input.submission.programmeInterest,
+          experience_level: input.submission.experienceLevel,
+          lead_source: input.submission.leadSource,
+          notes: input.submission.notes || null,
+          status: input.status,
+        },
+        input.now,
+        input.trackingAvailable,
+        input.statusTimestamps,
+      );
+
+  const { data, error } = await insertLeadRow(insertRow);
+
+  if (error) {
+    if (isMissingLeadsTableError(error)) {
+      leadsTableAvailable = false;
+      throw new Error(LEADS_NOT_CONFIGURED_MESSAGE);
+    }
+
+    throw new Error(`Failed to create lead: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error("Failed to create lead: lead was not created.");
+  }
+
+  return {
+    leadId: data.id as string,
+    createdAt: data.created_at as string,
+    merged: false,
   };
 }
 
@@ -823,49 +1049,37 @@ export async function submitLead(input: {
   const submission = parseLeadSubmission(input.submission);
   const now = new Date().toISOString();
   const trackingAvailable = await checkLeadTrackingColumnsAvailable();
-  const insertRow = appendAttributionToInsertRow(
-    buildLeadInsertRow(
-      {
-        academy_id: input.academyId,
-        full_name: submission.fullName,
-        email: submission.email,
-        phone: submission.phone || null,
-        programme_interest: submission.programmeInterest,
-        experience_level: submission.experienceLevel,
-        lead_source: submission.leadSource,
-        notes: submission.notes || null,
-        status: "new_enquiry",
-      },
-      now,
+
+  let leadId: string;
+  let createdAt: string;
+
+  try {
+    const result = await resolveLeadCreation({
+      academyId: input.academyId,
+      submission,
+      status: "new_enquiry",
+      attribution: input.attribution,
       trackingAvailable,
-    ),
-    input.attribution,
-  );
+      now,
+    });
 
-  const { data, error } = await insertLeadRow(insertRow);
-
-  if (error) {
-    if (isMissingLeadsTableError(error)) {
-      leadsTableAvailable = false;
-      throw new Error(LEADS_NOT_CONFIGURED_MESSAGE);
+    leadId = result.leadId;
+    createdAt = result.createdAt;
+  } catch (error) {
+    if (error instanceof Error && error.message === LEADS_NOT_CONFIGURED_MESSAGE) {
+      throw error;
     }
 
-    console.error("[leads] submitLead insert failed", {
+    console.error("[leads] submitLead failed", {
       academyId: input.academyId,
       email: submission.email,
       trackingAvailable,
-      code: error.code,
-      message: error.message,
+      message: error instanceof Error ? error.message : String(error),
     });
-    throw new Error(`Failed to submit enquiry: ${error.message}`);
+    throw new Error(
+      error instanceof Error ? error.message : "Failed to submit enquiry.",
+    );
   }
-
-  if (!data) {
-    throw new Error("Failed to submit enquiry: lead was not created.");
-  }
-
-  const leadId = data.id as string;
-  const createdAt = data.created_at as string;
 
   await sendLeadEmailsAfterSubmission({
     academyId: input.academyId,
@@ -913,39 +1127,17 @@ export async function createAdminLead(
         ...(status === "joined" ? { joined_at: now } : {}),
       }
     : {};
-  const insertRow = buildLeadInsertRow(
-    {
-      academy_id: academyId,
-      full_name: submission.fullName,
-      email: submission.email,
-      phone: submission.phone || null,
-      programme_interest: submission.programmeInterest,
-      experience_level: submission.experienceLevel,
-      lead_source: submission.leadSource,
-      notes: submission.notes || null,
-      status,
-    },
-    now,
+
+  const result = await resolveLeadCreation({
+    academyId,
+    submission,
+    status,
     trackingAvailable,
     statusTimestamps,
-  );
+    now,
+  });
 
-  const { data, error } = await insertLeadRow(insertRow);
-
-  if (error) {
-    if (isMissingLeadsTableError(error)) {
-      leadsTableAvailable = false;
-      throw new Error(LEADS_NOT_CONFIGURED_MESSAGE);
-    }
-
-    throw new Error(`Failed to create lead: ${error.message}`);
-  }
-
-  if (!data) {
-    throw new Error("Failed to create lead: lead was not created.");
-  }
-
-  return { leadId: data.id as string };
+  return { leadId: result.leadId };
 }
 
 export async function updateLeadAdminRecord(input: {

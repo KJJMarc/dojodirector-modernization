@@ -197,3 +197,22 @@ export function canAdminSendPortalSetupEmail(input: {
     isActiveMembershipStatus(input.membershipStatus)
   );
 }
+
+export function describePortalSetupSendBlocker(input: {
+  profileEmail: string | null;
+  membershipStatus: string | null;
+}) {
+  if (!input.profileEmail?.trim()) {
+    return "Add a profile email before sending a portal setup email.";
+  }
+
+  if (!isActiveMembershipStatus(input.membershipStatus)) {
+    return "Activate this member's membership before sending a portal setup email.";
+  }
+
+  return null;
+}
+
+export type PortalSetupEmailActionResult =
+  | { ok: true; message: string; loginEmail: string }
+  | { ok: false; error: string };

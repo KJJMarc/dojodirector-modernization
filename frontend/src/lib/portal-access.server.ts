@@ -26,6 +26,7 @@ import {
 import {
   buildPortalSetupAdminStatus,
   canAdminSendPortalSetupEmail,
+  describePortalSetupSendBlocker,
 } from "@/lib/portal-setup.shared";
 import { isStudentMembershipRole } from "@/lib/admin-student-membership.shared";
 import { isActiveMembershipStatus } from "@/lib/membership-status.shared";
@@ -502,8 +503,13 @@ export async function sendPortalAccessEmailToMember(input: {
   });
 
   if (!status.canSendSetupEmail) {
-    if (!isValidPortalSetupEmail(profile.email)) {
-      throw new Error("Add a profile email before sending a portal setup email.");
+    const sendBlocker = describePortalSetupSendBlocker({
+      profileEmail: profile.email,
+      membershipStatus: membership.status,
+    });
+
+    if (sendBlocker) {
+      throw new Error(sendBlocker);
     }
 
     throw new Error("Portal access is already active for this member.");

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { sendPortalSetupEmailAction } from "@/app/admin/[clubSlug]/students/[userId]/profile/actions";
 import {
@@ -24,6 +25,7 @@ export function PortalSetupPanel({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <section className={profileSectionClassName}>
@@ -49,16 +51,15 @@ export function PortalSetupPanel({
             setErrorMessage(null);
 
             startTransition(async () => {
-              try {
-                const result = await sendPortalSetupEmailAction(clubSlug, userId);
+              const result = await sendPortalSetupEmailAction(clubSlug, userId);
+
+              if (result.ok) {
                 setSuccessMessage(result.message);
-              } catch (error) {
-                setErrorMessage(
-                  error instanceof Error
-                    ? error.message
-                    : "Unable to send portal setup email.",
-                );
+                router.refresh();
+                return;
               }
+
+              setErrorMessage(result.error);
             });
           }}
           className="inline-flex min-h-[36px] items-center justify-center rounded-md bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white transition hover:bg-dojo-red-hover disabled:cursor-not-allowed disabled:opacity-60"

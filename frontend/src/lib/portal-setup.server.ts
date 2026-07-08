@@ -17,6 +17,7 @@ import {
   buildPortalSetupConfirmUrl,
   buildPortalSetupResetPath,
   canAdminSendPortalSetupEmail,
+  describePortalSetupSendBlocker,
   resolvePortalSetupLoginContext,
   type PortalSetupAdminStatus,
   type PortalSetupLoginContext,
@@ -44,8 +45,11 @@ interface MembershipRoleStatusRow {
   status: string | null;
 }
 
-function logPortalSetupFailure(message: string) {
-  console.error("[portal-setup]", { message });
+function logPortalSetupFailure(
+  message: string,
+  context?: Record<string, string | null | undefined>,
+) {
+  console.error("[portal-setup]", { message, ...context });
 }
 
 async function loadPortalSetupUser(userId: string): Promise<PortalSetupUserRow | null> {
@@ -155,13 +159,13 @@ export async function sendPortalSetupEmailForMember(input: {
   membershipStatus: string | null;
   profileEmail: string | null;
 }): Promise<{ message: string; loginEmail: string }> {
-  if (
-    !canAdminSendPortalSetupEmail({
-      profileEmail: input.profileEmail,
-      membershipStatus: input.membershipStatus,
-    })
-  ) {
-    throw new Error("Add a profile email before sending a portal setup email.");
+  const sendBlocker = describePortalSetupSendBlocker({
+    profileEmail: input.profileEmail,
+    membershipStatus: input.membershipStatus,
+  });
+
+  if (sendBlocker) {
+    throw new Error(sendBlocker);
   }
 
   const profile = await loadPortalSetupUser(input.userId);
@@ -220,14 +224,22 @@ export async function sendPortalSetupEmailForMember(input: {
   });
 
   if (linkError) {
-    logPortalSetupFailure(linkError.message);
+    logPortalSetupFailure(linkError.message, {
+      userId: input.userId,
+      clubSlug: input.clubSlug,
+      loginEmail,
+    });
     throw new Error("Unable to send portal setup email. Please try again.");
   }
 
   const hashedToken = linkData.properties?.hashed_token?.trim();
 
   if (!hashedToken) {
-    logPortalSetupFailure("Setup token was not generated.");
+    logPortalSetupFailure("Setup token was not generated.", {
+      userId: input.userId,
+      clubSlug: input.clubSlug,
+      loginEmail,
+    });
     throw new Error("Unable to send portal setup email. Please try again.");
   }
 
@@ -266,7 +278,11 @@ export async function sendPortalSetupEmailForMember(input: {
     .eq("id", input.userId);
 
   if (profileUpdateError) {
-    logPortalSetupFailure(profileUpdateError.message);
+    logPortalSetupFailure(profileUpdateError.message, {
+      userId: input.userId,
+      clubSlug: input.clubSlug,
+      loginEmail: authEmail,
+    });
     throw new Error(
       "Portal setup email was sent, but invite status could not be saved. Please contact support.",
     );
