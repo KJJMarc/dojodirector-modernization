@@ -834,11 +834,13 @@ export async function loadAdminLeads(academyId: string): Promise<AdminLeadsLoadR
         .select(trackingSelect)
         .eq("academy_id", academyId)
         .is("archived_at", null)
+        .order("last_activity_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
     : await supabase
         .from("leads")
         .select(trackingSelect)
         .eq("academy_id", academyId)
+        .order("last_activity_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
 
   let rows = (data ?? []) as LeadRecordRow[];

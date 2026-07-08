@@ -5,6 +5,7 @@ import {
   buildGuestBookingLeadNote,
   normalizeLeadMatchEmail,
   normalizeLeadMatchPhone,
+  shouldPreserveJoinedLeadStatusOnGuestBookingMatch,
 } from "./lead-guest-booking-match.shared.ts";
 
 describe("normalizeLeadMatchEmail", () => {
@@ -26,6 +27,15 @@ describe("appendLeadNote", () => {
       appendLeadNote("Existing note", "[1 Jan] Guest booked a trial class"),
       "Existing note\n\n[1 Jan] Guest booked a trial class",
     );
+  });
+});
+
+describe("shouldPreserveJoinedLeadStatusOnGuestBookingMatch", () => {
+  it("preserves joined leads when a member books another trial class", () => {
+    assert.equal(shouldPreserveJoinedLeadStatusOnGuestBookingMatch("joined"), true);
+    assert.equal(shouldPreserveJoinedLeadStatusOnGuestBookingMatch("converted"), true);
+    assert.equal(shouldPreserveJoinedLeadStatusOnGuestBookingMatch("trial_booked"), false);
+    assert.equal(shouldPreserveJoinedLeadStatusOnGuestBookingMatch("trial_attended"), false);
   });
 });
 

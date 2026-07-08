@@ -41,7 +41,7 @@ export default async function LeadsListPage({ params }: LeadsListPageProps) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-dojo-muted">
-          Newest leads first. Click a name to view and edit details.
+          Leads sorted by most recent activity first. Click a name to view and edit details.
         </p>
         <Link
           href={clubLeadNewAdminPath(club.slug)}

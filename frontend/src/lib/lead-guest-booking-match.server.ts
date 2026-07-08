@@ -4,6 +4,7 @@ import {
   appendLeadNote,
   buildGuestBookingLeadNote,
   normalizeLeadMatchEmail,
+  shouldPreserveJoinedLeadStatusOnGuestBookingMatch,
 } from "@/lib/lead-guest-booking-match.shared";
 import { findCanonicalLeadForMatch } from "@/lib/lead-match.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -18,6 +19,7 @@ interface LeadMatchRow {
   email: string;
   phone: string | null;
   notes: string | null;
+  status: string;
 }
 
 export interface GuestBookingLeadMatchInput {
@@ -64,15 +66,21 @@ async function updateMatchedLead(input: {
 }) {
   const supabase = getSupabaseAdminClient();
   const now = new Date().toISOString();
+  const appendedNotes = appendLeadNote(input.lead.notes, input.noteEntry);
+  const updatePayload: Record<string, string | null> = {
+    last_activity_at: now,
+    updated_at: now,
+    notes: appendedNotes,
+  };
+
+  if (!shouldPreserveJoinedLeadStatusOnGuestBookingMatch(input.lead.status)) {
+    updatePayload.status = "trial_booked";
+    updatePayload.trial_booked_at = now;
+  }
+
   const { error } = await supabase
     .from("leads")
-    .update({
-      status: "trial_booked",
-      trial_booked_at: now,
-      last_activity_at: now,
-      notes: appendLeadNote(input.lead.notes, input.noteEntry),
-      updated_at: now,
-    })
+    .update(updatePayload)
     .eq("academy_id", input.academyId)
     .eq("id", input.lead.id);
 

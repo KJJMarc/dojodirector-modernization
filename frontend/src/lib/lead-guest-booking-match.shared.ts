@@ -1,3 +1,11 @@
+export function shouldPreserveJoinedLeadStatusOnGuestBookingMatch(
+  status: string | null | undefined,
+) {
+  const normalized = status?.trim().toLowerCase() ?? "";
+
+  return normalized === "joined" || normalized === "converted";
+}
+
 export function normalizeLeadMatchEmail(email: string | null | undefined): string | null {
   const normalized = email?.trim().toLowerCase() ?? "";
 
