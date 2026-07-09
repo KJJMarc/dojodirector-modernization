@@ -56,7 +56,8 @@ export function LeadDetailView({ clubSlug, lead }: LeadDetailViewProps) {
     <div className={`space-y-4 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
       <div className="grid gap-2 rounded-xl border border-dojo-border bg-dojo-surface p-4 text-sm text-dojo-muted sm:grid-cols-2">
         <p>
-          <span className="font-medium text-dojo-white">Status:</span> {lead.statusLabel}
+          <span className="font-medium text-dojo-white">Status:</span>{" "}
+          {LEAD_STATUS_LABELS[status]}
         </p>
         <p>
           <span className="font-medium text-dojo-white">Submitted:</span>{" "}

@@ -1,16 +1,20 @@
 import "server-only";
 
 import {
-  checkLeadActivitiesTableAvailable,
   ensureLeadActivitiesBackfilled,
+  getLeadActivitiesTableStatus,
   loadLeadActivitiesForLead,
   loadLeadActivitiesForLeadIds,
   toLeadBackfillInput,
 } from "@/lib/lead-activities.server";
-import { checkAcademyLeadWorkflowsTableAvailable, loadAcademyLeadWorkflow } from "@/lib/lead-workflow.server";
+import {
+  getAcademyLeadWorkflowsTableStatus,
+  loadAcademyLeadWorkflow,
+} from "@/lib/lead-workflow.server";
 import {
   buildActiveLeadsDashboardSummary,
   enrichLeadWithCrmFields,
+  LEAD_CRM_GRANTS_REQUIRED_MESSAGE,
   LEAD_CRM_NOT_CONFIGURED_MESSAGE,
   type ActiveLeadsDashboardSummary,
   type AdminLeadCrmRow,
@@ -40,6 +44,25 @@ export interface AdminLeadDetailCrmLoadResult {
   crmSetupMessage: string | null;
 }
 
+function resolveLeadCrmSetupMessage(
+  activitiesStatus: Awaited<ReturnType<typeof getLeadActivitiesTableStatus>>,
+  workflowsStatus: Awaited<ReturnType<typeof getAcademyLeadWorkflowsTableStatus>>,
+): string | null {
+  if (activitiesStatus === "missing" || workflowsStatus === "missing") {
+    return LEAD_CRM_NOT_CONFIGURED_MESSAGE;
+  }
+
+  if (activitiesStatus === "permission_denied" || workflowsStatus === "permission_denied") {
+    return LEAD_CRM_GRANTS_REQUIRED_MESSAGE;
+  }
+
+  if (activitiesStatus !== "available" || workflowsStatus !== "available") {
+    return "Lead activity tracking is temporarily unavailable. Please try again shortly.";
+  }
+
+  return null;
+}
+
 async function enrichLeadsWithCrm(
   academyId: string,
   leads: AdminLeadsLoadResult["leads"],
@@ -48,11 +71,12 @@ async function enrichLeadsWithCrm(
     return { leads: [], crmAvailable: false };
   }
 
-  const [activitiesTableAvailable, workflowsTableAvailable] = await Promise.all([
-    checkLeadActivitiesTableAvailable(),
-    checkAcademyLeadWorkflowsTableAvailable(),
+  const [activitiesStatus, workflowsStatus] = await Promise.all([
+    getLeadActivitiesTableStatus(),
+    getAcademyLeadWorkflowsTableStatus(),
   ]);
-  const crmTablesAvailable = activitiesTableAvailable && workflowsTableAvailable;
+  const crmTablesAvailable =
+    activitiesStatus === "available" && workflowsStatus === "available";
   const workflow = await loadAcademyLeadWorkflow(academyId);
 
   if (crmTablesAvailable) {
@@ -111,18 +135,20 @@ export async function loadAdminLeadDetailCrm(
     return null;
   }
 
-  const [activitiesTableAvailable, workflowsTableAvailable] = await Promise.all([
-    checkLeadActivitiesTableAvailable(),
-    checkAcademyLeadWorkflowsTableAvailable(),
+  const [activitiesStatus, workflowsStatus] = await Promise.all([
+    getLeadActivitiesTableStatus(),
+    getAcademyLeadWorkflowsTableStatus(),
   ]);
-  const crmTablesAvailable = activitiesTableAvailable && workflowsTableAvailable;
+  const crmTablesAvailable =
+    activitiesStatus === "available" && workflowsStatus === "available";
+  const crmSetupMessage = resolveLeadCrmSetupMessage(activitiesStatus, workflowsStatus);
 
   if (!crmTablesAvailable) {
     return {
       lead,
       activities: [],
       crmAvailable: false,
-      crmSetupMessage: LEAD_CRM_NOT_CONFIGURED_MESSAGE,
+      crmSetupMessage,
     };
   }
 

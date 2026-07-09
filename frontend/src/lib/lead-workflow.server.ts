@@ -36,30 +36,54 @@ function isMissingAcademyLeadWorkflowsTableError(error: SupabaseErrorLike) {
 
   return (
     error.code === "42P01" ||
-    message.includes("academy_lead_workflows") ||
-    message.includes("does not exist")
+    (message.includes("does not exist") && message.includes("academy_lead_workflows"))
   );
 }
 
-export async function checkAcademyLeadWorkflowsTableAvailable() {
+function isPermissionDeniedTableError(error: SupabaseErrorLike) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return error.code === "42501" || message.includes("permission denied");
+}
+
+export type AcademyLeadWorkflowsTableStatus =
+  | "available"
+  | "missing"
+  | "permission_denied"
+  | "unavailable";
+
+export async function getAcademyLeadWorkflowsTableStatus(): Promise<AcademyLeadWorkflowsTableStatus> {
   if (academyLeadWorkflowsTableAvailable === true) {
-    return true;
+    return "available";
   }
 
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.from("academy_lead_workflows").select("academy_id").limit(0);
 
-  if (error && isMissingAcademyLeadWorkflowsTableError(error)) {
+  if (!error) {
+    academyLeadWorkflowsTableAvailable = true;
+    return "available";
+  }
+
+  if (isMissingAcademyLeadWorkflowsTableError(error)) {
     academyLeadWorkflowsTableAvailable = false;
-    return false;
+    return "missing";
   }
 
-  if (error) {
-    return false;
+  if (isPermissionDeniedTableError(error)) {
+    return "permission_denied";
   }
 
-  academyLeadWorkflowsTableAvailable = true;
-  return true;
+  console.warn(
+    "[Lead CRM] Unable to verify academy_lead_workflows table:",
+    error.message,
+  );
+  return "unavailable";
+}
+
+export async function checkAcademyLeadWorkflowsTableAvailable() {
+  const status = await getAcademyLeadWorkflowsTableStatus();
+  return status === "available";
 }
 
 async function loadWorkflowRow(academyId: string) {

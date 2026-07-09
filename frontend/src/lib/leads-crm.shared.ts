@@ -732,6 +732,9 @@ export function applyActiveLeadsQuickFilter(
 export const LEAD_CRM_NOT_CONFIGURED_MESSAGE =
   "Lead activity tracking is not set up yet. Please run the database migration.";
 
+export const LEAD_CRM_GRANTS_REQUIRED_MESSAGE =
+  "Lead activity tracking tables exist but database grants are missing. Please run migration 20260709140000_lead_crm_service_role_grants.sql in Supabase.";
+
 /** Normalize follow-up dates from HTML date inputs, ISO strings, or UK DD/MM/YYYY. */
 export function parseLeadActivityFollowUpAt(value: string | null | undefined): string | null {
   if (value == null) {

@@ -36,30 +36,47 @@ function isMissingLeadActivitiesTableError(error: SupabaseErrorLike) {
 
   return (
     error.code === "42P01" ||
-    message.includes("lead_activities") ||
-    message.includes("does not exist")
+    (message.includes("does not exist") && message.includes("lead_activities"))
   );
 }
 
-export async function checkLeadActivitiesTableAvailable() {
+function isPermissionDeniedTableError(error: SupabaseErrorLike) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return error.code === "42501" || message.includes("permission denied");
+}
+
+export type LeadCrmTableStatus = "available" | "missing" | "permission_denied" | "unavailable";
+
+export async function getLeadActivitiesTableStatus(): Promise<LeadCrmTableStatus> {
   if (leadActivitiesTableAvailable === true) {
-    return true;
+    return "available";
   }
 
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.from("lead_activities").select("id").limit(0);
 
-  if (error && isMissingLeadActivitiesTableError(error)) {
+  if (!error) {
+    leadActivitiesTableAvailable = true;
+    return "available";
+  }
+
+  if (isMissingLeadActivitiesTableError(error)) {
     leadActivitiesTableAvailable = false;
-    return false;
+    return "missing";
   }
 
-  if (error) {
-    return false;
+  if (isPermissionDeniedTableError(error)) {
+    return "permission_denied";
   }
 
-  leadActivitiesTableAvailable = true;
-  return true;
+  console.warn("[Lead CRM] Unable to verify lead_activities table:", error.message);
+  return "unavailable";
+}
+
+export async function checkLeadActivitiesTableAvailable() {
+  const status = await getLeadActivitiesTableStatus();
+  return status === "available";
 }
 
 function mapLeadActivityRow(row: LeadActivityRow): LeadActivity {
