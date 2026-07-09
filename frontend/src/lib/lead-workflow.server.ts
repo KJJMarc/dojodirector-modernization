@@ -198,6 +198,25 @@ async function upsertAcademyLeadWorkflow(
   });
 }
 
+function isDuplicateWorkflowRowError(error: SupabaseErrorLike) {
+  return error.code === "23505";
+}
+
+function mapLoadedWorkflowRow(data: {
+  academy_id: string;
+  name: string;
+  stages: unknown;
+  archive_after_days: number | null;
+  recommend_archive_after_final_stage?: boolean | null;
+  updated_at: string;
+}): AcademyLeadWorkflow {
+  return mapWorkflowRow({
+    ...data,
+    recommend_archive_after_final_stage:
+      data.recommend_archive_after_final_stage ?? Boolean(data.archive_after_days),
+  });
+}
+
 export async function ensureAcademyLeadWorkflow(academyId: string): Promise<AcademyLeadWorkflow> {
   const tableAvailable = await checkAcademyLeadWorkflowsTableAvailable();
 
@@ -213,24 +232,21 @@ export async function ensureAcademyLeadWorkflow(academyId: string): Promise<Acad
       return buildDefaultAcademyLeadWorkflow(academyId);
     }
 
-    throw new Error(`Failed to load academy lead workflow: ${error.message}`);
+    console.warn("[Lead CRM] Failed to load academy lead workflow:", error.message);
+    return buildDefaultAcademyLeadWorkflow(academyId);
   }
 
   if (data) {
-    const row = data as {
-      academy_id: string;
-      name: string;
-      stages: unknown;
-      archive_after_days: number | null;
-      updated_at: string;
-      recommend_archive_after_final_stage?: boolean | null;
-    };
-
-    return mapWorkflowRow({
-      ...row,
-      recommend_archive_after_final_stage:
-        row.recommend_archive_after_final_stage ?? Boolean(row.archive_after_days),
-    });
+    return mapLoadedWorkflowRow(
+      data as {
+        academy_id: string;
+        name: string;
+        stages: unknown;
+        archive_after_days: number | null;
+        recommend_archive_after_final_stage?: boolean | null;
+        updated_at: string;
+      },
+    );
   }
 
   const defaultWorkflow = buildDefaultAcademyLeadWorkflow(academyId);
@@ -262,12 +278,37 @@ export async function ensureAcademyLeadWorkflow(academyId: string): Promise<Acad
       .single();
 
     if (legacyInsertError) {
-      if (isMissingAcademyLeadWorkflowsTableError(legacyInsertError)) {
-        academyLeadWorkflowsTableAvailable = false;
+      if (
+        isMissingAcademyLeadWorkflowsTableError(legacyInsertError) ||
+        isDuplicateWorkflowRowError(legacyInsertError)
+      ) {
+        if (isMissingAcademyLeadWorkflowsTableError(legacyInsertError)) {
+          academyLeadWorkflowsTableAvailable = false;
+        }
+
+        const { data: existing } = await loadWorkflowRow(academyId);
+
+        if (existing) {
+          return mapLoadedWorkflowRow(
+            existing as {
+              academy_id: string;
+              name: string;
+              stages: unknown;
+              archive_after_days: number | null;
+              recommend_archive_after_final_stage?: boolean | null;
+              updated_at: string;
+            },
+          );
+        }
+
         return buildDefaultAcademyLeadWorkflow(academyId);
       }
 
-      throw new Error(`Failed to create academy lead workflow: ${legacyInsertError.message}`);
+      console.warn(
+        "[Lead CRM] Failed to create academy lead workflow:",
+        legacyInsertError.message,
+      );
+      return buildDefaultAcademyLeadWorkflow(academyId);
     }
 
     return mapWorkflowRow({
@@ -288,7 +329,25 @@ export async function ensureAcademyLeadWorkflow(academyId: string): Promise<Acad
       return buildDefaultAcademyLeadWorkflow(academyId);
     }
 
-    throw new Error(`Failed to create academy lead workflow: ${insertError.message}`);
+    if (isDuplicateWorkflowRowError(insertError)) {
+      const { data: existing } = await loadWorkflowRow(academyId);
+
+      if (existing) {
+        return mapLoadedWorkflowRow(
+          existing as {
+            academy_id: string;
+            name: string;
+            stages: unknown;
+            archive_after_days: number | null;
+            recommend_archive_after_final_stage?: boolean | null;
+            updated_at: string;
+          },
+        );
+      }
+    }
+
+    console.warn("[Lead CRM] Failed to create academy lead workflow:", insertError.message);
+    return buildDefaultAcademyLeadWorkflow(academyId);
   }
 
   return mapWorkflowRow(inserted as {

@@ -2,6 +2,8 @@ import "server-only";
 
 import {
   isManualLeadActivityType,
+  LEAD_CRM_NOT_CONFIGURED_MESSAGE,
+  parseLeadActivityFollowUpAt,
   resolveActivityDirectionForManualType,
   type LeadActivity,
   type LeadActivityType,
@@ -104,7 +106,8 @@ export async function loadLeadActivitiesForLeadIds(
       return result;
     }
 
-    throw new Error(`Failed to load lead activities: ${error.message}`);
+    console.warn("[Lead CRM] Failed to load lead activities:", error.message);
+    return result;
   }
 
   for (const row of data ?? []) {
@@ -262,9 +265,13 @@ export async function logLeadActivity(input: {
   const tableAvailable = await checkLeadActivitiesTableAvailable();
 
   if (!tableAvailable) {
-    throw new Error(
-      "Lead activity tracking is not set up yet. Please run the database migration.",
-    );
+    throw new Error(LEAD_CRM_NOT_CONFIGURED_MESSAGE);
+  }
+
+  const followUpAt = parseLeadActivityFollowUpAt(input.followUpAt);
+
+  if (input.followUpAt?.trim() && !followUpAt) {
+    throw new Error("Follow-up date must be a valid date.");
   }
 
   const supabase = getSupabaseAdminClient();
@@ -280,7 +287,7 @@ export async function logLeadActivity(input: {
       body: input.body?.trim() || null,
       staff_user_id: input.staffUserId ?? null,
       staff_display_name: input.staffDisplayName ?? null,
-      follow_up_at: input.followUpAt ?? null,
+      follow_up_at: followUpAt,
       created_at: now,
     })
     .select(
@@ -311,7 +318,7 @@ export async function logLeadActivity(input: {
     }
   }
 
-  if (input.followUpAt) {
+  if (followUpAt) {
     // Reserved for a future cached next_follow_up_at column.
   }
 

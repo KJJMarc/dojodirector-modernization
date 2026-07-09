@@ -5,6 +5,7 @@ import { logLeadActivityAction } from "@/app/admin/[clubSlug]/leads/actions";
 import {
   buildLeadContactSummary,
   formatLeadActivityTypeLabel,
+  parseLeadActivityFollowUpAt,
   QUICK_LEAD_ACTIVITY_TYPES,
   type LeadActivity,
   type ManualLeadActivityType,
@@ -50,7 +51,7 @@ export function LeadQuickActivityPanel({
           leadId,
           activityType: selectedType,
           body: notes,
-          followUpAt: followUpDate ? `${followUpDate}T09:00:00.000Z` : null,
+          followUpAt: followUpDate ? parseLeadActivityFollowUpAt(followUpDate) : null,
         });
         setSelectedType(null);
         setNotes("");

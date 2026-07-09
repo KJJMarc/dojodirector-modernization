@@ -1,15 +1,17 @@
 import "server-only";
 
 import {
+  checkLeadActivitiesTableAvailable,
   ensureLeadActivitiesBackfilled,
   loadLeadActivitiesForLead,
   loadLeadActivitiesForLeadIds,
   toLeadBackfillInput,
 } from "@/lib/lead-activities.server";
-import { loadAcademyLeadWorkflow } from "@/lib/lead-workflow.server";
+import { checkAcademyLeadWorkflowsTableAvailable, loadAcademyLeadWorkflow } from "@/lib/lead-workflow.server";
 import {
   buildActiveLeadsDashboardSummary,
   enrichLeadWithCrmFields,
+  LEAD_CRM_NOT_CONFIGURED_MESSAGE,
   type ActiveLeadsDashboardSummary,
   type AdminLeadCrmRow,
   type LeadActivity,
@@ -35,6 +37,7 @@ export interface AdminLeadDetailCrmLoadResult {
   lead: AdminLeadDetail;
   activities: LeadActivity[];
   crmAvailable: boolean;
+  crmSetupMessage: string | null;
 }
 
 async function enrichLeadsWithCrm(
@@ -45,12 +48,22 @@ async function enrichLeadsWithCrm(
     return { leads: [], crmAvailable: false };
   }
 
+  const [activitiesTableAvailable, workflowsTableAvailable] = await Promise.all([
+    checkLeadActivitiesTableAvailable(),
+    checkAcademyLeadWorkflowsTableAvailable(),
+  ]);
+  const crmTablesAvailable = activitiesTableAvailable && workflowsTableAvailable;
   const workflow = await loadAcademyLeadWorkflow(academyId);
-  await ensureLeadActivitiesBackfilled(
-    leads.map((lead) => toLeadBackfillInput(lead, academyId)),
-  );
-  const activitiesByLeadId = await loadLeadActivitiesForLeadIds(leads.map((lead) => lead.id));
-  const crmAvailable = activitiesByLeadId.size > 0 || workflow.stages.length > 0;
+
+  if (crmTablesAvailable) {
+    await ensureLeadActivitiesBackfilled(
+      leads.map((lead) => toLeadBackfillInput(lead, academyId)),
+    );
+  }
+
+  const activitiesByLeadId = crmTablesAvailable
+    ? await loadLeadActivitiesForLeadIds(leads.map((lead) => lead.id))
+    : new Map<string, LeadActivity[]>();
 
   const enriched = leads.map((lead) =>
     enrichLeadWithCrmFields({
@@ -60,7 +73,7 @@ async function enrichLeadsWithCrm(
     }),
   );
 
-  return { leads: enriched, crmAvailable };
+  return { leads: enriched, crmAvailable: crmTablesAvailable };
 }
 
 export async function loadActiveLeadsCrmWorkspace(
@@ -98,17 +111,32 @@ export async function loadAdminLeadDetailCrm(
     return null;
   }
 
+  const [activitiesTableAvailable, workflowsTableAvailable] = await Promise.all([
+    checkLeadActivitiesTableAvailable(),
+    checkAcademyLeadWorkflowsTableAvailable(),
+  ]);
+  const crmTablesAvailable = activitiesTableAvailable && workflowsTableAvailable;
+
+  if (!crmTablesAvailable) {
+    return {
+      lead,
+      activities: [],
+      crmAvailable: false,
+      crmSetupMessage: LEAD_CRM_NOT_CONFIGURED_MESSAGE,
+    };
+  }
+
   await ensureLeadActivitiesBackfilled([
-  {
-    id: lead.id,
-    academyId: lead.academyId,
-    submittedAt: lead.submittedAt,
-    contactedAt: lead.contactedAt,
-    trialBookedAt: lead.trialBookedAt,
-    trialAttendedAt: lead.trialAttendedAt,
-    joinedAt: lead.joinedAt,
-    status: lead.status,
-  },
+    {
+      id: lead.id,
+      academyId: lead.academyId,
+      submittedAt: lead.submittedAt,
+      contactedAt: lead.contactedAt,
+      trialBookedAt: lead.trialBookedAt,
+      trialAttendedAt: lead.trialAttendedAt,
+      joinedAt: lead.joinedAt,
+      status: lead.status,
+    },
   ]);
 
   const activities = await loadLeadActivitiesForLead(leadId);
@@ -117,5 +145,6 @@ export async function loadAdminLeadDetailCrm(
     lead,
     activities,
     crmAvailable: true,
+    crmSetupMessage: null,
   };
 }

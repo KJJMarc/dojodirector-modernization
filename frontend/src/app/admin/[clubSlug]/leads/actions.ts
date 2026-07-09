@@ -135,7 +135,9 @@ export async function logLeadActivityAction(input: {
 }) {
   const { club, session } = await requireAdminAccessForClubSlug(input.clubSlug);
   const { logLeadActivity } = await import("@/lib/lead-activities.server");
-  const { isManualLeadActivityType } = await import("@/lib/leads-crm.shared");
+  const { isManualLeadActivityType, parseLeadActivityFollowUpAt } = await import(
+    "@/lib/leads-crm.shared"
+  );
 
   if (!isManualLeadActivityType(input.activityType)) {
     throw new Error("Unsupported activity type.");
@@ -148,7 +150,7 @@ export async function logLeadActivityAction(input: {
     body: input.body,
     staffUserId: session.userId,
     staffDisplayName: session.fullName,
-    followUpAt: input.followUpAt ?? null,
+    followUpAt: parseLeadActivityFollowUpAt(input.followUpAt),
   });
 
   revalidateLeadAdminPaths(club.slug, input.leadId);

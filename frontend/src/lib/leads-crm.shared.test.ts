@@ -10,6 +10,7 @@ import {
   computeNextWorkflowFollowUpAt,
   countOutboundContactAttempts,
   enrichLeadWithCrmFields,
+  parseLeadActivityFollowUpAt,
   type LeadActivity,
 } from "@/lib/leads-crm.shared";
 
@@ -221,5 +222,21 @@ describe("leads crm workspace", () => {
     const nextFollowUp = computeNextWorkflowFollowUpAt(lead, activities, workflow, now);
 
     assert.equal(nextFollowUp, "2026-06-04T09:00:00.000Z");
+  });
+});
+
+describe("parseLeadActivityFollowUpAt", () => {
+  it("parses HTML date input values as ISO timestamps", () => {
+    assert.equal(parseLeadActivityFollowUpAt("2026-07-09"), "2026-07-09T09:00:00.000Z");
+  });
+
+  it("parses UK DD/MM/YYYY dates", () => {
+    assert.equal(parseLeadActivityFollowUpAt("09/07/2026"), "2026-07-09T09:00:00.000Z");
+  });
+
+  it("returns null for empty or invalid values", () => {
+    assert.equal(parseLeadActivityFollowUpAt(""), null);
+    assert.equal(parseLeadActivityFollowUpAt("not-a-date"), null);
+    assert.equal(parseLeadActivityFollowUpAt("31/02/2026"), null);
   });
 });

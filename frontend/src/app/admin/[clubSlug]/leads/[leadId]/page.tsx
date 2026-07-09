@@ -8,7 +8,7 @@ import Link from "next/link";
 import { clubLeadsAdminPath, clubLeadsListAdminPath } from "@/lib/leads.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 import { loadAcademyLeadWorkflow } from "@/lib/lead-workflow.server";
-import { enrichLeadWithCrmFields } from "@/lib/leads-crm.shared";
+import { enrichLeadWithCrmFields, buildDefaultAcademyLeadWorkflow } from "@/lib/leads-crm.shared";
 import { loadAdminLeadDetailCrm } from "@/lib/leads-crm.server";
 import { LEADS_NOT_CONFIGURED_MESSAGE, getLeadsTableAvailable } from "@/lib/leads.server";
 import { computeLeadFollowUpStatus } from "@/lib/leads.shared";
@@ -56,7 +56,9 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
     notFound();
   }
 
-  const workflow = await loadAcademyLeadWorkflow(club.id);
+  const workflow = detail.crmAvailable
+    ? await loadAcademyLeadWorkflow(club.id)
+    : buildDefaultAcademyLeadWorkflow(club.id);
   const linkedSessions = detail.lead.linkedTrialSessionStartsAt
     ? detail.lead.linkedTrialSessionStartsAt
     : null;
@@ -115,6 +117,8 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
         health={crmLead.leadHealth}
         healthLabel={crmLead.healthLabel}
         bannerLabel={crmLead.bannerLabel}
+        crmAvailable={detail.crmAvailable}
+        crmSetupMessage={detail.crmSetupMessage}
       />
     </main>
   );

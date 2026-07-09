@@ -729,6 +729,71 @@ export function applyActiveLeadsQuickFilter(
   });
 }
 
+export const LEAD_CRM_NOT_CONFIGURED_MESSAGE =
+  "Lead activity tracking is not set up yet. Please run the database migration.";
+
+/** Normalize follow-up dates from HTML date inputs, ISO strings, or UK DD/MM/YYYY. */
+export function parseLeadActivityFollowUpAt(value: string | null | undefined): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const isoDate = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (isoDate) {
+    const year = Number(isoDate[1]);
+    const month = Number(isoDate[2]);
+    const day = Number(isoDate[3]);
+
+    if (!isValidUtcDateParts(year, month, day)) {
+      return null;
+    }
+
+    return new Date(Date.UTC(year, month - 1, day, 9, 0, 0, 0)).toISOString();
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  const ukDate = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (ukDate) {
+    const day = Number(ukDate[1]);
+    const month = Number(ukDate[2]);
+    const year = Number(ukDate[3]);
+
+    if (!isValidUtcDateParts(year, month, day)) {
+      return null;
+    }
+
+    return new Date(Date.UTC(year, month - 1, day, 9, 0, 0, 0)).toISOString();
+  }
+
+  return null;
+}
+
+function isValidUtcDateParts(year: number, month: number, day: number) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return false;
+  }
+
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
 export function buildLeadContactSummary(activities: LeadActivity[]) {
   const emailsSent = activities.filter((activity) =>
     ["email_sent", "welcome_email"].includes(activity.activityType),
