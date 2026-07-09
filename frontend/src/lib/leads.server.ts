@@ -454,14 +454,13 @@ const LEAD_ATTRIBUTION_SELECT =
   "gclid, fbclid, utm_source, utm_medium, utm_campaign, utm_content, utm_term, referrer_url";
 
 async function checkLeadArchivedColumnAvailable() {
-  if (leadArchivedColumnAvailable !== null) {
-    return leadArchivedColumnAvailable;
+  if (leadArchivedColumnAvailable === true) {
+    return true;
   }
 
   const tableAvailable = await checkLeadsTableAvailable();
 
   if (!tableAvailable) {
-    leadArchivedColumnAvailable = false;
     return false;
   }
 
@@ -473,8 +472,12 @@ async function checkLeadArchivedColumnAvailable() {
     return false;
   }
 
-  leadArchivedColumnAvailable = !error;
-  return leadArchivedColumnAvailable;
+  if (error) {
+    return false;
+  }
+
+  leadArchivedColumnAvailable = true;
+  return true;
 }
 
 interface LeadInsertRow {

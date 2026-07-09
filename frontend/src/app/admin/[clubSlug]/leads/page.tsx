@@ -5,7 +5,7 @@ import { LeadsAreaCards } from "@/components/admin/leads-area-cards";
 import { LeadsSummaryCards } from "@/components/admin/leads-summary-cards";
 import { AppHeader } from "@/components/layout/app-header";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { LEADS_NOT_CONFIGURED_MESSAGE, loadAdminLeads } from "@/lib/leads.server";
+import { LEADS_NOT_CONFIGURED_MESSAGE, loadAdminLeadHistory, loadAdminLeads } from "@/lib/leads.server";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,10 @@ export async function generateMetadata({ params }: ManageLeadsPageProps): Promis
 
 export default async function ManageLeadsPage({ params }: ManageLeadsPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const { leadsTableAvailable, summary } = await loadAdminLeads(club.id);
+  const [{ leadsTableAvailable, leads, summary }, history] = await Promise.all([
+    loadAdminLeads(club.id),
+    loadAdminLeadHistory(club.id),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-3 py-4 pb-20 sm:px-5">
@@ -48,7 +51,11 @@ export default async function ManageLeadsPage({ params }: ManageLeadsPageProps) 
         </section>
       ) : (
         <>
-          <LeadsSummaryCards summary={summary} />
+          <LeadsSummaryCards
+            summary={summary}
+            totalActiveLeads={leads.length}
+            allTimeSummary={history.leadsTableAvailable ? history.summary : undefined}
+          />
           <LeadsAreaCards clubSlug={club.slug} />
         </>
       )}

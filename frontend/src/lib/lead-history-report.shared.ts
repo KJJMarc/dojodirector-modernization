@@ -33,6 +33,32 @@ export const DEFAULT_LEAD_HISTORY_REPORT_FILTERS: LeadHistoryReportFilters = {
   dateTo: null,
 };
 
+export type LeadHistoryQuickFilter =
+  | "all"
+  | "joined"
+  | "archived"
+  | "active_pipeline"
+  | "trial_attended"
+  | "trial_booked"
+  | "new_enquiry"
+  | "trial_missed";
+
+export const LEAD_HISTORY_QUICK_FILTERS: {
+  key: LeadHistoryQuickFilter;
+  label: string;
+}[] = [
+  { key: "all", label: "All" },
+  { key: "joined", label: "Joined" },
+  { key: "archived", label: "Archived" },
+  { key: "active_pipeline", label: "Active pipeline" },
+  { key: "trial_attended", label: "Trial attended" },
+  { key: "trial_booked", label: "Trial booked" },
+  { key: "new_enquiry", label: "New enquiry" },
+  { key: "trial_missed", label: "Trial missed" },
+];
+
+export const DEFAULT_LEAD_HISTORY_QUICK_FILTER: LeadHistoryQuickFilter = "all";
+
 export interface LeadHistoryMonthMetrics {
   monthKey: string;
   monthLabel: string;
@@ -195,6 +221,50 @@ export function filterLeadsForHistoryReport(
   filters: LeadHistoryReportFilters,
 ): AdminLeadHistoryRow[] {
   return leads.filter((lead) => leadMatchesHistoryReportFilters(lead, filters));
+}
+
+export function applyLeadHistoryQuickFilter(
+  leads: AdminLeadHistoryRow[],
+  quickFilter: LeadHistoryQuickFilter = DEFAULT_LEAD_HISTORY_QUICK_FILTER,
+): AdminLeadHistoryRow[] {
+  switch (quickFilter) {
+    case "all":
+      return leads;
+    case "joined":
+      return leads.filter((lead) => lead.status === "joined");
+    case "archived":
+      return leads.filter((lead) => Boolean(lead.archivedAt));
+    case "active_pipeline":
+      return leads.filter((lead) => !lead.archivedAt && lead.status !== "joined");
+    case "trial_attended":
+      return leads.filter((lead) => lead.status === "trial_attended");
+    case "trial_booked":
+      return leads.filter((lead) => lead.status === "trial_booked");
+    case "new_enquiry":
+      return leads.filter((lead) => lead.status === "new_enquiry");
+    case "trial_missed":
+      return leads.filter((lead) => lead.status === "trial_missed");
+    default:
+      return leads;
+  }
+}
+
+export function resolveLeadHistoryTableLeads(input: {
+  leads: AdminLeadHistoryRow[];
+  reportFilters?: LeadHistoryReportFilters;
+  drillDownMonthKey?: string | null;
+  quickFilter?: LeadHistoryQuickFilter;
+}): AdminLeadHistoryRow[] {
+  const reportFiltered = filterLeadsForHistoryReport(
+    input.leads,
+    input.reportFilters ?? DEFAULT_LEAD_HISTORY_REPORT_FILTERS,
+  );
+  const drillDownFiltered = resolveLeadHistoryDrillDownLeads(
+    reportFiltered,
+    input.drillDownMonthKey ?? null,
+  );
+
+  return applyLeadHistoryQuickFilter(drillDownFiltered, input.quickFilter);
 }
 
 function countByStatus(leads: AdminLeadHistoryRow[], status: LeadStatus) {
@@ -482,9 +552,12 @@ export function buildLeadHistoryReconciliation(
 export function resolveLeadHistoryDefaultDisplayedLeads(
   allLeads: AdminLeadHistoryRow[],
 ): AdminLeadHistoryRow[] {
-  const filtered = filterLeadsForHistoryReport(allLeads, DEFAULT_LEAD_HISTORY_REPORT_FILTERS);
-
-  return resolveLeadHistoryDrillDownLeads(filtered, null);
+  return resolveLeadHistoryTableLeads({
+    leads: allLeads,
+    reportFilters: DEFAULT_LEAD_HISTORY_REPORT_FILTERS,
+    drillDownMonthKey: null,
+    quickFilter: DEFAULT_LEAD_HISTORY_QUICK_FILTER,
+  });
 }
 
 export function listAvailableReportYears(leads: AdminLeadHistoryRow[]): number[] {

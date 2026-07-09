@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LeadHistoryMonthSummary } from "@/components/admin/lead-history-month-summary";
 import { LeadHistoryMonthTable } from "@/components/admin/lead-history-month-table";
-import { LeadHistoryReconciliationPanel } from "@/components/admin/lead-history-reconciliation";
+import { LeadHistoryQuickFilters } from "@/components/admin/lead-history-quick-filters";
+import { LeadHistoryReconciliationLine } from "@/components/admin/lead-history-reconciliation-line";
 import { LeadHistoryReportFiltersBar } from "@/components/admin/lead-history-report-filters";
 import { LeadHistoryTrendCharts } from "@/components/admin/lead-history-trend-charts";
 import { SortableLeadHistoryTable } from "@/components/admin/sortable-lead-history-table";
 import {
+  DEFAULT_LEAD_HISTORY_QUICK_FILTER,
   DEFAULT_LEAD_HISTORY_REPORT_FILTERS,
   buildLeadHistoryChartPoints,
   buildLeadHistoryMonthComparison,
@@ -21,7 +23,8 @@ import {
   getPreviousMonthKey,
   listAvailableReportYears,
   parseMonthKey,
-  resolveLeadHistoryDrillDownLeads,
+  resolveLeadHistoryTableLeads,
+  type LeadHistoryQuickFilter,
   type LeadHistoryReportFilters,
 } from "@/lib/lead-history-report.shared";
 import type { AdminLeadHistoryRow } from "@/lib/leads.shared";
@@ -50,7 +53,7 @@ export function LeadHistoryClient({
   leads,
   initialSearchQuery = "",
 }: LeadHistoryClientProps) {
-  const drillDownRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
   const initialMonthKey = getCurrentLondonMonthKey();
   const initialParts = parseSelectedMonthParts(initialMonthKey);
 
@@ -60,6 +63,9 @@ export function LeadHistoryClient({
   const [selectedYear, setSelectedYear] = useState(initialParts.year);
   const [selectedMonth, setSelectedMonth] = useState(initialParts.month);
   const [drillDownMonthKey, setDrillDownMonthKey] = useState<string | null>(null);
+  const [quickFilter, setQuickFilter] = useState<LeadHistoryQuickFilter>(
+    DEFAULT_LEAD_HISTORY_QUICK_FILTER,
+  );
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
 
   useEffect(() => {
@@ -72,6 +78,17 @@ export function LeadHistoryClient({
   const filteredLeads = useMemo(
     () => filterLeadsForHistoryReport(leads, filters),
     [leads, filters],
+  );
+
+  const tableLeads = useMemo(
+    () =>
+      resolveLeadHistoryTableLeads({
+        leads,
+        reportFilters: filters,
+        drillDownMonthKey,
+        quickFilter,
+      }),
+    [leads, filters, drillDownMonthKey, quickFilter],
   );
 
   const monthRows = useMemo(
@@ -101,14 +118,9 @@ export function LeadHistoryClient({
     [selectedMonthMetrics, previousMonthMetrics],
   );
 
-  const drillDownLeads = useMemo(
-    () => resolveLeadHistoryDrillDownLeads(filteredLeads, drillDownMonthKey),
-    [filteredLeads, drillDownMonthKey],
-  );
-
   const reconciliation = useMemo(
-    () => buildLeadHistoryReconciliation(leads, drillDownLeads),
-    [leads, drillDownLeads],
+    () => buildLeadHistoryReconciliation(leads, tableLeads),
+    [leads, tableLeads],
   );
 
   useEffect(() => {
@@ -127,54 +139,25 @@ export function LeadHistoryClient({
     setSelectedYear(parsed.year);
     setSelectedMonth(parsed.month);
     setDrillDownMonthKey(monthKey);
-    drillDownRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setQuickFilter(DEFAULT_LEAD_HISTORY_QUICK_FILTER);
+    tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  const isDefaultFilters =
-    filters.programme === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.programme &&
-    filters.leadSource === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.leadSource &&
-    filters.status === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.status &&
-    filters.archived === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.archived &&
-    !filters.dateFrom &&
-    !filters.dateTo;
 
   return (
     <div className="space-y-8">
-      <LeadHistoryReconciliationPanel
-        reconciliation={reconciliation}
-        isMonthDrillDown={Boolean(drillDownMonthKey) || !isDefaultFilters}
-      />
+      <div ref={tableRef} className="space-y-4">
+        <LeadHistoryReconciliationLine reconciliation={reconciliation} />
 
-      <LeadHistoryReportFiltersBar
-        filters={filters}
-        selectedYear={selectedYear}
-        selectedMonth={selectedMonth}
-        availableYears={availableYears}
-        onFiltersChange={setFilters}
-        onSelectedMonthChange={handleSelectedMonthChange}
-      />
-
-      <LeadHistoryMonthSummary monthKey={selectedMonthKey} comparison={monthComparison} />
-
-      <LeadHistoryTrendCharts points={chartPoints} />
-
-      <LeadHistoryMonthTable
-        rows={monthRows}
-        selectedMonthKey={drillDownMonthKey}
-        onSelectMonth={handleMonthTableSelect}
-      />
-
-      <div ref={drillDownRef} className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
               {drillDownMonthKey
-                ? `Leads for ${formatLeadHistoryMonthLabel(drillDownMonthKey)}`
+                ? `All leads for ${formatLeadHistoryMonthLabel(drillDownMonthKey)}`
                 : "All leads"}
             </h2>
             <p className="mt-1 text-sm text-dojo-muted">
               {drillDownMonthKey
-                ? "Leads submitted in this month after your report filters are applied."
+                ? "Month drill-down is active. Use View all leads to return to the full academy history."
                 : "Every lead still recorded for this academy, including joined and archived leads."}
             </p>
           </div>
@@ -182,13 +165,18 @@ export function LeadHistoryClient({
           {drillDownMonthKey ? (
             <button
               type="button"
-              onClick={() => setDrillDownMonthKey(null)}
+              onClick={() => {
+                setDrillDownMonthKey(null);
+                setQuickFilter(DEFAULT_LEAD_HISTORY_QUICK_FILTER);
+              }}
               className="rounded-md border border-dojo-border px-3 py-2 text-sm text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white"
             >
               View all leads
             </button>
           ) : null}
         </div>
+
+        <LeadHistoryQuickFilters value={quickFilter} onChange={setQuickFilter} />
 
         <label className="block max-w-md">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
@@ -205,10 +193,41 @@ export function LeadHistoryClient({
 
         <SortableLeadHistoryTable
           clubSlug={clubSlug}
-          leads={drillDownLeads}
+          leads={tableLeads}
           searchQuery={searchQuery}
         />
       </div>
+
+      <section aria-label="Monthly lead reporting" className="space-y-8 border-t border-dojo-border pt-8">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
+            Monthly reporting
+          </h2>
+          <p className="mt-1 text-sm text-dojo-muted">
+            Explore trends by month. Click a month row below to drill into that month&apos;s leads
+            in the table above.
+          </p>
+        </div>
+
+        <LeadHistoryReportFiltersBar
+          filters={filters}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          availableYears={availableYears}
+          onFiltersChange={setFilters}
+          onSelectedMonthChange={handleSelectedMonthChange}
+        />
+
+        <LeadHistoryMonthSummary monthKey={selectedMonthKey} comparison={monthComparison} />
+
+        <LeadHistoryTrendCharts points={chartPoints} />
+
+        <LeadHistoryMonthTable
+          rows={monthRows}
+          selectedMonthKey={drillDownMonthKey}
+          onSelectMonth={handleMonthTableSelect}
+        />
+      </section>
     </div>
   );
 }

@@ -2,18 +2,21 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { AdminLeadHistoryRow } from "@/lib/leads.shared";
 import {
+  DEFAULT_LEAD_HISTORY_QUICK_FILTER,
   DEFAULT_LEAD_HISTORY_REPORT_FILTERS,
+  applyLeadHistoryQuickFilter,
   buildLeadHistoryMonthComparison,
   buildLeadHistoryMonthRows,
   buildLeadHistoryReconciliation,
   computeLeadHistoryMonthMetrics,
-  filterLeadsForHistoryReport,
   filterLeadsForMonthDrillDown,
   formatMetricChange,
   getPreviousMonthKey,
   resolveLeadHistoryDefaultDisplayedLeads,
   resolveLeadHistoryDrillDownLeads,
+  resolveLeadHistoryTableLeads,
 } from "@/lib/lead-history-report.shared";
+import { buildAdminLeadsSummary } from "@/lib/leads.shared";
 
 function buildLead(
   overrides: Partial<AdminLeadHistoryRow> & Pick<AdminLeadHistoryRow, "id" | "fullName">,
@@ -127,14 +130,18 @@ describe("lead history report", () => {
     ];
 
     const defaultDisplayed = resolveLeadHistoryDefaultDisplayedLeads(leads);
-    const drillDownAll = resolveLeadHistoryDrillDownLeads(
-      filterLeadsForHistoryReport(leads, DEFAULT_LEAD_HISTORY_REPORT_FILTERS),
-      null,
-    );
+    const drillDownAll = resolveLeadHistoryTableLeads({
+      leads,
+      reportFilters: DEFAULT_LEAD_HISTORY_REPORT_FILTERS,
+      drillDownMonthKey: null,
+      quickFilter: DEFAULT_LEAD_HISTORY_QUICK_FILTER,
+    });
     const reconciliation = buildLeadHistoryReconciliation(leads, defaultDisplayed);
 
     assert.equal(defaultDisplayed.length, leads.length);
     assert.equal(drillDownAll.length, leads.length);
+    assert.ok(defaultDisplayed.some((lead) => lead.status === "joined"));
+    assert.ok(defaultDisplayed.some((lead) => lead.archivedAt));
     assert.deepEqual(
       defaultDisplayed.map((lead) => lead.id).sort(),
       leads.map((lead) => lead.id).sort(),
@@ -159,5 +166,48 @@ describe("lead history report", () => {
     assert.equal(juneOnly.length, 1);
     assert.equal(reconciliation.rowsDisplayed, 1);
     assert.equal(reconciliation.reconciles, false);
+  });
+
+  it("quick filters surface joined and archived leads without hiding other statuses from All", () => {
+    const leads = [
+      buildLead({ id: "1", fullName: "Alice", status: "new_enquiry" }),
+      buildLead({
+        id: "2",
+        fullName: "Bob",
+        status: "joined",
+        joinedAt: "2026-06-15T10:00:00.000Z",
+      }),
+      buildLead({
+        id: "3",
+        fullName: "Fran",
+        status: "trial_booked",
+        archivedAt: "2026-06-20T10:00:00.000Z",
+      }),
+    ];
+
+    const joinedOnly = applyLeadHistoryQuickFilter(leads, "joined");
+    const archivedOnly = applyLeadHistoryQuickFilter(leads, "archived");
+    const all = applyLeadHistoryQuickFilter(leads, "all");
+
+    assert.equal(joinedOnly.length, 1);
+    assert.equal(archivedOnly.length, 1);
+    assert.equal(all.length, 3);
+  });
+
+  it("active leads summary still includes joined pipeline rows", () => {
+    const activeLeads = [
+      buildLead({ id: "1", fullName: "Alice", status: "new_enquiry" }),
+      buildLead({
+        id: "2",
+        fullName: "Bob",
+        status: "joined",
+        joinedAt: "2026-07-01T10:00:00.000Z",
+      }),
+    ];
+
+    const summary = buildAdminLeadsSummary(activeLeads);
+
+    assert.equal(activeLeads.filter((lead) => lead.status === "joined").length, 1);
+    assert.equal(summary.joinedThisMonth, 1);
   });
 });
