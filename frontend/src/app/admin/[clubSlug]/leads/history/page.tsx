@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: LeadHistoryPageProps): Promis
 
   return {
     title: `Dojo Director | ${club.name} Lead History`,
-    description: `Complete lead history for ${club.name}, including joined and archived leads.`,
+    description: `Month-by-month lead history and reporting for ${club.name}, including joined and archived leads.`,
   };
 }
 
@@ -45,8 +45,9 @@ export default async function LeadHistoryPage({
       </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
-        Every lead ever recorded for {club.name}, including active, joined, archived, and
-        restored leads. Default sort is newest submitted first.
+        Month-by-month lead reporting for {club.name}, including active, joined, archived, and
+        restored leads. Use filters to explore trends, compare months, and drill down into
+        individual leads.
       </p>
 
       {!leadsTableAvailable ? (
