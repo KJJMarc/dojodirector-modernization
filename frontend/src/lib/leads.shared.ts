@@ -317,6 +317,10 @@ export function clubLeadEmailSettingsAdminPath(clubSlug: string) {
   return clubAdminPath(clubSlug, "leads/email-settings");
 }
 
+export function clubLeadWorkflowSettingsAdminPath(clubSlug: string) {
+  return clubAdminPath(clubSlug, "leads/workflow");
+}
+
 export function clubLeadDetailAdminPath(clubSlug: string, leadId: string) {
   return clubAdminPath(clubSlug, `leads/${leadId}`);
 }

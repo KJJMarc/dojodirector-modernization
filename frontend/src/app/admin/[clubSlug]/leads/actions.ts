@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
 import {
+  resetAcademyLeadWorkflowToDefault,
+  saveAcademyLeadWorkflow,
+  toAcademyLeadWorkflowInput,
+} from "@/lib/lead-workflow.server";
+import type { AcademyLeadWorkflowInput } from "@/lib/lead-workflow.shared";
+import {
   archiveLead,
   createAdminLead,
   deleteLead,
@@ -12,6 +18,7 @@ import {
 import {
   clubLeadDetailAdminPath,
   clubLeadNewAdminPath,
+  clubLeadWorkflowSettingsAdminPath,
   clubLeadsAdminPath,
   clubLeadsArchivedAdminPath,
   clubLeadsListAdminPath,
@@ -26,6 +33,7 @@ function revalidateLeadAdminPaths(clubSlug: string, leadId?: string) {
   revalidatePath(clubLeadsListAdminPath(clubSlug));
   revalidatePath(clubLeadsArchivedAdminPath(clubSlug));
   revalidatePath(clubLeadNewAdminPath(clubSlug));
+  revalidatePath(clubLeadWorkflowSettingsAdminPath(clubSlug));
 
   if (leadId) {
     revalidatePath(clubLeadDetailAdminPath(clubSlug, leadId));
@@ -144,4 +152,25 @@ export async function logLeadActivityAction(input: {
   });
 
   revalidateLeadAdminPaths(club.slug, input.leadId);
+}
+
+export async function saveLeadWorkflowAction(input: {
+  clubSlug: string;
+  workflow: AcademyLeadWorkflowInput;
+}) {
+  const { club } = await requireAdminAccessForClubSlug(input.clubSlug);
+
+  await saveAcademyLeadWorkflow(club.id, input.workflow);
+
+  revalidateLeadAdminPaths(club.slug);
+}
+
+export async function resetLeadWorkflowAction(input: { clubSlug: string }) {
+  const { club } = await requireAdminAccessForClubSlug(input.clubSlug);
+
+  const workflow = await resetAcademyLeadWorkflowToDefault(club.id);
+
+  revalidateLeadAdminPaths(club.slug);
+
+  return toAcademyLeadWorkflowInput(workflow);
 }

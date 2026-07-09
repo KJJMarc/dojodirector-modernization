@@ -97,7 +97,7 @@ describe("leads crm workspace", () => {
     });
 
     assert.equal(health.health, "overdue");
-    assert.match(health.bannerLabel ?? "", /Overdue by/);
+    assert.match(health.bannerLabel ?? "", /overdue by/i);
   });
 
   it("shows waiting after outbound contact without a reply", () => {

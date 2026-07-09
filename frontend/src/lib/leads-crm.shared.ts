@@ -4,6 +4,11 @@ import {
   getLondonTodayDateKey,
   utcIsoToLondonDate,
 } from "@/lib/london-datetime";
+import {
+  buildWorkflowFollowUpBanner,
+  getActiveWorkflowStagesForStatus,
+  resolveCurrentWorkflowStage,
+} from "@/lib/lead-workflow.shared";
 import type { AdminLeadListRow, LeadStatus } from "@/lib/leads.shared";
 import { formatAdminLeadDate } from "@/lib/leads.shared";
 
@@ -69,6 +74,8 @@ export interface AcademyLeadWorkflowStage {
   triggerDaysAfter: number;
   triggerDaysAfterMax?: number;
   appliesToStatuses?: LeadStatus[];
+  recommendedActionLabel: string;
+  isActive: boolean;
 }
 
 export interface AcademyLeadWorkflow {
@@ -76,6 +83,7 @@ export interface AcademyLeadWorkflow {
   name: string;
   stages: AcademyLeadWorkflowStage[];
   archiveAfterDays: number | null;
+  recommendArchiveAfterFinalStage: boolean;
   updatedAt: string;
 }
 
@@ -86,6 +94,8 @@ export const DEFAULT_ACADEMY_LEAD_WORKFLOW_STAGES: AcademyLeadWorkflowStage[] = 
     label: "Initial response",
     triggerDaysAfter: 0,
     appliesToStatuses: ["new_enquiry"],
+    recommendedActionLabel: "Send initial response",
+    isActive: true,
   },
   {
     key: "follow_up_1",
@@ -93,6 +103,8 @@ export const DEFAULT_ACADEMY_LEAD_WORKFLOW_STAGES: AcademyLeadWorkflowStage[] = 
     triggerDaysAfter: 3,
     triggerDaysAfterMax: 5,
     appliesToStatuses: ["new_enquiry"],
+    recommendedActionLabel: "Send follow-up 1",
+    isActive: true,
   },
   {
     key: "follow_up_2",
@@ -100,12 +112,16 @@ export const DEFAULT_ACADEMY_LEAD_WORKFLOW_STAGES: AcademyLeadWorkflowStage[] = 
     triggerDaysAfter: 10,
     triggerDaysAfterMax: 14,
     appliesToStatuses: ["new_enquiry"],
+    recommendedActionLabel: "Send follow-up 2",
+    isActive: true,
   },
   {
     key: "final_follow_up",
     label: "Final follow-up",
     triggerDaysAfter: 30,
     appliesToStatuses: ["new_enquiry", "trial_missed"],
+    recommendedActionLabel: "Send final follow-up",
+    isActive: true,
   },
 ];
 
@@ -114,7 +130,8 @@ export function buildDefaultAcademyLeadWorkflow(academyId: string): AcademyLeadW
     academyId,
     name: "Default follow-up",
     stages: DEFAULT_ACADEMY_LEAD_WORKFLOW_STAGES.map((stage) => ({ ...stage })),
-    archiveAfterDays: null,
+    archiveAfterDays: 30,
+    recommendArchiveAfterFinalStage: true,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -312,25 +329,29 @@ export function resolveLastContactedAt(
   return lead.contactedAt;
 }
 
-function resolveWorkflowStagesForStatus(
-  workflow: AcademyLeadWorkflow,
-  status: LeadStatus,
-): AcademyLeadWorkflowStage[] {
-  return workflow.stages.filter((stage) => {
-    if (!stage.appliesToStatuses?.length) {
-      return true;
-    }
+function shouldRecommendArchive(input: {
+  lead: AdminLeadListRow;
+  activities: LeadActivity[];
+  workflow: AcademyLeadWorkflow;
+  now: Date;
+}) {
+  if (!input.workflow.recommendArchiveAfterFinalStage || !input.workflow.archiveAfterDays) {
+    return false;
+  }
 
-    return stage.appliesToStatuses.includes(status);
-  });
-}
+  const activeStages = getActiveWorkflowStagesForStatus(input.workflow, input.lead.status);
 
-function resolveWorkflowAnchorDateKey(lead: AdminLeadListRow) {
-  return utcIsoToLondonDate(lead.submittedAt);
-}
+  if (activeStages.length === 0) {
+    return false;
+  }
 
-function resolveStageDueDateKey(anchorDateKey: string, stage: AcademyLeadWorkflowStage) {
-  return addLondonCalendarDays(anchorDateKey, stage.triggerDaysAfter);
+  const outboundAttempts = countOutboundContactAttempts(input.activities);
+  const pastAllStages = outboundAttempts >= activeStages.length;
+  const anchorDateKey = utcIsoToLondonDate(input.lead.submittedAt);
+  const archiveDueDateKey = addLondonCalendarDays(anchorDateKey, input.workflow.archiveAfterDays);
+  const todayKey = getLondonTodayDateKey(input.now);
+
+  return pastAllStages && daysBetweenLondonDateKeys(archiveDueDateKey, todayKey) >= 0;
 }
 
 export function computeNextWorkflowFollowUpAt(
@@ -351,22 +372,25 @@ export function computeNextWorkflowFollowUpAt(
     return null;
   }
 
-  const stages = resolveWorkflowStagesForStatus(workflow, lead.status);
+  const stages = getActiveWorkflowStagesForStatus(workflow, lead.status);
 
   if (stages.length === 0) {
     return null;
   }
 
-  const anchorDateKey = resolveWorkflowAnchorDateKey(lead);
+  const anchorDateKey = utcIsoToLondonDate(lead.submittedAt);
   const outboundAttempts = countOutboundContactAttempts(activities);
-  const stageIndex = Math.min(outboundAttempts, stages.length - 1);
-  const stage = stages[stageIndex];
+  const stage = resolveCurrentWorkflowStage({
+    workflow,
+    status: lead.status,
+    outboundContactAttempts: outboundAttempts,
+  });
 
   if (!stage) {
     return null;
   }
 
-  const dueDateKey = resolveStageDueDateKey(anchorDateKey, stage);
+  const dueDateKey = addLondonCalendarDays(anchorDateKey, stage.triggerDaysAfter);
   return `${dueDateKey}T09:00:00.000Z`;
 }
 
@@ -431,6 +455,29 @@ export function computeLeadHealth(input: {
   const nextFollowUpAt = computeNextWorkflowFollowUpAt(lead, activities, workflow, now);
   const latestOutbound = getLatestOutboundContactActivity(activities);
   const latestInbound = getLatestInboundActivity(activities);
+  const currentStage = resolveCurrentWorkflowStage({
+    workflow,
+    status: lead.status,
+    outboundContactAttempts: contactAttempts,
+  });
+  const recommendArchive = shouldRecommendArchive({ lead, activities, workflow, now });
+
+  if (recommendArchive) {
+    return {
+      health: "overdue",
+      healthLabel: LEAD_HEALTH_LABELS.overdue,
+      bannerLabel: buildWorkflowFollowUpBanner({
+        stage: currentStage,
+        daysUntilDue: 0,
+        overdueDays: 0,
+        recommendArchive: true,
+      }),
+      nextFollowUpAt,
+      lastContactedAt,
+      contactAttempts,
+      hasOutboundContact,
+    };
+  }
 
   if (lead.status === "joined") {
     return {
@@ -482,7 +529,12 @@ export function computeLeadHealth(input: {
         return {
           health: "overdue",
           healthLabel: LEAD_HEALTH_LABELS.overdue,
-          bannerLabel: `Overdue by ${overdueDays} day${overdueDays === 1 ? "" : "s"}`,
+          bannerLabel: buildWorkflowFollowUpBanner({
+            stage: currentStage,
+            daysUntilDue,
+            overdueDays,
+            recommendArchive: false,
+          }),
           nextFollowUpAt,
           lastContactedAt,
           contactAttempts,
@@ -494,7 +546,12 @@ export function computeLeadHealth(input: {
         return {
           health: "follow_up_due",
           healthLabel: LEAD_HEALTH_LABELS.follow_up_due,
-          bannerLabel: "Follow-up recommended today",
+          bannerLabel: buildWorkflowFollowUpBanner({
+            stage: currentStage,
+            daysUntilDue,
+            overdueDays: 0,
+            recommendArchive: false,
+          }),
           nextFollowUpAt,
           lastContactedAt,
           contactAttempts,
@@ -523,7 +580,12 @@ export function computeLeadHealth(input: {
     return {
       health: "follow_up_due",
       healthLabel: LEAD_HEALTH_LABELS.follow_up_due,
-      bannerLabel: lead.status === "trial_missed" ? "Trial missed — follow up" : "Follow-up recommended",
+      bannerLabel: buildWorkflowFollowUpBanner({
+        stage: currentStage,
+        daysUntilDue: 0,
+        overdueDays: 0,
+        recommendArchive: false,
+      }),
       nextFollowUpAt,
       lastContactedAt,
       contactAttempts,

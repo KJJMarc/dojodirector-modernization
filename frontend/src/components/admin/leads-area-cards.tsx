@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   clubLeadEmailSettingsAdminPath,
   clubLeadNewAdminPath,
+  clubLeadWorkflowSettingsAdminPath,
   clubLeadsArchivedAdminPath,
   clubLeadsHistoryAdminPath,
   clubLeadsListAdminPath,
@@ -42,6 +43,13 @@ export function LeadsAreaCards({ clubSlug }: LeadsAreaCardsProps) {
         <span className="text-base font-semibold text-dojo-white">Archived Leads</span>
         <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
           View archived leads and restore them if required.
+        </span>
+      </Link>
+
+      <Link href={clubLeadWorkflowSettingsAdminPath(clubSlug)} className={actionCardClassName}>
+        <span className="text-base font-semibold text-dojo-white">Lead Workflow Settings</span>
+        <span className="mt-1 text-xs leading-relaxed text-dojo-muted">
+          Configure follow-up stages, timings and recommendations.
         </span>
       </Link>
 
