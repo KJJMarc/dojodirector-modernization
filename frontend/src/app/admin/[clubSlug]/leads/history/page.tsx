@@ -45,9 +45,8 @@ export default async function LeadHistoryPage({
       </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">
-        Month-by-month lead reporting for {club.name}, including active, joined, archived, and
-        restored leads. Use filters to explore trends, compare months, and drill down into
-        individual leads.
+        Complete lead history for {club.name}, including active, joined, archived, and
+        restored leads. The default table shows every lead still in the database.
       </p>
 
       {!leadsTableAvailable ? (

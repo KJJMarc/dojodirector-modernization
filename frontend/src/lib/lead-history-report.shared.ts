@@ -437,6 +437,56 @@ export function filterLeadsForMonthDrillDown(
   return leads.filter((lead) => getLondonMonthKeyFromIso(lead.submittedAt) === monthKey);
 }
 
+export function resolveLeadHistoryDrillDownLeads(
+  leads: AdminLeadHistoryRow[],
+  drillDownMonthKey: string | null,
+): AdminLeadHistoryRow[] {
+  if (!drillDownMonthKey) {
+    return leads;
+  }
+
+  return filterLeadsForMonthDrillDown(leads, drillDownMonthKey);
+}
+
+export interface LeadHistoryReconciliation {
+  totalLeadsInDb: number;
+  activeNonArchivedLeads: number;
+  archivedLeads: number;
+  joinedLeads: number;
+  rowsDisplayed: number;
+  reconciles: boolean;
+}
+
+export function buildLeadHistoryReconciliation(
+  allLeads: AdminLeadHistoryRow[],
+  displayedLeads: AdminLeadHistoryRow[],
+): LeadHistoryReconciliation {
+  const totalLeadsInDb = allLeads.length;
+  const activeNonArchivedLeads = allLeads.filter((lead) => !lead.archivedAt).length;
+  const archivedLeads = allLeads.filter((lead) => Boolean(lead.archivedAt)).length;
+  const joinedLeads = allLeads.filter((lead) => lead.status === "joined").length;
+  const rowsDisplayed = displayedLeads.length;
+
+  return {
+    totalLeadsInDb,
+    activeNonArchivedLeads,
+    archivedLeads,
+    joinedLeads,
+    rowsDisplayed,
+    reconciles:
+      rowsDisplayed === totalLeadsInDb &&
+      activeNonArchivedLeads + archivedLeads === totalLeadsInDb,
+  };
+}
+
+export function resolveLeadHistoryDefaultDisplayedLeads(
+  allLeads: AdminLeadHistoryRow[],
+): AdminLeadHistoryRow[] {
+  const filtered = filterLeadsForHistoryReport(allLeads, DEFAULT_LEAD_HISTORY_REPORT_FILTERS);
+
+  return resolveLeadHistoryDrillDownLeads(filtered, null);
+}
+
 export function listAvailableReportYears(leads: AdminLeadHistoryRow[]): number[] {
   const years = new Set<number>();
 

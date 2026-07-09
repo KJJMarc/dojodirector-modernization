@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LeadHistoryMonthSummary } from "@/components/admin/lead-history-month-summary";
 import { LeadHistoryMonthTable } from "@/components/admin/lead-history-month-table";
+import { LeadHistoryReconciliationPanel } from "@/components/admin/lead-history-reconciliation";
 import { LeadHistoryReportFiltersBar } from "@/components/admin/lead-history-report-filters";
 import { LeadHistoryTrendCharts } from "@/components/admin/lead-history-trend-charts";
 import { SortableLeadHistoryTable } from "@/components/admin/sortable-lead-history-table";
@@ -11,15 +12,16 @@ import {
   buildLeadHistoryChartPoints,
   buildLeadHistoryMonthComparison,
   buildLeadHistoryMonthRows,
+  buildLeadHistoryReconciliation,
   buildMonthKey,
   computeLeadHistoryMonthMetrics,
   filterLeadsForHistoryReport,
-  filterLeadsForMonthDrillDown,
   formatLeadHistoryMonthLabel,
   getCurrentLondonMonthKey,
   getPreviousMonthKey,
   listAvailableReportYears,
   parseMonthKey,
+  resolveLeadHistoryDrillDownLeads,
   type LeadHistoryReportFilters,
 } from "@/lib/lead-history-report.shared";
 import type { AdminLeadHistoryRow } from "@/lib/leads.shared";
@@ -57,7 +59,7 @@ export function LeadHistoryClient({
   );
   const [selectedYear, setSelectedYear] = useState(initialParts.year);
   const [selectedMonth, setSelectedMonth] = useState(initialParts.month);
-  const [drillDownMonthKey, setDrillDownMonthKey] = useState(initialMonthKey);
+  const [drillDownMonthKey, setDrillDownMonthKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
 
   useEffect(() => {
@@ -100,15 +102,24 @@ export function LeadHistoryClient({
   );
 
   const drillDownLeads = useMemo(
-    () => filterLeadsForMonthDrillDown(filteredLeads, drillDownMonthKey),
+    () => resolveLeadHistoryDrillDownLeads(filteredLeads, drillDownMonthKey),
     [filteredLeads, drillDownMonthKey],
   );
+
+  const reconciliation = useMemo(
+    () => buildLeadHistoryReconciliation(leads, drillDownLeads),
+    [leads, drillDownLeads],
+  );
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && !reconciliation.reconciles) {
+      console.warn("[Lead History] Count reconciliation mismatch", reconciliation);
+    }
+  }, [reconciliation]);
 
   const handleSelectedMonthChange = (year: number, month: number) => {
     setSelectedYear(year);
     setSelectedMonth(month);
-    const monthKey = buildMonthKey(year, month);
-    setDrillDownMonthKey(monthKey);
   };
 
   const handleMonthTableSelect = (monthKey: string) => {
@@ -119,8 +130,21 @@ export function LeadHistoryClient({
     drillDownRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const isDefaultFilters =
+    filters.programme === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.programme &&
+    filters.leadSource === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.leadSource &&
+    filters.status === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.status &&
+    filters.archived === DEFAULT_LEAD_HISTORY_REPORT_FILTERS.archived &&
+    !filters.dateFrom &&
+    !filters.dateTo;
+
   return (
     <div className="space-y-8">
+      <LeadHistoryReconciliationPanel
+        reconciliation={reconciliation}
+        isMonthDrillDown={Boolean(drillDownMonthKey) || !isDefaultFilters}
+      />
+
       <LeadHistoryReportFiltersBar
         filters={filters}
         selectedYear={selectedYear}
@@ -141,13 +165,29 @@ export function LeadHistoryClient({
       />
 
       <div ref={drillDownRef} className="space-y-4">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-            Leads for {formatLeadHistoryMonthLabel(drillDownMonthKey)}
-          </h2>
-          <p className="mt-1 text-sm text-dojo-muted">
-            Leads submitted in this month after your report filters are applied.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
+              {drillDownMonthKey
+                ? `Leads for ${formatLeadHistoryMonthLabel(drillDownMonthKey)}`
+                : "All leads"}
+            </h2>
+            <p className="mt-1 text-sm text-dojo-muted">
+              {drillDownMonthKey
+                ? "Leads submitted in this month after your report filters are applied."
+                : "Every lead still recorded for this academy, including joined and archived leads."}
+            </p>
+          </div>
+
+          {drillDownMonthKey ? (
+            <button
+              type="button"
+              onClick={() => setDrillDownMonthKey(null)}
+              className="rounded-md border border-dojo-border px-3 py-2 text-sm text-dojo-muted transition hover:border-dojo-red/50 hover:text-dojo-white"
+            >
+              View all leads
+            </button>
+          ) : null}
         </div>
 
         <label className="block max-w-md">

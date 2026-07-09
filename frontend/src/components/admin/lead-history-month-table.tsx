@@ -4,7 +4,7 @@ import type { LeadHistoryMonthMetrics } from "@/lib/lead-history-report.shared";
 
 interface LeadHistoryMonthTableProps {
   rows: LeadHistoryMonthMetrics[];
-  selectedMonthKey: string;
+  selectedMonthKey: string | null;
   onSelectMonth: (monthKey: string) => void;
 }
 
@@ -28,7 +28,8 @@ export function LeadHistoryMonthTable({
           Month by month
         </h2>
         <p className="mt-1 text-sm text-dojo-muted">
-          Click a month to drill down into the leads submitted that month.
+          Click a month to drill down into leads submitted that month. The lead table below
+          shows all leads by default.
         </p>
       </div>
 
