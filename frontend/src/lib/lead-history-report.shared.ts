@@ -228,7 +228,7 @@ function computeTopLeadSource(leads: AdminLeadHistoryRow[]): string {
   let topLabel = "—";
   let topCount = 0;
 
-  for (const [label, count] of counts.entries()) {
+  for (const [label, count] of Array.from(counts.entries())) {
     if (count > topCount) {
       topLabel = label;
       topCount = count;
@@ -288,7 +288,7 @@ export function listLeadHistoryMonthKeys(leads: AdminLeadHistoryRow[]): string[]
     }
   }
 
-  return [...monthKeys].sort((left, right) => right.localeCompare(left));
+  return Array.from(monthKeys).sort((left, right) => right.localeCompare(left));
 }
 
 export function buildLeadHistoryMonthRows(
@@ -457,7 +457,7 @@ export function listAvailableReportYears(leads: AdminLeadHistoryRow[]): number[]
   const currentYear = Number(getCurrentLondonMonthKey().slice(0, 4));
   years.add(currentYear);
 
-  return [...years].sort((left, right) => right - left);
+  return Array.from(years).sort((left, right) => right - left);
 }
 
 export const LEAD_HISTORY_REPORT_PROGRAMME_OPTIONS = ["all", ...LEAD_PROGRAMME_INTERESTS] as const;
