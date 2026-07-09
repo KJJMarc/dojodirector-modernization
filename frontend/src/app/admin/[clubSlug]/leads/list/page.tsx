@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
 import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
-import { LeadsSummaryCards } from "@/components/admin/leads-summary-cards";
 import { LeadsListClient } from "@/components/admin/leads-list-client";
 import { AppHeader } from "@/components/layout/app-header";
 import { requireClubBySlug } from "@/lib/clubs.server";
-import { LEADS_NOT_CONFIGURED_MESSAGE, loadAdminLeads } from "@/lib/leads.server";
+import { loadActiveLeadsCrmWorkspace } from "@/lib/leads-crm.server";
+import { LEADS_NOT_CONFIGURED_MESSAGE } from "@/lib/leads.server";
 import { clubLeadNewAdminPath, clubLeadsAdminPath } from "@/lib/leads.shared";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: LeadsListPageProps): Promise<
 
   return {
     title: `Dojo Director | ${club.name} Active Leads`,
-    description: `Active trial enquiry leads for ${club.name}.`,
+    description: `Daily CRM workspace for active trial enquiry leads at ${club.name}.`,
   };
 }
 
@@ -30,7 +30,7 @@ export default async function LeadsListPage({
   searchParams,
 }: LeadsListPageProps) {
   const club = await requireClubBySlug(params.clubSlug);
-  const { leadsTableAvailable, leads, summary } = await loadAdminLeads(club.id);
+  const { leadsTableAvailable, leads, dashboard } = await loadActiveLeadsCrmWorkspace(club.id);
   const initialSearchQuery = searchParams?.q?.trim() ?? "";
 
   return (
@@ -46,8 +46,8 @@ export default async function LeadsListPage({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-dojo-muted">
-          Sort by column header, search, and filter without reloading the page. Your
-          last chosen sort order is remembered on this device.
+          Your daily follow-up workspace. Health indicators and follow-up dates use your
+          academy&apos;s configurable workflow.
         </p>
         <Link
           href={clubLeadNewAdminPath(club.slug)}
@@ -65,14 +65,12 @@ export default async function LeadsListPage({
           {LEADS_NOT_CONFIGURED_MESSAGE}
         </section>
       ) : (
-        <>
-          <LeadsSummaryCards summary={summary} />
-          <LeadsListClient
-            clubSlug={club.slug}
-            leads={leads}
-            initialSearchQuery={initialSearchQuery}
-          />
-        </>
+        <LeadsListClient
+          clubSlug={club.slug}
+          leads={leads}
+          dashboard={dashboard}
+          initialSearchQuery={initialSearchQuery}
+        />
       )}
     </main>
   );

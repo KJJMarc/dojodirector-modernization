@@ -1,28 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SortableLeadsTable } from "@/components/admin/sortable-leads-table";
-import type { AdminLeadListRow } from "@/lib/leads.shared";
+import { ActiveLeadsDashboardCards } from "@/components/admin/active-leads-dashboard-cards";
+import { ActiveLeadsQuickFilters } from "@/components/admin/active-leads-quick-filters";
+import { SortableActiveLeadsTable } from "@/components/admin/sortable-active-leads-table";
+import {
+  DEFAULT_ACTIVE_LEADS_QUICK_FILTER,
+  type ActiveLeadsDashboardSummary,
+  type ActiveLeadsQuickFilter,
+  type AdminLeadCrmRow,
+} from "@/lib/leads-crm.shared";
 
 interface LeadsListClientProps {
   clubSlug: string;
-  leads: AdminLeadListRow[];
+  leads: AdminLeadCrmRow[];
+  dashboard: ActiveLeadsDashboardSummary;
   initialSearchQuery?: string;
 }
 
 export function LeadsListClient({
   clubSlug,
   leads,
+  dashboard,
   initialSearchQuery = "",
 }: LeadsListClientProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [quickFilter, setQuickFilter] = useState<ActiveLeadsQuickFilter>(
+    DEFAULT_ACTIVE_LEADS_QUICK_FILTER,
+  );
 
   useEffect(() => {
     setSearchQuery(initialSearchQuery);
   }, [initialSearchQuery]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <ActiveLeadsDashboardCards
+        dashboard={dashboard}
+        activeFilter={quickFilter}
+        onFilterSelect={setQuickFilter}
+      />
+
+      <ActiveLeadsQuickFilters value={quickFilter} onChange={setQuickFilter} />
+
       <label className="block max-w-md">
         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dojo-muted">
           Search leads
@@ -36,10 +56,11 @@ export function LeadsListClient({
         />
       </label>
 
-      <SortableLeadsTable
+      <SortableActiveLeadsTable
         clubSlug={clubSlug}
         leads={leads}
         searchQuery={searchQuery}
+        quickFilter={quickFilter}
       />
     </div>
   );

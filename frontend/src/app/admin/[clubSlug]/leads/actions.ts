@@ -117,3 +117,31 @@ export async function deleteLeadAction(input: { clubSlug: string; leadId: string
 
   revalidateLeadAdminPaths(club.slug, input.leadId);
 }
+
+export async function logLeadActivityAction(input: {
+  clubSlug: string;
+  leadId: string;
+  activityType: string;
+  body?: string;
+  followUpAt?: string | null;
+}) {
+  const { club, session } = await requireAdminAccessForClubSlug(input.clubSlug);
+  const { logLeadActivity } = await import("@/lib/lead-activities.server");
+  const { isManualLeadActivityType } = await import("@/lib/leads-crm.shared");
+
+  if (!isManualLeadActivityType(input.activityType)) {
+    throw new Error("Unsupported activity type.");
+  }
+
+  await logLeadActivity({
+    academyId: club.id,
+    leadId: input.leadId,
+    activityType: input.activityType,
+    body: input.body,
+    staffUserId: session.userId,
+    staffDisplayName: session.fullName,
+    followUpAt: input.followUpAt ?? null,
+  });
+
+  revalidateLeadAdminPaths(club.slug, input.leadId);
+}
