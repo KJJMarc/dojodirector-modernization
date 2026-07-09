@@ -6,8 +6,15 @@ import {
   toBeltLevelOptions,
 } from "@/lib/admin-belt-levels.shared";
 import { getNextBeltLevel } from "@/lib/admin-belt-promotion.shared";
-import { shouldIncludeRankedStudent } from "@/lib/adult-belt-rankings.shared";
-import { shouldIncludeJuniorRankedStudent } from "@/lib/junior-belt-rankings.shared";
+import {
+  isPlainAdultWhiteBeltLevel,
+  shouldIncludeRankedStudent,
+  shouldIncludeRecentPromotionInPublicCongratulations,
+} from "@/lib/adult-belt-rankings.shared";
+import {
+  shouldIncludeJuniorRankedStudent,
+  shouldIncludeJuniorRecentPromotionInPublicCongratulations,
+} from "@/lib/junior-belt-rankings.shared";
 
 describe("admin belt labels and selectors", () => {
   const plainWhite = {
@@ -83,5 +90,39 @@ describe("public belt rankings display filters", () => {
     assert.equal(shouldIncludeJuniorRankedStudent("white", 0), false);
     assert.equal(shouldIncludeJuniorRankedStudent("white", 1), true);
     assert.equal(shouldIncludeJuniorRankedStudent("grey", 0), true);
+  });
+
+  it("hides plain White Belt from public congratulations only", () => {
+    const plainWhite = { name: "White Belt", stripe_count: 0 };
+    const whiteOneStripe = { name: "White Belt 1 Stripe", stripe_count: 1 };
+    const blueBelt = { name: "Blue Belt", stripe_count: 0 };
+
+    assert.equal(isPlainAdultWhiteBeltLevel(plainWhite), true);
+    assert.equal(
+      shouldIncludeRecentPromotionInPublicCongratulations(plainWhite),
+      false,
+    );
+    assert.equal(
+      shouldIncludeRecentPromotionInPublicCongratulations(whiteOneStripe),
+      true,
+    );
+    assert.equal(
+      shouldIncludeRecentPromotionInPublicCongratulations(blueBelt),
+      true,
+    );
+    assert.equal(
+      shouldIncludeJuniorRecentPromotionInPublicCongratulations({
+        name: "Junior White",
+        stripe_count: 0,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldIncludeJuniorRecentPromotionInPublicCongratulations({
+        name: "Junior White 1 Stripe",
+        stripe_count: 1,
+      }),
+      true,
+    );
   });
 });

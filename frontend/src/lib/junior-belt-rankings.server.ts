@@ -30,6 +30,7 @@ import {
   JUNIOR_BELT_SECTIONS,
   parseJuniorBeltRankParts,
   sortStudentsBySurnameFirstName,
+  shouldIncludeJuniorRecentPromotionInPublicCongratulations,
   type JuniorBeltRankingGroup,
   type JuniorBeltRankingStripeGroup,
   type JuniorBeltRankingStudent,
@@ -427,8 +428,19 @@ function buildRecentPromotions(input: {
         beltLevelId ? input.allBeltLevelById.get(beltLevelId) ?? null : null,
       ),
     formatPromotionDateLabel,
-    shouldIncludeAward: (award) =>
-      isJuniorBeltLevelId(award.belt_level_id, input.juniorBeltLevelById),
+    shouldIncludeAward: (award) => {
+      if (!isJuniorBeltLevelId(award.belt_level_id, input.juniorBeltLevelById)) {
+        return false;
+      }
+
+      const promotedBelt = award.belt_level_id
+        ? input.allBeltLevelById.get(award.belt_level_id) ?? null
+        : null;
+
+      return shouldIncludeJuniorRecentPromotionInPublicCongratulations(
+        promotedBelt,
+      );
+    },
   });
 }
 

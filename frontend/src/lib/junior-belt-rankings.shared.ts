@@ -343,6 +343,36 @@ export function shouldIncludeJuniorRankedStudent(
   return true;
 }
 
+/** Plain junior White (0 stripes) — hidden from public congratulations only. */
+export function isPlainJuniorWhiteBeltLevel(belt: {
+  name: string;
+  stripe_count: number | null;
+}) {
+  const normalizedName = belt.name.trim().toLowerCase();
+
+  if (!/^junior\s+white\b/.test(normalizedName)) {
+    return false;
+  }
+
+  const stripeCount = belt.stripe_count ?? 0;
+
+  if (stripeCount > 0) {
+    return false;
+  }
+
+  return !/\d+\s*stripe/i.test(belt.name);
+}
+
+export function shouldIncludeJuniorRecentPromotionInPublicCongratulations(
+  belt: { name: string; stripe_count: number | null } | null | undefined,
+) {
+  if (!belt) {
+    return true;
+  }
+
+  return !isPlainJuniorWhiteBeltLevel(belt);
+}
+
 export function getJuniorBeltSectionTheme(
   parts: Pick<JuniorBeltRankParts, "baseColor" | "centerVariant">,
 ) {

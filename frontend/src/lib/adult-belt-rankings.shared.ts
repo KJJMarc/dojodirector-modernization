@@ -217,6 +217,42 @@ export function shouldIncludeRankedStudent(
   return true;
 }
 
+/** Plain adult White Belt (0 stripes) — hidden from public congratulations only. */
+export function isPlainAdultWhiteBeltLevel(belt: {
+  name: string;
+  stripe_count: number | null;
+}) {
+  const normalizedName = belt.name.trim().toLowerCase();
+
+  if (!/\bwhite\b/.test(normalizedName)) {
+    return false;
+  }
+
+  const withoutWhite = normalizedName.replace(/\bwhite\b/g, "").trim();
+
+  if (/\b(grey|gray|yellow|orange|green|blue|purple|brown|black)\b/.test(withoutWhite)) {
+    return false;
+  }
+
+  const stripeCount = belt.stripe_count ?? 0;
+
+  if (stripeCount > 0) {
+    return false;
+  }
+
+  return !/\d+\s*stripe/i.test(belt.name);
+}
+
+export function shouldIncludeRecentPromotionInPublicCongratulations(
+  belt: { name: string; stripe_count: number | null } | null | undefined,
+) {
+  if (!belt) {
+    return true;
+  }
+
+  return !isPlainAdultWhiteBeltLevel(belt);
+}
+
 export function compareStripeGroups(
   left: Pick<AdultBeltRankingStripeGroup, "stripeCount" | "beltSortOrder" | "rankLabel">,
   right: Pick<AdultBeltRankingStripeGroup, "stripeCount" | "beltSortOrder" | "rankLabel">,

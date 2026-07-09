@@ -22,6 +22,7 @@ import {
   getMajorAdultBeltSectionLabel,
   MAJOR_ADULT_BELT_COLORS,
   shouldIncludeRankedStudent,
+  shouldIncludeRecentPromotionInPublicCongratulations,
   sortStudentsBySurnameFirstName,
   formatPromotionDateLabel,
   formatLastUpdatedLabel,
@@ -440,8 +441,17 @@ function buildRecentPromotions(input: {
         beltLevelId ? input.allBeltLevelById.get(beltLevelId) ?? null : null,
       ),
     formatPromotionDateLabel,
-    shouldIncludeAward: (award) =>
-      isAdultBeltLevel(award.belt_level_id, input.adultBeltLevelById),
+    shouldIncludeAward: (award) => {
+      if (!isAdultBeltLevel(award.belt_level_id, input.adultBeltLevelById)) {
+        return false;
+      }
+
+      const promotedBelt = award.belt_level_id
+        ? input.allBeltLevelById.get(award.belt_level_id) ?? null
+        : null;
+
+      return shouldIncludeRecentPromotionInPublicCongratulations(promotedBelt);
+    },
   });
 }
 
