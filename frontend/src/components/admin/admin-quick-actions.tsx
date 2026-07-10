@@ -111,14 +111,14 @@ function buildDashboardSections(
           description: "Class performance and attendance metrics",
         },
         {
+          label: "Manage Session Cover",
+          href: clubAdminPath(clubSlug, "instructors/sessions"),
+          description: "Assign instructors to cover individual class sessions",
+        },
+        {
           label: "Manage Bookings",
           href: clubAdminPath(clubSlug, "bookings"),
           description: "Attendance register and booking cancellations",
-        },
-        {
-          label: "Guest Bookings",
-          href: clubAdminPath(clubSlug, "guest-bookings"),
-          description: "View guest and trial bookings",
         },
       ],
       showProgrammesUnavailableNotice: false,

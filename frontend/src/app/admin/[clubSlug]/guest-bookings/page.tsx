@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AdminBackLink } from "@/components/admin/admin-back-link";
-import { AdminNavLinks } from "@/components/admin/admin-nav-links";
+import { AdminNavLinks, adminNavLinkClassName } from "@/components/admin/admin-nav-links";
 import { GuestBookingsSearchForm } from "@/components/admin/guest-bookings-search-form";
 import { GuestBookingsTable } from "@/components/admin/guest-bookings-table";
 import { AppHeader } from "@/components/layout/app-header";
@@ -8,6 +9,7 @@ import {
   GUEST_BOOKINGS_NOT_CONFIGURED_MESSAGE,
   loadAdminGuestBookings,
 } from "@/lib/guest-booking.server";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import { requireClubBySlug } from "@/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +47,9 @@ export default async function GuestBookingsPage({
 
       <AdminNavLinks>
         <AdminBackLink clubSlug={club.slug} />
+        <Link href={clubAdminPath(club.slug, "bookings")} className={adminNavLinkClassName}>
+          ← Back to Manage Bookings
+        </Link>
       </AdminNavLinks>
 
       <p className="text-sm text-dojo-muted">

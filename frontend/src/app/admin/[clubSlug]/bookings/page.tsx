@@ -33,15 +33,7 @@ export default async function ManageBookingsPage({ params }: ManageBookingsPageP
         <AdminBackLink clubSlug={club.slug} />
       </AdminNavLinks>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
-          BOOKING TOOLS
-        </h2>
-        <p className="text-sm text-dojo-muted">
-          Mark attendance, make block bookings, or cancel upcoming session bookings.
-        </p>
-        <ManageBookingsHub clubSlug={club.slug} />
-      </section>
+      <ManageBookingsHub clubSlug={club.slug} />
     </main>
   );
 }
