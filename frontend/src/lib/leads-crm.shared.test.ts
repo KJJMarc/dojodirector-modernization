@@ -240,3 +240,204 @@ describe("parseLeadActivityFollowUpAt", () => {
     assert.equal(parseLeadActivityFollowUpAt("31/02/2026"), null);
   });
 });
+
+describe("post-trial and trial-booked health", () => {
+  const workflow = buildDefaultAcademyLeadWorkflow("academy-1");
+  const now = new Date("2026-06-10T15:00:00.000Z");
+
+  it("keeps a future Trial Booked lead Healthy", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "tb-future",
+        fullName: "Future Trial",
+        status: "trial_booked",
+        statusLabel: "Trial Booked",
+        trialBookedAt: "2026-06-08T10:00:00.000Z",
+        linkedTrialSessionStartsAt: "2026-06-12T18:00:00.000Z",
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.health, "healthy");
+    assert.match(health.bannerLabel ?? "", /Trial/i);
+    assert.equal(health.nextFollowUpAt, null);
+  });
+
+  it("flags a past Trial Booked lead for attendance confirmation without assuming Trial Missed", () => {
+    const lead = buildLead({
+      id: "tb-past",
+      fullName: "Past Trial",
+      status: "trial_booked",
+      statusLabel: "Trial Booked",
+      trialBookedAt: "2026-06-01T10:00:00.000Z",
+      linkedTrialSessionStartsAt: "2026-06-05T18:00:00.000Z",
+    });
+
+    const health = computeLeadHealth({
+      lead,
+      activities: [],
+      workflow,
+      now,
+    });
+
+    assert.equal(lead.status, "trial_booked");
+    assert.equal(health.health, "overdue");
+    assert.equal(health.bannerLabel, "Trial date passed — update attendance or follow up");
+    assert.equal(health.nextFollowUpAt, "2026-06-05T09:00:00.000Z");
+  });
+
+  it("does not mark today's Trial Booked lead overdue from UTC conversion", () => {
+    // 23:30 UTC on 9 Jun is still 10 Jun evening in London during BST.
+    const londonEvening = new Date("2026-06-09T23:30:00.000Z");
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "tb-today",
+        fullName: "Today Trial",
+        status: "trial_booked",
+        statusLabel: "Trial Booked",
+        trialBookedAt: "2026-06-08T10:00:00.000Z",
+        linkedTrialSessionStartsAt: "2026-06-10T18:00:00.000Z",
+      }),
+      activities: [],
+      workflow,
+      now: londonEvening,
+    });
+
+    assert.equal(health.health, "healthy");
+    assert.equal(health.bannerLabel, "Trial today");
+  });
+
+  it("requires follow-up for Trial Attended leads with no post-trial contact", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "ta-1",
+        fullName: "Attended",
+        status: "trial_attended",
+        statusLabel: "Trial Attended",
+        trialBookedAt: "2026-06-01T10:00:00.000Z",
+        trialAttendedAt: "2026-06-05T18:00:00.000Z",
+        linkedTrialSessionStartsAt: "2026-06-05T18:00:00.000Z",
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.health, "overdue");
+    assert.equal(health.bannerLabel, "Trial attended — follow up about joining");
+    assert.equal(health.nextFollowUpAt, "2026-06-06T09:00:00.000Z");
+  });
+
+  it("progresses Trial Attended leads to a final follow-up after the initial contact", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "ta-2",
+        fullName: "Attended Contacted",
+        status: "trial_attended",
+        statusLabel: "Trial Attended",
+        trialAttendedAt: "2026-06-01T18:00:00.000Z",
+        contactedAt: "2026-06-02T10:00:00.000Z",
+      }),
+      activities: [
+        buildActivity({
+          id: "a1",
+          leadId: "ta-2",
+          activityType: "phone_call",
+          createdAt: "2026-06-02T10:00:00.000Z",
+        }),
+      ],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.health, "overdue");
+    assert.equal(health.bannerLabel, "No response — final follow-up due");
+    assert.equal(health.nextFollowUpAt, "2026-06-05T09:00:00.000Z");
+  });
+
+  it("does not require follow-up for Joined leads", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "joined-1",
+        fullName: "Joined",
+        status: "joined",
+        statusLabel: "Joined",
+        joinedAt: "2026-06-08T10:00:00.000Z",
+        trialAttendedAt: "2026-06-01T18:00:00.000Z",
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.health, "closed");
+    assert.equal(health.nextFollowUpAt, null);
+  });
+
+  it("respects a manually scheduled future follow-up date", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "ta-manual",
+        fullName: "Manual Follow Up",
+        status: "trial_attended",
+        statusLabel: "Trial Attended",
+        trialAttendedAt: "2026-06-01T18:00:00.000Z",
+      }),
+      activities: [
+        buildActivity({
+          id: "a1",
+          leadId: "ta-manual",
+          activityType: "note",
+          direction: "system",
+          createdAt: "2026-06-02T10:00:00.000Z",
+          followUpAt: "2026-06-20T09:00:00.000Z",
+        }),
+      ],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.nextFollowUpAt, "2026-06-20T09:00:00.000Z");
+    assert.equal(health.health, "healthy");
+  });
+});
+
+describe("active leads urgency sort with post-trial actions", () => {
+  it("sorts overdue post-trial actions above healthy leads", async () => {
+    const { sortActiveLeadsCrm } = await import("@/lib/leads-crm-list-sort.shared");
+    const workflow = buildDefaultAcademyLeadWorkflow("academy-1");
+    const now = new Date("2026-06-10T15:00:00.000Z");
+
+    const overdueAttended = enrichLeadWithCrmFields({
+      lead: buildLead({
+        id: "overdue",
+        fullName: "Zoe Overdue",
+        status: "trial_attended",
+        statusLabel: "Trial Attended",
+        trialAttendedAt: "2026-06-01T18:00:00.000Z",
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+    const healthyBooked = enrichLeadWithCrmFields({
+      lead: buildLead({
+        id: "healthy",
+        fullName: "Amy Healthy",
+        status: "trial_booked",
+        statusLabel: "Trial Booked",
+        linkedTrialSessionStartsAt: "2026-06-15T18:00:00.000Z",
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+
+    const sorted = sortActiveLeadsCrm([healthyBooked, overdueAttended]);
+
+    assert.equal(sorted[0]?.id, "overdue");
+    assert.equal(sorted[1]?.id, "healthy");
+  });
+});

@@ -236,6 +236,18 @@ const OUTBOUND_CONTACT_ACTIVITY_TYPES = new Set<LeadActivityType>([
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * ONE_DAY_MS;
 
+/** Day after trial attendance for the first join follow-up. */
+const POST_TRIAL_INITIAL_FOLLOW_UP_DAYS = 1;
+/** Matches default workflow Follow-up 1 spacing (3–5 day band). */
+const POST_TRIAL_FINAL_FOLLOW_UP_DAYS = 3;
+
+const TRIAL_DATE_PASSED_BANNER =
+  "Trial date passed — update attendance or follow up";
+const TRIAL_ATTENDED_FOLLOW_UP_BANNER = "Trial attended — follow up about joining";
+const TRIAL_ATTENDED_FINAL_FOLLOW_UP_BANNER = "No response — final follow-up due";
+const TRIAL_ATTENDED_ARCHIVE_BANNER =
+  "Recommend archive — no response after final follow-up";
+
 export function formatLeadActivityTypeLabel(activityType: LeadActivityType) {
   switch (activityType) {
     case "enquiry_received":
@@ -329,6 +341,139 @@ export function resolveLastContactedAt(
   return lead.contactedAt;
 }
 
+function toFollowUpIsoFromLondonDateKey(dateKey: string) {
+  return `${dateKey}T09:00:00.000Z`;
+}
+
+function getLinkedTrialLondonDateKey(lead: AdminLeadListRow): string | null {
+  if (lead.linkedTrialSessionStartsAt) {
+    return utcIsoToLondonDate(lead.linkedTrialSessionStartsAt);
+  }
+
+  return null;
+}
+
+function getTrialAttendedLondonDateKey(lead: AdminLeadListRow): string | null {
+  if (lead.trialAttendedAt) {
+    return utcIsoToLondonDate(lead.trialAttendedAt);
+  }
+
+  return getLinkedTrialLondonDateKey(lead);
+}
+
+/** Trial session calendar date is today or still in the future (London). */
+function isTrialSessionOnOrAfterToday(lead: AdminLeadListRow, now: Date) {
+  const sessionDateKey = getLinkedTrialLondonDateKey(lead);
+
+  if (lead.status !== "trial_booked" || !sessionDateKey) {
+    return false;
+  }
+
+  const todayKey = getLondonTodayDateKey(now);
+
+  return daysBetweenLondonDateKeys(todayKey, sessionDateKey) >= 0;
+}
+
+/** Trial session calendar date is strictly before today (London). */
+function isTrialSessionPast(lead: AdminLeadListRow, now: Date) {
+  const sessionDateKey = getLinkedTrialLondonDateKey(lead);
+
+  if (lead.status !== "trial_booked" || !sessionDateKey) {
+    return false;
+  }
+
+  const todayKey = getLondonTodayDateKey(now);
+
+  return daysBetweenLondonDateKeys(sessionDateKey, todayKey) > 0;
+}
+
+function getPostTrialOutboundActivities(
+  lead: AdminLeadListRow,
+  activities: LeadActivity[],
+): LeadActivity[] {
+  const attendedAt = lead.trialAttendedAt;
+
+  if (!attendedAt) {
+    return [];
+  }
+
+  const attendedMs = Date.parse(attendedAt);
+
+  if (Number.isNaN(attendedMs)) {
+    return [];
+  }
+
+  return activities.filter(
+    (activity) =>
+      isOutboundContactActivityType(activity.activityType) &&
+      Date.parse(activity.createdAt) >= attendedMs,
+  );
+}
+
+function getPendingManualFollowUpAt(activities: LeadActivity[]): string | null {
+  const scheduled = sortActivitiesNewestFirst(activities).filter(
+    (activity) => activity.followUpAt,
+  );
+
+  for (const activity of scheduled) {
+    const followUpAt = activity.followUpAt;
+
+    if (!followUpAt) {
+      continue;
+    }
+
+    const followUpMs = Date.parse(followUpAt);
+
+    if (Number.isNaN(followUpMs)) {
+      continue;
+    }
+
+    const contactedOnOrAfterDue = activities.some(
+      (candidate) =>
+        isOutboundContactActivityType(candidate.activityType) &&
+        Date.parse(candidate.createdAt) >= followUpMs,
+    );
+
+    if (!contactedOnOrAfterDue) {
+      return followUpAt;
+    }
+  }
+
+  return null;
+}
+
+function computePostTrialFollowUpAt(
+  lead: AdminLeadListRow,
+  activities: LeadActivity[],
+): string | null {
+  const trialDateKey = getTrialAttendedLondonDateKey(lead);
+
+  if (!trialDateKey) {
+    return null;
+  }
+
+  const postTrialOutbounds = sortActivitiesNewestFirst(
+    getPostTrialOutboundActivities(lead, activities),
+  );
+
+  if (postTrialOutbounds.length >= 2) {
+    return null;
+  }
+
+  if (postTrialOutbounds.length === 0) {
+    return toFollowUpIsoFromLondonDateKey(
+      addLondonCalendarDays(trialDateKey, POST_TRIAL_INITIAL_FOLLOW_UP_DAYS),
+    );
+  }
+
+  const initialFollowUp = postTrialOutbounds[0];
+  const initialDateKey = utcIsoToLondonDate(initialFollowUp.createdAt);
+
+  return toFollowUpIsoFromLondonDateKey(
+    addLondonCalendarDays(initialDateKey, POST_TRIAL_FINAL_FOLLOW_UP_DAYS),
+  );
+}
+
 function shouldRecommendArchive(input: {
   lead: AdminLeadListRow;
   activities: LeadActivity[];
@@ -337,6 +482,10 @@ function shouldRecommendArchive(input: {
 }) {
   if (!input.workflow.recommendArchiveAfterFinalStage || !input.workflow.archiveAfterDays) {
     return false;
+  }
+
+  if (input.lead.status === "trial_attended") {
+    return getPostTrialOutboundActivities(input.lead, input.activities).length >= 2;
   }
 
   const activeStages = getActiveWorkflowStagesForStatus(input.workflow, input.lead.status);
@@ -360,16 +509,27 @@ export function computeNextWorkflowFollowUpAt(
   workflow: AcademyLeadWorkflow,
   now = new Date(),
 ): string | null {
-  if (lead.status === "joined" || lead.status === "trial_attended") {
+  if (lead.status === "joined") {
     return null;
   }
 
-  if (
-    lead.status === "trial_booked" &&
-    lead.linkedTrialSessionStartsAt &&
-    Date.parse(lead.linkedTrialSessionStartsAt) > now.getTime()
-  ) {
+  const manualFollowUpAt = getPendingManualFollowUpAt(activities);
+
+  if (manualFollowUpAt) {
+    return manualFollowUpAt;
+  }
+
+  if (isTrialSessionOnOrAfterToday(lead, now)) {
     return null;
+  }
+
+  if (isTrialSessionPast(lead, now)) {
+    const sessionDateKey = getLinkedTrialLondonDateKey(lead);
+    return sessionDateKey ? toFollowUpIsoFromLondonDateKey(sessionDateKey) : null;
+  }
+
+  if (lead.status === "trial_attended") {
+    return computePostTrialFollowUpAt(lead, activities);
   }
 
   const stages = getActiveWorkflowStagesForStatus(workflow, lead.status);
@@ -391,18 +551,11 @@ export function computeNextWorkflowFollowUpAt(
   }
 
   const dueDateKey = addLondonCalendarDays(anchorDateKey, stage.triggerDaysAfter);
-  return `${dueDateKey}T09:00:00.000Z`;
+  return toFollowUpIsoFromLondonDateKey(dueDateKey);
 }
 
-function isFutureTrialSession(
-  lead: AdminLeadListRow,
-  now: Date,
-) {
-  return Boolean(
-    lead.status === "trial_booked" &&
-      lead.linkedTrialSessionStartsAt &&
-      Date.parse(lead.linkedTrialSessionStartsAt) > now.getTime(),
-  );
+function isFutureTrialSession(lead: AdminLeadListRow, now: Date) {
+  return isTrialSessionOnOrAfterToday(lead, now);
 }
 
 function formatTrialBanner(lead: AdminLeadListRow, now: Date) {
@@ -441,6 +594,53 @@ function formatJoinedThisWeekBanner(lead: AdminLeadListRow, now: Date) {
   return null;
 }
 
+function healthFromDueDate(input: {
+  nextFollowUpAt: string;
+  bannerWhenDue: string;
+  lastContactedAt: string | null;
+  contactAttempts: number;
+  hasOutboundContact: boolean;
+  now: Date;
+  latestOutbound: LeadActivity | undefined;
+}): LeadHealthResult | null {
+  const dueDateKey = utcIsoToLondonDate(input.nextFollowUpAt);
+  const todayKey = getLondonTodayDateKey(input.now);
+  const daysUntilDue = daysBetweenLondonDateKeys(todayKey, dueDateKey);
+  const contactedAfterDue =
+    input.latestOutbound &&
+    Date.parse(input.latestOutbound.createdAt) >= Date.parse(input.nextFollowUpAt);
+
+  if (contactedAfterDue) {
+    return null;
+  }
+
+  if (daysUntilDue < 0) {
+    return {
+      health: "overdue",
+      healthLabel: LEAD_HEALTH_LABELS.overdue,
+      bannerLabel: input.bannerWhenDue,
+      nextFollowUpAt: input.nextFollowUpAt,
+      lastContactedAt: input.lastContactedAt,
+      contactAttempts: input.contactAttempts,
+      hasOutboundContact: input.hasOutboundContact,
+    };
+  }
+
+  if (daysUntilDue === 0) {
+    return {
+      health: "follow_up_due",
+      healthLabel: LEAD_HEALTH_LABELS.follow_up_due,
+      bannerLabel: input.bannerWhenDue,
+      nextFollowUpAt: input.nextFollowUpAt,
+      lastContactedAt: input.lastContactedAt,
+      contactAttempts: input.contactAttempts,
+      hasOutboundContact: input.hasOutboundContact,
+    };
+  }
+
+  return null;
+}
+
 export function computeLeadHealth(input: {
   lead: AdminLeadListRow;
   activities: LeadActivity[];
@@ -461,21 +661,27 @@ export function computeLeadHealth(input: {
     outboundContactAttempts: contactAttempts,
   });
   const recommendArchive = shouldRecommendArchive({ lead, activities, workflow, now });
+  const baseFields = {
+    lastContactedAt,
+    contactAttempts,
+    hasOutboundContact,
+  };
 
   if (recommendArchive) {
     return {
       health: "overdue",
       healthLabel: LEAD_HEALTH_LABELS.overdue,
-      bannerLabel: buildWorkflowFollowUpBanner({
-        stage: currentStage,
-        daysUntilDue: 0,
-        overdueDays: 0,
-        recommendArchive: true,
-      }),
+      bannerLabel:
+        lead.status === "trial_attended"
+          ? TRIAL_ATTENDED_ARCHIVE_BANNER
+          : buildWorkflowFollowUpBanner({
+              stage: currentStage,
+              daysUntilDue: 0,
+              overdueDays: 0,
+              recommendArchive: true,
+            }),
       nextFollowUpAt,
-      lastContactedAt,
-      contactAttempts,
-      hasOutboundContact,
+      ...baseFields,
     };
   }
 
@@ -485,33 +691,109 @@ export function computeLeadHealth(input: {
       healthLabel: LEAD_HEALTH_LABELS.closed,
       bannerLabel: formatJoinedThisWeekBanner(lead, now),
       nextFollowUpAt: null,
-      lastContactedAt,
-      contactAttempts,
-      hasOutboundContact,
+      ...baseFields,
     };
   }
 
-  if (isFutureTrialSession(lead, now)) {
+  if (isTrialSessionOnOrAfterToday(lead, now)) {
     return {
       health: "healthy",
       healthLabel: LEAD_HEALTH_LABELS.healthy,
       bannerLabel: formatTrialBanner(lead, now),
       nextFollowUpAt: null,
-      lastContactedAt,
-      contactAttempts,
-      hasOutboundContact,
+      ...baseFields,
+    };
+  }
+
+  if (isTrialSessionPast(lead, now)) {
+    const sessionDateKey = getLinkedTrialLondonDateKey(lead);
+    const manualFollowUpAt = getPendingManualFollowUpAt(activities);
+    const dueAt =
+      manualFollowUpAt ??
+      nextFollowUpAt ??
+      (sessionDateKey ? toFollowUpIsoFromLondonDateKey(sessionDateKey) : null);
+
+    if (manualFollowUpAt) {
+      const dueHealth = healthFromDueDate({
+        nextFollowUpAt: manualFollowUpAt,
+        bannerWhenDue: TRIAL_DATE_PASSED_BANNER,
+        latestOutbound,
+        now,
+        ...baseFields,
+      });
+
+      if (dueHealth) {
+        return dueHealth;
+      }
+
+      return {
+        health: "healthy",
+        healthLabel: LEAD_HEALTH_LABELS.healthy,
+        bannerLabel: TRIAL_DATE_PASSED_BANNER,
+        nextFollowUpAt: manualFollowUpAt,
+        ...baseFields,
+      };
+    }
+
+    return {
+      health: "overdue",
+      healthLabel: LEAD_HEALTH_LABELS.overdue,
+      bannerLabel: TRIAL_DATE_PASSED_BANNER,
+      nextFollowUpAt: dueAt,
+      ...baseFields,
     };
   }
 
   if (lead.status === "trial_attended") {
+    const postTrialOutbounds = getPostTrialOutboundActivities(lead, activities);
+
+    if (postTrialOutbounds.length >= 2) {
+      return {
+        health: "overdue",
+        healthLabel: LEAD_HEALTH_LABELS.overdue,
+        bannerLabel: TRIAL_ATTENDED_ARCHIVE_BANNER,
+        nextFollowUpAt: null,
+        ...baseFields,
+      };
+    }
+
+    if (nextFollowUpAt) {
+      const bannerWhenDue =
+        postTrialOutbounds.length === 0
+          ? TRIAL_ATTENDED_FOLLOW_UP_BANNER
+          : TRIAL_ATTENDED_FINAL_FOLLOW_UP_BANNER;
+      const dueHealth = healthFromDueDate({
+        nextFollowUpAt,
+        bannerWhenDue,
+        latestOutbound,
+        now,
+        ...baseFields,
+      });
+
+      if (dueHealth) {
+        return dueHealth;
+      }
+    }
+
+    if (
+      latestOutbound &&
+      (!latestInbound || Date.parse(latestInbound.createdAt) < Date.parse(latestOutbound.createdAt))
+    ) {
+      return {
+        health: "waiting",
+        healthLabel: LEAD_HEALTH_LABELS.waiting,
+        bannerLabel: "Waiting for their reply",
+        nextFollowUpAt,
+        ...baseFields,
+      };
+    }
+
     return {
       health: "healthy",
       healthLabel: LEAD_HEALTH_LABELS.healthy,
       bannerLabel: "Trial attended — ready to join",
-      nextFollowUpAt: null,
-      lastContactedAt,
-      contactAttempts,
-      hasOutboundContact,
+      nextFollowUpAt,
+      ...baseFields,
     };
   }
 
@@ -536,9 +818,7 @@ export function computeLeadHealth(input: {
             recommendArchive: false,
           }),
           nextFollowUpAt,
-          lastContactedAt,
-          contactAttempts,
-          hasOutboundContact,
+          ...baseFields,
         };
       }
 
@@ -553,9 +833,7 @@ export function computeLeadHealth(input: {
             recommendArchive: false,
           }),
           nextFollowUpAt,
-          lastContactedAt,
-          contactAttempts,
-          hasOutboundContact,
+          ...baseFields,
         };
       }
     }
@@ -570,9 +848,7 @@ export function computeLeadHealth(input: {
       healthLabel: LEAD_HEALTH_LABELS.waiting,
       bannerLabel: "Waiting for their reply",
       nextFollowUpAt,
-      lastContactedAt,
-      contactAttempts,
-      hasOutboundContact,
+      ...baseFields,
     };
   }
 
@@ -587,9 +863,7 @@ export function computeLeadHealth(input: {
         recommendArchive: false,
       }),
       nextFollowUpAt,
-      lastContactedAt,
-      contactAttempts,
-      hasOutboundContact,
+      ...baseFields,
     };
   }
 
@@ -598,9 +872,7 @@ export function computeLeadHealth(input: {
     healthLabel: LEAD_HEALTH_LABELS.healthy,
     bannerLabel: hasOutboundContact ? "Progressing" : null,
     nextFollowUpAt,
-    lastContactedAt,
-    contactAttempts,
-    hasOutboundContact,
+    ...baseFields,
   };
 }
 
