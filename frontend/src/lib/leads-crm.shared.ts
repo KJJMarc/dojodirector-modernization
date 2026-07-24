@@ -350,6 +350,13 @@ function getLinkedTrialLondonDateKey(lead: AdminLeadListRow): string | null {
     return utcIsoToLondonDate(lead.linkedTrialSessionStartsAt);
   }
 
+  // Many trial_booked leads have no linked guest session (or lead_id link is
+  // unavailable). Fall back to when they were marked Trial Booked so old
+  // unattended bookings still require review instead of staying Healthy.
+  if (lead.status === "trial_booked" && lead.trialBookedAt) {
+    return utcIsoToLondonDate(lead.trialBookedAt);
+  }
+
   return null;
 }
 
@@ -559,23 +566,31 @@ function isFutureTrialSession(lead: AdminLeadListRow, now: Date) {
 }
 
 function formatTrialBanner(lead: AdminLeadListRow, now: Date) {
-  if (!lead.linkedTrialSessionStartsAt) {
+  const sessionDateKey = getLinkedTrialLondonDateKey(lead);
+
+  if (!sessionDateKey) {
     return "Waiting for trial";
   }
 
-  const sessionDateKey = utcIsoToLondonDate(lead.linkedTrialSessionStartsAt);
   const todayKey = getLondonTodayDateKey(now);
   const tomorrowKey = addLondonCalendarDays(todayKey, 1);
+  const displayIso = lead.linkedTrialSessionStartsAt ?? lead.trialBookedAt;
 
   if (sessionDateKey === todayKey) {
-    return "Trial today";
+    return lead.linkedTrialSessionStartsAt ? "Trial today" : "Trial booked today";
   }
 
   if (sessionDateKey === tomorrowKey) {
-    return "Trial tomorrow";
+    return lead.linkedTrialSessionStartsAt ? "Trial tomorrow" : "Trial booked";
   }
 
-  return `Trial ${formatAdminLeadDate(lead.linkedTrialSessionStartsAt)}`;
+  if (displayIso) {
+    return lead.linkedTrialSessionStartsAt
+      ? `Trial ${formatAdminLeadDate(displayIso)}`
+      : `Trial booked ${formatAdminLeadDate(displayIso)}`;
+  }
+
+  return "Waiting for trial";
 }
 
 function formatJoinedThisWeekBanner(lead: AdminLeadListRow, now: Date) {

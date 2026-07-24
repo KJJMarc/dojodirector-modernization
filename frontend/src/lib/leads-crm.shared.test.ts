@@ -357,6 +357,45 @@ describe("post-trial and trial-booked health", () => {
     assert.equal(health.nextFollowUpAt, "2026-06-05T09:00:00.000Z");
   });
 
+  it("flags past Trial Booked leads without a linked session using trialBookedAt", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "tb-unlinked",
+        fullName: "Aadam Sheikh",
+        status: "trial_booked",
+        statusLabel: "Trial Booked",
+        trialBookedAt: "2026-06-01T03:47:05.896Z",
+        linkedTrialSessionStartsAt: null,
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.health, "overdue");
+    assert.equal(health.bannerLabel, "Trial date passed — update attendance or follow up");
+    assert.equal(health.nextFollowUpAt, "2026-06-01T09:00:00.000Z");
+  });
+
+  it("keeps same-day Trial Booked leads Healthy when no linked session exists", () => {
+    const health = computeLeadHealth({
+      lead: buildLead({
+        id: "tb-unlinked-today",
+        fullName: "Booked Today",
+        status: "trial_booked",
+        statusLabel: "Trial Booked",
+        trialBookedAt: "2026-06-10T09:00:00.000Z",
+        linkedTrialSessionStartsAt: null,
+      }),
+      activities: [],
+      workflow,
+      now,
+    });
+
+    assert.equal(health.health, "healthy");
+    assert.equal(health.nextFollowUpAt, null);
+  });
+
   it("does not require follow-up for Joined leads", () => {
     const health = computeLeadHealth({
       lead: buildLead({
