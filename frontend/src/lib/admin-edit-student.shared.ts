@@ -14,6 +14,8 @@ export interface EditAdminStudentInput {
   phone?: string;
   dateOfBirth?: string;
   address?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
   adminNotes?: string;
   role: string;
   membershipStatus: string;
@@ -27,6 +29,8 @@ export interface AdminStudentEditPageData {
   phone: string;
   dateOfBirth: string;
   address: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
   adminNotes: string;
   membershipRole: string;
   membershipStatus: string;
@@ -41,6 +45,8 @@ export interface ParsedEditAdminStudentUserFields {
   phone: string | null;
   dateOfBirth: string | null;
   address: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
   adminNotes: string | null;
 }
 
@@ -102,6 +108,8 @@ export function parseEditAdminStudentUserFields(
     phone: parseOptionalText(input.phone),
     dateOfBirth: parseOptionalDate(input.dateOfBirth),
     address: parseOptionalText(input.address),
+    emergencyContactName: parseOptionalText(input.emergencyContactName),
+    emergencyContactPhone: parseOptionalText(input.emergencyContactPhone),
     adminNotes: parseOptionalText(input.adminNotes),
   };
 }

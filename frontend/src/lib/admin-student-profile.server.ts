@@ -60,6 +60,8 @@ interface UserProfileRow {
   original_lead_source?: string | null;
   phone: string | null;
   date_of_birth: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
   admin_notes: string | null;
 }
 
@@ -85,7 +87,7 @@ interface BeltLevelRow {
 }
 
 const USER_PROFILE_COLUMNS =
-  "id, first_name, last_name, email, phone, date_of_birth, admin_notes, original_lead_source";
+  "id, first_name, last_name, email, phone, date_of_birth, emergency_contact_name, emergency_contact_phone, admin_notes, original_lead_source";
 
 async function loadUserProfileRow(userId: string) {
   const supabase = getSupabaseAdminClient();
@@ -96,10 +98,31 @@ async function loadUserProfileRow(userId: string) {
     .eq("id", userId)
     .maybeSingle();
 
+  if (error?.message?.includes("emergency_contact")) {
+    const fallback = await supabase
+      .from("users")
+      .select(
+        "id, first_name, last_name, email, phone, date_of_birth, admin_notes, original_lead_source",
+      )
+      .eq("id", userId)
+      .maybeSingle();
+
+    data = fallback.data
+      ? {
+          ...fallback.data,
+          emergency_contact_name: null,
+          emergency_contact_phone: null,
+        }
+      : null;
+    error = fallback.error;
+  }
+
   if (error?.message?.includes("original_lead_source")) {
     const fallback = await supabase
       .from("users")
-      .select("id, first_name, last_name, email, phone, date_of_birth, admin_notes")
+      .select(
+        "id, first_name, last_name, email, phone, date_of_birth, emergency_contact_name, emergency_contact_phone, admin_notes",
+      )
       .eq("id", userId)
       .maybeSingle();
 
@@ -112,7 +135,9 @@ async function loadUserProfileRow(userId: string) {
   if (error?.message?.includes("admin_notes")) {
     const fallback = await supabase
       .from("users")
-      .select("id, first_name, last_name, email, phone, date_of_birth, notes, original_lead_source")
+      .select(
+        "id, first_name, last_name, email, phone, date_of_birth, emergency_contact_name, emergency_contact_phone, notes, original_lead_source",
+      )
       .eq("id", userId)
       .maybeSingle();
 
@@ -317,6 +342,8 @@ export async function getAdminStudentProfilePageData(
       phone: user.phone,
       dateOfBirth: user.date_of_birth,
       address,
+      emergencyContactName: user.emergency_contact_name,
+      emergencyContactPhone: user.emergency_contact_phone,
       adminNotes: formatAdminNotes(user.admin_notes),
       role: formatInstructorRoleLabel(membership.role),
       membershipRole: membership.role,

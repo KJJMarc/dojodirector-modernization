@@ -108,6 +108,14 @@ export function StudentProfileView({
           <div className="sm:col-span-2">
             <ProfileDetailItem label="Address" value={formatProfileField(student.address)} />
           </div>
+          <ProfileDetailItem
+            label="Emergency contact name"
+            value={formatProfileField(student.emergencyContactName)}
+          />
+          <ProfileDetailItem
+            label="Emergency contact phone"
+            value={formatProfileField(student.emergencyContactPhone)}
+          />
           {student.adminNotes ? (
             <div className="sm:col-span-2">
               <dt className="text-[11px] font-medium uppercase tracking-wide text-dojo-muted">

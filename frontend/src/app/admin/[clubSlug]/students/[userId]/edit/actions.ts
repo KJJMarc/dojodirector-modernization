@@ -41,6 +41,8 @@ export async function updateAdminStudentAction(
       phone: String(formData.get("phone") ?? ""),
       dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
       address: String(formData.get("address") ?? ""),
+      emergencyContactName: String(formData.get("emergencyContactName") ?? ""),
+      emergencyContactPhone: String(formData.get("emergencyContactPhone") ?? ""),
       adminNotes: String(formData.get("adminNotes") ?? ""),
       role,
       membershipStatus,

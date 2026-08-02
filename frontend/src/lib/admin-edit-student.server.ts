@@ -25,7 +25,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 export type { AdminStudentEditPageData, EditAdminStudentInput };
 
 const USER_EDIT_COLUMNS =
-  "id, first_name, last_name, email, phone, date_of_birth, admin_notes";
+  "id, first_name, last_name, email, phone, date_of_birth, emergency_contact_name, emergency_contact_phone, admin_notes";
 
 async function loadMembershipForClub(userId: string, clubId: string) {
   const supabase = getSupabaseAdminClient();
@@ -62,7 +62,44 @@ export async function getAdminStudentEditPageData(
 
   let resolvedUser = user;
 
-  if (userError?.message?.includes("admin_notes")) {
+  if (userError?.message?.includes("emergency_contact")) {
+    const fallback = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email, phone, date_of_birth, admin_notes")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (fallback.error?.message?.includes("admin_notes")) {
+      const notesFallback = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email, phone, date_of_birth, notes")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (notesFallback.error) {
+        throw new Error(`Failed to load student: ${notesFallback.error.message}`);
+      }
+
+      resolvedUser = notesFallback.data
+        ? {
+            ...notesFallback.data,
+            admin_notes: notesFallback.data.notes,
+            emergency_contact_name: null,
+            emergency_contact_phone: null,
+          }
+        : null;
+    } else if (fallback.error) {
+      throw new Error(`Failed to load student: ${fallback.error.message}`);
+    } else {
+      resolvedUser = fallback.data
+        ? {
+            ...fallback.data,
+            emergency_contact_name: null,
+            emergency_contact_phone: null,
+          }
+        : null;
+    }
+  } else if (userError?.message?.includes("admin_notes")) {
     const fallback = await supabase
       .from("users")
       .select("id, first_name, last_name, email, phone, date_of_birth, notes")
@@ -74,7 +111,12 @@ export async function getAdminStudentEditPageData(
     }
 
     resolvedUser = fallback.data
-      ? { ...fallback.data, admin_notes: fallback.data.notes }
+      ? {
+          ...fallback.data,
+          admin_notes: fallback.data.notes,
+          emergency_contact_name: null,
+          emergency_contact_phone: null,
+        }
       : null;
   } else if (userError) {
     throw new Error(`Failed to load student: ${userError.message}`);
@@ -96,6 +138,8 @@ export async function getAdminStudentEditPageData(
     phone: resolvedUser.phone?.trim() ?? "",
     dateOfBirth: resolvedUser.date_of_birth ?? "",
     address,
+    emergencyContactName: resolvedUser.emergency_contact_name?.trim() ?? "",
+    emergencyContactPhone: resolvedUser.emergency_contact_phone?.trim() ?? "",
     adminNotes: resolvedUser.admin_notes?.trim() ?? "",
     membershipRole,
     membershipStatus,
@@ -145,12 +189,32 @@ export async function updateAdminStudentDetails(
       email: userFields.email,
       phone: userFields.phone,
       date_of_birth: userFields.dateOfBirth,
+      emergency_contact_name: userFields.emergencyContactName,
+      emergency_contact_phone: userFields.emergencyContactPhone,
       admin_notes: userFields.adminNotes,
     })
     .eq("id", userFields.userId);
 
   if (userError) {
-    throw new Error(`Unable to update student: ${userError.message}`);
+    if (userError.message?.includes("emergency_contact")) {
+      const { error: fallbackError } = await supabase
+        .from("users")
+        .update({
+          first_name: userFields.firstName,
+          last_name: userFields.lastName,
+          email: userFields.email,
+          phone: userFields.phone,
+          date_of_birth: userFields.dateOfBirth,
+          admin_notes: userFields.adminNotes,
+        })
+        .eq("id", userFields.userId);
+
+      if (fallbackError) {
+        throw new Error(`Unable to update student: ${fallbackError.message}`);
+      }
+    } else {
+      throw new Error(`Unable to update student: ${userError.message}`);
+    }
   }
 
   try {
