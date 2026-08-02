@@ -79,6 +79,8 @@ function parseCreateAdminStudentInput(
     email: parseEmail(input.email),
     phone: parseOptionalText(input.phone) ?? undefined,
     dateOfBirth: parseOptionalDate(input.dateOfBirth) ?? undefined,
+    emergencyContactName: parseOptionalText(input.emergencyContactName) ?? undefined,
+    emergencyContactPhone: parseOptionalText(input.emergencyContactPhone) ?? undefined,
     adminNotes: parseOptionalText(input.adminNotes) ?? undefined,
     role,
     membershipStatus,
@@ -126,18 +128,43 @@ async function createMembership(input: {
 async function createUser(input: CreateAdminStudentInput) {
   const supabase = getSupabaseAdminClient();
 
+  const insertPayload = {
+    first_name: input.firstName,
+    last_name: input.lastName,
+    email: input.email,
+    phone: input.phone ?? null,
+    date_of_birth: input.dateOfBirth ?? null,
+    emergency_contact_name: input.emergencyContactName ?? null,
+    emergency_contact_phone: input.emergencyContactPhone ?? null,
+    admin_notes: input.adminNotes ?? null,
+  };
+
   const { data, error } = await supabase
     .from("users")
-    .insert({
-      first_name: input.firstName,
-      last_name: input.lastName,
-      email: input.email,
-      phone: input.phone ?? null,
-      date_of_birth: input.dateOfBirth ?? null,
-      admin_notes: input.adminNotes ?? null,
-    })
+    .insert(insertPayload)
     .select("id")
     .single();
+
+  if (error?.message?.includes("emergency_contact")) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("users")
+      .insert({
+        first_name: input.firstName,
+        last_name: input.lastName,
+        email: input.email,
+        phone: input.phone ?? null,
+        date_of_birth: input.dateOfBirth ?? null,
+        admin_notes: input.adminNotes ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (fallbackError) {
+      throw new Error(`Unable to create student: ${fallbackError.message}`);
+    }
+
+    return fallbackData.id as string;
+  }
 
   if (error) {
     throw new Error(`Unable to create student: ${error.message}`);

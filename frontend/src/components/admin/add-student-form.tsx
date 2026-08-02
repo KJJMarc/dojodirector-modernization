@@ -261,6 +261,40 @@ export function AddStudentForm({
         />
       </div>
 
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor="emergencyContactName"
+            className="text-sm font-medium text-dojo-white"
+          >
+            Emergency contact name
+          </label>
+          <input
+            id="emergencyContactName"
+            name="emergencyContactName"
+            type="text"
+            autoComplete="name"
+            className={fieldClassName}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="emergencyContactPhone"
+            className="text-sm font-medium text-dojo-white"
+          >
+            Emergency contact phone
+          </label>
+          <input
+            id="emergencyContactPhone"
+            name="emergencyContactPhone"
+            type="tel"
+            autoComplete="tel"
+            className={fieldClassName}
+          />
+        </div>
+      </div>
+
       <div>
         <label htmlFor="adminNotes" className="text-sm font-medium text-dojo-white">
           Admin notes
