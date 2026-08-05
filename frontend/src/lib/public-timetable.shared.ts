@@ -172,13 +172,10 @@ function isValidDayOfWeek(dayOfWeek: number) {
 }
 
 function countVenueClasses(byDay: Map<number, PublicTimetableClassEntry[]>) {
-  let total = 0;
-
-  for (const classes of byDay.values()) {
-    total += classes.length;
-  }
-
-  return total;
+  return Array.from(byDay.values()).reduce(
+    (total, classes) => total + classes.length,
+    0,
+  );
 }
 
 /**
