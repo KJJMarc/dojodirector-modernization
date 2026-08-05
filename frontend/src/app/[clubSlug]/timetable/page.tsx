@@ -33,8 +33,8 @@ export default async function ClubTimetablePage({ params }: ClubTimetablePagePro
   const venues = await loadPublicTimetableVenuesForClub(club.id);
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-neutral-900">
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-3 py-4 pb-10 sm:px-5">
+    <div className="flex min-h-screen flex-col bg-white text-neutral-900 [color-scheme:light]">
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 bg-white px-3 py-4 pb-10 sm:px-5">
         <PublicAcademyPageHeader
           pageTitle="Class Timetable"
           clubName={club.name}

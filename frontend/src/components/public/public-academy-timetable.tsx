@@ -12,16 +12,34 @@ interface PublicAcademyTimetableProps {
   venues: PublicTimetableVenueGroup[];
 }
 
+/** Class cards: Dojo Director brand accents on a white timetable body. */
 function ClassCard({ entry }: { entry: PublicTimetableClassEntry }) {
   return (
-    <article className="flex min-h-[4.5rem] flex-col justify-center rounded-lg border border-neutral-200 bg-white px-3 py-2.5">
-      <h4 className="text-sm font-semibold leading-snug text-neutral-900 [overflow-wrap:anywhere]">
+    <article className="flex min-h-[4.5rem] flex-col justify-center rounded-md border border-dojo-border border-l-[3px] border-l-dojo-red bg-white px-3 py-2.5 shadow-sm">
+      <h4 className="text-sm font-semibold leading-snug text-dojo-black [overflow-wrap:anywhere]">
         {entry.className}
       </h4>
-      <p className="mt-1 text-xs font-medium tabular-nums text-neutral-500">
+      <p className="mt-1 text-xs font-medium tabular-nums text-neutral-600">
         <time dateTime={entry.startTime}>{entry.timeRangeLabel}</time>
       </p>
     </article>
+  );
+}
+
+function DayHeading({
+  label,
+  id,
+}: {
+  label: string;
+  id?: string;
+}) {
+  return (
+    <h3
+      id={id}
+      className="flex min-h-10 items-center justify-center bg-dojo-black px-2 py-2 text-center text-xs font-bold uppercase tracking-wide text-dojo-white sm:text-[0.7rem]"
+    >
+      {label}
+    </h3>
   );
 }
 
@@ -34,12 +52,7 @@ function MobileDaySection({
 }) {
   return (
     <section className="space-y-2" aria-labelledby={headingId}>
-      <h3
-        id={headingId}
-        className="text-sm font-semibold uppercase tracking-wide text-dojo-red"
-      >
-        {day.dayLabel}
-      </h3>
+      <DayHeading id={headingId} label={day.dayLabel} />
       <ul className="space-y-2">
         {day.classes.map((entry) => (
           <li key={entry.id}>
@@ -57,7 +70,7 @@ function DesktopWeekGrid({ venue }: { venue: PublicTimetableVenueGroup }) {
   return (
     <div className="overflow-x-auto">
       <div
-        className="grid min-w-[52rem] grid-cols-7 gap-2"
+        className="grid min-w-[52rem] grid-cols-7 divide-x divide-neutral-200 border border-neutral-200 bg-white"
         role="list"
         aria-label={`${venue.venueName} weekly class timetable`}
       >
@@ -66,21 +79,21 @@ function DesktopWeekGrid({ venue }: { venue: PublicTimetableVenueGroup }) {
           const dayLabel = day?.dayLabel ?? formatDayOfWeekLabel(dayOfWeek);
 
           return (
-            <div key={dayOfWeek} className="min-w-0 space-y-2" role="listitem">
-              <h3 className="border-b border-neutral-200 pb-2 text-center text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                {dayLabel}
-              </h3>
-              {day && day.classes.length > 0 ? (
-                <ul className="space-y-2">
-                  {day.classes.map((entry) => (
-                    <li key={entry.id}>
-                      <ClassCard entry={entry} />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="px-1 py-3 text-center text-xs text-neutral-400">—</p>
-              )}
+            <div key={dayOfWeek} className="min-w-0 bg-white" role="listitem">
+              <DayHeading label={dayLabel} />
+              <div className="space-y-2 p-2 sm:p-2.5">
+                {day && day.classes.length > 0 ? (
+                  <ul className="space-y-2">
+                    {day.classes.map((entry) => (
+                      <li key={entry.id}>
+                        <ClassCard entry={entry} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-1 py-3 text-center text-xs text-neutral-400">—</p>
+                )}
+              </div>
             </div>
           );
         })}
@@ -100,35 +113,37 @@ function VenueTimetableSection({
 
   return (
     <section
-      className="rounded-xl border border-neutral-200 border-l-4 border-l-dojo-red bg-white p-4 sm:p-5"
+      className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
       aria-labelledby={headingId}
     >
-      <header className="mb-4 space-y-1 border-b border-neutral-200 pb-3">
+      <header className="space-y-1 bg-dojo-black px-4 py-3.5 sm:px-5 sm:py-4">
         <h2
           id={headingId}
-          className="text-lg font-semibold leading-snug text-neutral-900 sm:text-xl"
+          className="text-lg font-bold leading-snug tracking-tight text-dojo-white sm:text-xl"
         >
           {venue.venueName}
         </h2>
         {venue.venueAddress ? (
-          <p className="text-sm leading-relaxed text-neutral-500">{venue.venueAddress}</p>
+          <p className="text-sm leading-relaxed text-neutral-300">{venue.venueAddress}</p>
         ) : null}
       </header>
 
-      {/* Mobile: stacked active days only */}
-      <div className="space-y-5 md:hidden">
-        {venue.days.map((day) => (
-          <MobileDaySection
-            key={day.dayOfWeek}
-            day={day}
-            headingId={`venue-${index}-day-${day.dayOfWeek}-heading`}
-          />
-        ))}
-      </div>
+      <div className="bg-white p-3 sm:p-4">
+        {/* Mobile: stacked active days only */}
+        <div className="space-y-5 md:hidden">
+          {venue.days.map((day) => (
+            <MobileDaySection
+              key={day.dayOfWeek}
+              day={day}
+              headingId={`venue-${index}-day-${day.dayOfWeek}-heading`}
+            />
+          ))}
+        </div>
 
-      {/* Desktop: full week columns */}
-      <div className="hidden md:block">
-        <DesktopWeekGrid venue={venue} />
+        {/* Desktop: full week columns */}
+        <div className="hidden md:block">
+          <DesktopWeekGrid venue={venue} />
+        </div>
       </div>
     </section>
   );
@@ -144,7 +159,7 @@ export function PublicAcademyTimetable({
         className="rounded-xl border border-neutral-200 bg-white px-4 py-8 text-center"
         aria-live="polite"
       >
-        <p className="text-sm leading-relaxed text-neutral-500">
+        <p className="text-sm leading-relaxed text-neutral-600">
           {PUBLIC_TIMETABLE_EMPTY_MESSAGE}
         </p>
       </section>
@@ -152,8 +167,8 @@ export function PublicAcademyTimetable({
   }
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm leading-relaxed text-neutral-500">
+    <div className="space-y-6 bg-white">
+      <p className="text-sm leading-relaxed text-neutral-600">
         Weekly class times for {academyName}.
       </p>
       {venues.map((venue, index) => (
