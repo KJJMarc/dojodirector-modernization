@@ -171,17 +171,39 @@ function isValidDayOfWeek(dayOfWeek: number) {
   return Number.isInteger(dayOfWeek) && dayOfWeek >= 0 && dayOfWeek <= 6;
 }
 
-function compareVenueKeys(left: string, right: string) {
-  // Unassigned venue always last.
-  if (!left && right) {
+function countVenueClasses(byDay: Map<number, PublicTimetableClassEntry[]>) {
+  let total = 0;
+
+  for (const classes of byDay.values()) {
+    total += classes.length;
+  }
+
+  return total;
+}
+
+/**
+ * Prefer venues with the most classes first (e.g. Tiffin when it hosts the
+ * majority). Unassigned always last; name is the tie-break.
+ */
+function compareVenuesByClassCount(
+  left: { locationKey: string; classCount: number },
+  right: { locationKey: string; classCount: number },
+) {
+  if (!left.locationKey && right.locationKey) {
     return 1;
   }
 
-  if (left && !right) {
+  if (left.locationKey && !right.locationKey) {
     return -1;
   }
 
-  return left.localeCompare(right, "en", { sensitivity: "base" });
+  if (right.classCount !== left.classCount) {
+    return right.classCount - left.classCount;
+  }
+
+  return left.locationKey.localeCompare(right.locationKey, "en", {
+    sensitivity: "base",
+  });
 }
 
 function compareClassEntries(
@@ -273,7 +295,13 @@ export function buildPublicTimetableVenueGroups(
     venue.byDay.set(entry.dayOfWeek, dayClasses);
   }
 
-  const venueKeys = Array.from(venueMap.keys()).sort(compareVenueKeys);
+  const venueKeys = Array.from(venueMap.entries())
+    .map(([locationKey, venue]) => ({
+      locationKey,
+      classCount: countVenueClasses(venue.byDay),
+    }))
+    .sort(compareVenuesByClassCount)
+    .map((entry) => entry.locationKey);
 
   return venueKeys.map((locationKey) => {
     const venue = venueMap.get(locationKey)!;

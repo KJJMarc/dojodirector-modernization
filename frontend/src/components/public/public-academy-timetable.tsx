@@ -12,24 +12,13 @@ interface PublicAcademyTimetableProps {
   venues: PublicTimetableVenueGroup[];
 }
 
-const VENUE_ACCENT_CLASSES = [
-  "border-l-dojo-red",
-  "border-l-dojo-muted",
-  "border-l-dojo-white/40",
-  "border-l-dojo-red/60",
-] as const;
-
-function venueAccentClass(index: number) {
-  return VENUE_ACCENT_CLASSES[index % VENUE_ACCENT_CLASSES.length];
-}
-
 function ClassCard({ entry }: { entry: PublicTimetableClassEntry }) {
   return (
-    <article className="flex min-h-[4.5rem] flex-col justify-center rounded-lg border border-dojo-border bg-dojo-elevated px-3 py-2.5">
-      <h4 className="text-sm font-semibold leading-snug text-dojo-white [overflow-wrap:anywhere]">
+    <article className="flex min-h-[4.5rem] flex-col justify-center rounded-lg border border-neutral-200 bg-white px-3 py-2.5">
+      <h4 className="text-sm font-semibold leading-snug text-neutral-900 [overflow-wrap:anywhere]">
         {entry.className}
       </h4>
-      <p className="mt-1 text-xs font-medium tabular-nums text-dojo-muted">
+      <p className="mt-1 text-xs font-medium tabular-nums text-neutral-500">
         <time dateTime={entry.startTime}>{entry.timeRangeLabel}</time>
       </p>
     </article>
@@ -72,7 +61,7 @@ function DesktopWeekGrid({ venue }: { venue: PublicTimetableVenueGroup }) {
 
           return (
             <div key={dayOfWeek} className="min-w-0 space-y-2" role="listitem">
-              <h3 className="border-b border-dojo-border pb-2 text-center text-xs font-semibold uppercase tracking-wide text-dojo-muted">
+              <h3 className="border-b border-neutral-200 pb-2 text-center text-xs font-semibold uppercase tracking-wide text-neutral-500">
                 {dayLabel}
               </h3>
               {day && day.classes.length > 0 ? (
@@ -84,7 +73,7 @@ function DesktopWeekGrid({ venue }: { venue: PublicTimetableVenueGroup }) {
                   ))}
                 </ul>
               ) : (
-                <p className="px-1 py-3 text-center text-xs text-dojo-muted/70">—</p>
+                <p className="px-1 py-3 text-center text-xs text-neutral-400">—</p>
               )}
             </div>
           );
@@ -105,18 +94,18 @@ function VenueTimetableSection({
 
   return (
     <section
-      className={`rounded-xl border border-dojo-border border-l-4 bg-dojo-surface p-4 sm:p-5 ${venueAccentClass(index)}`}
+      className="rounded-xl border border-neutral-200 border-l-4 border-l-dojo-red bg-white p-4 sm:p-5"
       aria-labelledby={headingId}
     >
-      <header className="mb-4 space-y-1 border-b border-dojo-border pb-3">
+      <header className="mb-4 space-y-1 border-b border-neutral-200 pb-3">
         <h2
           id={headingId}
-          className="text-lg font-semibold leading-snug text-dojo-white sm:text-xl"
+          className="text-lg font-semibold leading-snug text-neutral-900 sm:text-xl"
         >
           {venue.venueName}
         </h2>
         {venue.venueAddress ? (
-          <p className="text-sm leading-relaxed text-dojo-muted">{venue.venueAddress}</p>
+          <p className="text-sm leading-relaxed text-neutral-500">{venue.venueAddress}</p>
         ) : null}
       </header>
 
@@ -142,10 +131,10 @@ export function PublicAcademyTimetable({
   if (venues.length === 0) {
     return (
       <section
-        className="rounded-xl border border-dojo-border bg-dojo-surface px-4 py-8 text-center"
+        className="rounded-xl border border-neutral-200 bg-white px-4 py-8 text-center"
         aria-live="polite"
       >
-        <p className="text-sm leading-relaxed text-dojo-muted">
+        <p className="text-sm leading-relaxed text-neutral-500">
           {PUBLIC_TIMETABLE_EMPTY_MESSAGE}
         </p>
       </section>
@@ -154,7 +143,7 @@ export function PublicAcademyTimetable({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm leading-relaxed text-dojo-muted">
+      <p className="text-sm leading-relaxed text-neutral-500">
         Weekly class times for {academyName}. Times are shown in UK local time.
       </p>
       {venues.map((venue, index) => (

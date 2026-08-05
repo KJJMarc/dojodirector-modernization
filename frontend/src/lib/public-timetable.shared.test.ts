@@ -89,7 +89,7 @@ describe("buildPublicTimetableVenueGroups", () => {
     );
   });
 
-  it("groups venues and put unassigned last", () => {
+  it("orders venues by class count so the main venue is first; unassigned last", () => {
     const groups = buildPublicTimetableVenueGroups([
       schedule({
         id: "unassigned",
@@ -99,9 +99,16 @@ describe("buildPublicTimetableVenueGroups", () => {
         location: "  ",
       }),
       schedule({
-        id: "tiffin",
+        id: "tiffin-1",
         className: "Adult Gi",
         dayOfWeek: 1,
+        startTime: "18:00",
+        location: "Tiffin Sports Centre",
+      }),
+      schedule({
+        id: "tiffin-2",
+        className: "Fundamentals",
+        dayOfWeek: 2,
         startTime: "18:00",
         location: "Tiffin Sports Centre",
       }),
@@ -115,8 +122,8 @@ describe("buildPublicTimetableVenueGroups", () => {
     ]);
 
     assert.equal(groups.length, 3);
-    assert.equal(groups[0].venueName, "St. John's Parish Hall");
-    assert.equal(groups[1].venueName, "Tiffin Sports Centre");
+    assert.equal(groups[0].venueName, "Tiffin Sports Centre");
+    assert.equal(groups[1].venueName, "St. John's Parish Hall");
     assert.equal(groups[2].venueName, PUBLIC_TIMETABLE_UNASSIGNED_VENUE_LABEL);
   });
 
