@@ -3,6 +3,7 @@ import {
   clubAdultBeltRankingsPath,
   clubBookingPath,
   clubJuniorBeltRankingsPath,
+  clubTimetablePath,
   clubTrialEnquiryPath,
   BAHAMAS_JIU_JITSU_CLUB_SLUG,
   KINGSTON_CLUB_SLUG,
@@ -41,6 +42,14 @@ const TRIAL_ENQUIRY_PAGE: AcademyPublicPageDefinition = {
   resolveHref: (clubSlug) => clubTrialEnquiryPath(clubSlug),
 };
 
+const TIMETABLE_PAGE: AcademyPublicPageDefinition = {
+  id: "timetable",
+  name: "Timetable",
+  description: "Automatically generated from your active recurring classes.",
+  pathLabel: "/timetable",
+  resolveHref: (clubSlug) => clubTimetablePath(clubSlug),
+};
+
 const ADULT_BELT_RANKINGS_PAGE: AcademyPublicPageDefinition = {
   id: "adult-belt-rankings",
   name: "Adult Belt Rankings",
@@ -76,6 +85,7 @@ const STUDENT_OF_THE_YEAR_PAGE: AcademyPublicPageDefinition = {
 export const ACADEMY_PUBLIC_PAGES: AcademyPublicPageDefinition[] = [
   GUEST_BOOKINGS_PAGE,
   TRIAL_ENQUIRY_PAGE,
+  TIMETABLE_PAGE,
   ADULT_BELT_RANKINGS_PAGE,
   STUDENT_OF_THE_YEAR_PAGE,
   JUNIOR_BELT_RANKINGS_PAGE,
@@ -99,6 +109,10 @@ function resolveAcademyPublicPagePathLabel(
 
   if (page.id === "trial-enquiry") {
     return clubTrialEnquiryPath(clubSlug);
+  }
+
+  if (page.id === "timetable") {
+    return clubTimetablePath(clubSlug);
   }
 
   if (page.id === "junior-belt-rankings") {

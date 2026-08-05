@@ -45,6 +45,12 @@ export function clubTrialEnquiryPath(slug: string) {
   return normalized ? `/${normalized}/trial-enquiry` : `/${KINGSTON_CLUB_SLUG}/trial-enquiry`;
 }
 
+/** Public class timetable page for a club (generated from active recurring classes). */
+export function clubTimetablePath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized ? `/${normalized}/timetable` : `/${KINGSTON_CLUB_SLUG}/timetable`;
+}
+
 /** POST endpoint for public trial enquiry submissions. */
 export function clubTrialEnquiryApiPath(slug: string) {
   const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
