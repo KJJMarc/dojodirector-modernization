@@ -25,11 +25,17 @@ function ClassCard({ entry }: { entry: PublicTimetableClassEntry }) {
   );
 }
 
-function MobileDaySection({ day }: { day: PublicTimetableDayGroup }) {
+function MobileDaySection({
+  day,
+  headingId,
+}: {
+  day: PublicTimetableDayGroup;
+  headingId: string;
+}) {
   return (
-    <section className="space-y-2" aria-labelledby={`day-${day.dayOfWeek}-heading`}>
+    <section className="space-y-2" aria-labelledby={headingId}>
       <h3
-        id={`day-${day.dayOfWeek}-heading`}
+        id={headingId}
         className="text-sm font-semibold uppercase tracking-wide text-dojo-red"
       >
         {day.dayLabel}
@@ -112,7 +118,11 @@ function VenueTimetableSection({
       {/* Mobile: stacked active days only */}
       <div className="space-y-5 md:hidden">
         {venue.days.map((day) => (
-          <MobileDaySection key={day.dayOfWeek} day={day} />
+          <MobileDaySection
+            key={day.dayOfWeek}
+            day={day}
+            headingId={`venue-${index}-day-${day.dayOfWeek}-heading`}
+          />
         ))}
       </div>
 
@@ -144,7 +154,7 @@ export function PublicAcademyTimetable({
   return (
     <div className="space-y-6">
       <p className="text-sm leading-relaxed text-neutral-500">
-        Weekly class times for {academyName}. Times are shown in UK local time.
+        Weekly class times for {academyName}.
       </p>
       {venues.map((venue, index) => (
         <VenueTimetableSection

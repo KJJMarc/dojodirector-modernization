@@ -23,6 +23,11 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Public class timetable. Schedule times are academy-local wall clocks from
+ * recurring_class_schedules (see getClubIanaTimeZone). They are formatted as stored —
+ * never shifted to the visitor's browser timezone or a fixed UK clock.
+ */
 export default async function ClubTimetablePage({ params }: ClubTimetablePageProps) {
   const club = await requireClubBySlug(params.clubSlug);
   const venues = await loadPublicTimetableVenuesForClub(club.id);

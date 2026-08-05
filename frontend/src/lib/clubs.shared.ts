@@ -8,6 +8,24 @@ export const KINGSTON_JIU_JITSU_KIDS_CLUB_ID =
   "0e81995e-7ed5-490d-8425-f23c87f34587";
 /** Kingston academies cap junior stripes at three (Bahamas remains at four). */
 export const KINGSTON_JUNIOR_MAX_STRIPE_COUNT = 3;
+/**
+ * IANA timezone for academy-local civil times (wall clocks on schedules).
+ * Recurring class start/end times are stored as academy-local clock values,
+ * not UTC instants — display must not convert them for the visitor's timezone.
+ */
+export const DEFAULT_CLUB_IANA_TIME_ZONE = "Europe/London";
+export const BAHAMAS_JIU_JITSU_IANA_TIME_ZONE = "America/Nassau";
+
+/** Resolve the academy's IANA timezone for interpreting its local class times. */
+export function getClubIanaTimeZone(clubSlug: string): string {
+  const normalized = clubSlug.trim().toLowerCase();
+
+  if (normalized === BAHAMAS_JIU_JITSU_CLUB_SLUG) {
+    return BAHAMAS_JIU_JITSU_IANA_TIME_ZONE;
+  }
+
+  return DEFAULT_CLUB_IANA_TIME_ZONE;
+}
 
 export interface ClubRow {
   id: string;

@@ -27,6 +27,10 @@ interface ClassTemplateStatusRow {
  * Load active recurring schedules for a single academy and group for the public timetable.
  * Uses service-role client like other public academy pages; always filters by club_id.
  * Returns only fields required for display (no capacity, notes, or attendance).
+ *
+ * start_time / end_time are academy-local wall clocks (not visitor/browser/UTC times).
+ * The public page formats them as written using getClubIanaTimeZone only as the
+ * semantic home zone of that academy — never to convert display for the visitor.
  */
 export async function loadPublicTimetableVenuesForClub(
   clubId: string,

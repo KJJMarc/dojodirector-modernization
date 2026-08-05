@@ -1,6 +1,10 @@
 /**
- * Public class timetable helpers — pure grouping, sorting, and UK time formatting.
- * Recurring_class_schedules remain the single source of truth; this never invents data.
+ * Public class timetable helpers — pure grouping, sorting, and wall-clock formatting.
+ * Recurring_class_schedules remain the single source of truth.
+ *
+ * Schedule times are academy-local civil times (stored as HH:MM / HH:MM:SS without a
+ * UTC offset). Display formats those clocks as written — never via `Date` or browser
+ * timezone conversion (so a Bahamas 4:30 pm class stays 4:30 pm in the UK).
  */
 
 import {
@@ -32,7 +36,7 @@ export interface PublicTimetableClassEntry {
   dayLabel: string;
   startTime: string;
   endTime: string;
-  /** UK 12-hour range, e.g. "6:00 pm–7:00 pm". */
+  /** Academy-local 12-hour range, e.g. "6:00 pm–7:00 pm". */
   timeRangeLabel: string;
   locationKey: string;
   locationLabel: string;
@@ -63,6 +67,10 @@ export interface PublicTimetableScheduleInput {
   classIsActive?: boolean;
 }
 
+/**
+ * Normalize a stored schedule clock (`time` / string) to HH:MM.
+ * Does not interpret timezone, UTC offset, or browser locale.
+ */
 export function normalizePublicTimetableClockTime(
   value: string | null | undefined,
 ): string | null {
@@ -93,8 +101,13 @@ export function normalizePublicTimetableClockTime(
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-/** UK wall-clock label from HH:MM — "6:00 pm", "12:30 pm", "12:00 am". */
-export function formatPublicTimetableUkTime(timeValue: string | null | undefined) {
+/**
+ * Academy-local wall-clock label from HH:MM — "6:00 pm", "12:30 pm", "12:00 am".
+ * Pure string formatting; never constructs a Date (no browser/server TZ shift).
+ */
+export function formatPublicTimetableLocalClockTime(
+  timeValue: string | null | undefined,
+) {
   const normalized = normalizePublicTimetableClockTime(timeValue);
 
   if (!normalized) {
@@ -109,16 +122,19 @@ export function formatPublicTimetableUkTime(timeValue: string | null | undefined
   return `${hours12}:${String(minutesRaw).padStart(2, "0")} ${period}`;
 }
 
+/** @deprecated Prefer formatPublicTimetableLocalClockTime (name is historical). */
+export const formatPublicTimetableUkTime = formatPublicTimetableLocalClockTime;
+
 /**
  * Format start–end range. If end is missing or invalid, show start only.
  * If end is earlier than start (schema normally forbids this), still show both
- * so overnight display does not crash.
+ * so overnight display does not crash. Weekday comes from day_of_week, not clocks.
  */
 export function formatPublicTimetableTimeRange(
   startTime: string | null | undefined,
   endTime: string | null | undefined,
 ) {
-  const startLabel = formatPublicTimetableUkTime(startTime);
+  const startLabel = formatPublicTimetableLocalClockTime(startTime);
 
   if (startLabel === "—") {
     return "—";
@@ -130,7 +146,7 @@ export function formatPublicTimetableTimeRange(
     return startLabel;
   }
 
-  return `${startLabel}–${formatPublicTimetableUkTime(endNormalized)}`;
+  return `${startLabel}–${formatPublicTimetableLocalClockTime(endNormalized)}`;
 }
 
 export function resolvePublicTimetableVenue(
@@ -345,4 +361,91 @@ export function getPublicTimetableDayLabelsMondayFirst() {
       DAY_OF_WEEK_OPTIONS.find((option) => option.value === dayOfWeek)?.label ??
       formatDayOfWeekLabel(dayOfWeek),
   );
+}
+
+/**
+ * Convert an academy-local wall clock on a given civil date into a UTC ISO string
+ * using the academy IANA zone (handles DST; never a fixed UTC offset).
+ *
+ * For tests and absolute-time conversion only — public display must keep wall clocks.
+ */
+export function academyLocalCivilDateTimeToUtcIso(
+  civilDateYmd: string,
+  clockHhMm: string,
+  ianaTimeZone: string,
+): string {
+  const clock = normalizePublicTimetableClockTime(clockHhMm);
+  if (!clock) {
+    throw new Error(`Invalid academy-local clock: ${clockHhMm}`);
+  }
+
+  const [year, month, day] = civilDateYmd.split("-").map(Number);
+  const [hour, minute] = clock.split(":").map(Number);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    throw new Error(`Invalid civil date: ${civilDateYmd}`);
+  }
+
+  let guess = Date.UTC(year, month - 1, day, hour, minute);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: ianaTimeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(guess));
+
+    const map = Object.fromEntries(
+      parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+    );
+
+    const asUtc = Date.UTC(
+      Number(map.year),
+      Number(map.month) - 1,
+      Number(map.day),
+      Number(map.hour),
+      Number(map.minute),
+    );
+    const target = Date.UTC(year, month - 1, day, hour, minute);
+    const delta = target - asUtc;
+
+    if (delta === 0) {
+      return new Date(guess).toISOString();
+    }
+
+    guess += delta;
+  }
+
+  return new Date(guess).toISOString();
+}
+
+/** Format a UTC instant in an IANA zone as HH:MM (for conversion-contrast tests only). */
+export function formatUtcInstantAsLocalClock(
+  utcIso: string,
+  ianaTimeZone: string,
+): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ianaTimeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcIso));
+
+  const map = Object.fromEntries(
+    parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+  );
+
+  return `${map.hour}:${map.minute}`;
 }
