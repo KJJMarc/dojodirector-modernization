@@ -150,7 +150,7 @@ export function splitPortalMessageBodyWithLinks(
     PORTAL_MESSAGE_URL_PATTERN.flags,
   );
 
-  for (const match of body.matchAll(pattern)) {
+  for (const match of Array.from(body.matchAll(pattern))) {
     const raw = match[0] ?? "";
     const start = match.index ?? 0;
 
