@@ -1,6 +1,6 @@
 import "server-only";
 
-const PRODUCTION_SITE_ORIGIN = "https://www.dojodirector.com";
+import { CANONICAL_SITE_ORIGIN } from "@/lib/seo-public-routes.shared";
 
 /** Canonical site origin for auth links in emails (portal setup, password reset). */
 export function resolveSiteOrigin() {
@@ -11,7 +11,7 @@ export function resolveSiteOrigin() {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return PRODUCTION_SITE_ORIGIN;
+    return CANONICAL_SITE_ORIGIN;
   }
 
   return "http://localhost:3000";

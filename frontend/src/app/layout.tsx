@@ -17,6 +17,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.dojodirector.com"),
   title: "Dojo Director | Martial arts academy management",
   description: PWA_DESCRIPTION,
   applicationName: PWA_NAME,
