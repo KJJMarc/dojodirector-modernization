@@ -23,7 +23,20 @@ export interface PortalMessageListItem {
   waitlistOffer?: PortalMessageWaitlistOfferAction;
 }
 
+export type PortalMessageBodySegment =
+  | { type: "text"; value: string }
+  | { type: "link"; value: string; href: string };
+
 const MESSAGE_PREVIEW_MAX_LENGTH = 75;
+
+/**
+ * Detect http(s) and www. URLs in portal message plain text for safe linkification.
+ * Trailing sentence punctuation is not part of the URL.
+ */
+const PORTAL_MESSAGE_URL_PATTERN =
+  /\b((?:https?:\/\/|www\.)[^\s<>"'`]+)/gi;
+
+const TRAILING_URL_PUNCTUATION = /[),.!?;:]+$/;
 
 export function formatPortalMessagePreview(body: string, maxLength = MESSAGE_PREVIEW_MAX_LENGTH) {
   const normalized = body.replace(/\s+/g, " ").trim();
@@ -81,6 +94,90 @@ export function formatPortalMessageSentLabel(sentAtIso: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
+}
+
+/** Strip common trailing punctuation that is part of surrounding sentence, not the URL. */
+export function trimPortalMessageUrlMatch(raw: string): {
+  url: string;
+  trailing: string;
+} {
+  const match = raw.match(TRAILING_URL_PUNCTUATION);
+
+  if (!match) {
+    return { url: raw, trailing: "" };
+  }
+
+  return {
+    url: raw.slice(0, raw.length - match[0].length),
+    trailing: match[0],
+  };
+}
+
+/** Ensure www. links open as https absolute URLs. Reject empty/invalid after trim. */
+export function normalizePortalMessageLinkHref(url: string): string | null {
+  const trimmed = url.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^www\./i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return null;
+}
+
+/**
+ * Split portal message body into plain-text and link segments.
+ * Does not parse HTML — storage remains plain text; only display is linkified.
+ */
+export function splitPortalMessageBodyWithLinks(
+  body: string,
+): PortalMessageBodySegment[] {
+  if (!body) {
+    return [];
+  }
+
+  const segments: PortalMessageBodySegment[] = [];
+  let lastIndex = 0;
+  const pattern = new RegExp(
+    PORTAL_MESSAGE_URL_PATTERN.source,
+    PORTAL_MESSAGE_URL_PATTERN.flags,
+  );
+
+  for (const match of body.matchAll(pattern)) {
+    const raw = match[0] ?? "";
+    const start = match.index ?? 0;
+
+    if (start > lastIndex) {
+      segments.push({ type: "text", value: body.slice(lastIndex, start) });
+    }
+
+    const { url, trailing } = trimPortalMessageUrlMatch(raw);
+    const href = normalizePortalMessageLinkHref(url);
+
+    if (href && url) {
+      segments.push({ type: "link", value: url, href });
+      if (trailing) {
+        segments.push({ type: "text", value: trailing });
+      }
+    } else {
+      segments.push({ type: "text", value: raw });
+    }
+
+    lastIndex = start + raw.length;
+  }
+
+  if (lastIndex < body.length) {
+    segments.push({ type: "text", value: body.slice(lastIndex) });
+  }
+
+  return segments.length > 0 ? segments : [{ type: "text", value: body }];
 }
 
 export function mapPortalMessageRow(row: {

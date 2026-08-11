@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
+import { PortalMessageBody } from "@/components/portal/portal-message-body";
 import type { PortalMessageListItem } from "@/lib/portal-messages.shared";
 
 interface PortalMessagesInboxProps {
@@ -124,9 +125,7 @@ export function PortalMessagesInbox({
               {isExpanded ? (
                 <div className="space-y-4 border-t border-dojo-border px-4 py-4">
                   <p className="text-xs text-dojo-muted">{message.sentAtLabel}</p>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-dojo-white">
-                    {message.body}
-                  </div>
+                  <PortalMessageBody body={message.body} />
                   {renderMessageActions ? renderMessageActions(message) : null}
                   <button
                     type="button"
