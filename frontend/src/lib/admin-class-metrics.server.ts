@@ -139,6 +139,7 @@ async function loadInstructorResolutionBySessionId(
 
 const METRICS_LOOKBACK_DAYS = 90;
 const RECENT_NO_SHOW_DAYS = 30;
+const SUPABASE_PAGE_SIZE = 1000;
 
 const BOOKING_STATUSES = new Set(["booked", "walk_in", "waitlisted"]);
 
@@ -218,6 +219,41 @@ function getMetricsDateRange() {
 
 function countsAsBooking(status: string | null) {
   return status != null && BOOKING_STATUSES.has(status);
+}
+
+async function fetchMetricsSessionAttendees(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  sessionIds: string[],
+) {
+  if (sessionIds.length === 0) {
+    return [] as MetricsAttendeeRow[];
+  }
+
+  const rows: MetricsAttendeeRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("session_attendees")
+      .select("id, class_session_id, user_id, booking_status, attendance_status")
+      .in("class_session_id", sessionIds)
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(`Unable to load bookings: ${error.message}`);
+    }
+
+    const page = (data ?? []) as MetricsAttendeeRow[];
+    rows.push(...page);
+
+    if (page.length < SUPABASE_PAGE_SIZE) {
+      break;
+    }
+
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 type InstructorMetricsAggregate = {
@@ -362,21 +398,14 @@ export async function getAdminClassMetricsPageData(
   const sessionIds = sessions.map((session) => session.id);
   const classIds = Array.from(new Set(sessions.map((session) => session.class_id)));
 
-  const [attendeesResult, classesResult, schedulesResult] = await Promise.all([
-    supabase
-      .from("session_attendees")
-      .select("id, class_session_id, user_id, booking_status, attendance_status")
-      .in("class_session_id", sessionIds),
+  const [attendees, classesResult, schedulesResult] = await Promise.all([
+    fetchMetricsSessionAttendees(supabase, sessionIds),
     supabase.from("classes").select("id, name").in("id", classIds),
     supabase
       .from("recurring_class_schedules")
       .select("id, class_id, day_of_week, start_time, location, is_active")
       .eq("club_id", clubId),
   ]);
-
-  if (attendeesResult.error) {
-    throw new Error(`Unable to load bookings: ${attendeesResult.error.message}`);
-  }
 
   if (classesResult.error) {
     throw new Error(`Unable to load classes: ${classesResult.error.message}`);
@@ -413,7 +442,6 @@ export async function getAdminClassMetricsPageData(
     );
 
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
-  const attendees = (attendeesResult.data ?? []) as MetricsAttendeeRow[];
 
   const slotAggregates = new Map<string, ClassSlotAggregate>();
   const instructorAggregates = new Map<string, InstructorMetricsAggregate>();
