@@ -5,6 +5,7 @@ import {
   hasNoShowEligibilityWindowPassed,
   isNoShow,
   isNoShowTrackingEligibleStudentMembership,
+  calculateAverageAttendancePerSession,
   isRetrospectiveMetricsSession,
   NO_SHOW_REGISTER_GRACE_MS,
   resolveNoShowTrackingStatus,
@@ -27,6 +28,17 @@ function msAfterEnd(minutes: number) {
     new Date(SESSION_END).getTime() + minutes * 60 * 1000,
   ).toISOString();
 }
+
+describe("calculateAverageAttendancePerSession", () => {
+  it("returns total attendance divided by sessions, not unique students", () => {
+    assert.equal(calculateAverageAttendancePerSession(540, 45), 12);
+    assert.equal(calculateAverageAttendancePerSession(847, 94), 9);
+  });
+
+  it("returns null when no sessions were taught", () => {
+    assert.equal(calculateAverageAttendancePerSession(0, 0), null);
+  });
+});
 
 describe("isRetrospectiveMetricsSession", () => {
   it("includes sessions that have already started", () => {

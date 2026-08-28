@@ -4,6 +4,7 @@ import { getStudentFullName } from "@/lib/attendance";
 import { loadClubMembershipRows } from "@/lib/admin-club-memberships.server";
 import type { AdminClassMetricsPageData } from "@/lib/admin-class-metrics.shared";
 import {
+  calculateAverageAttendancePerSession,
   isNoShow,
   isNoShowTrackingEligibleStudentMembership,
   isPresentAttendanceStatus,
@@ -219,6 +220,37 @@ function countsAsBooking(status: string | null) {
   return status != null && BOOKING_STATUSES.has(status);
 }
 
+type InstructorMetricsAggregate = {
+  instructorUserId: string;
+  instructorName: string;
+  totalBookings: number;
+  attendanceCount: number;
+  sessionIds: Set<string>;
+};
+
+function getOrCreateInstructorMetricsAggregate(
+  instructorAggregates: Map<string, InstructorMetricsAggregate>,
+  instructorUserId: string,
+  instructorName: string,
+) {
+  const existing = instructorAggregates.get(instructorUserId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const created: InstructorMetricsAggregate = {
+    instructorUserId,
+    instructorName,
+    totalBookings: 0,
+    attendanceCount: 0,
+    sessionIds: new Set<string>(),
+  };
+
+  instructorAggregates.set(instructorUserId, created);
+  return created;
+}
+
 function formatUtilisationPercent(numerator: number, denominator: number) {
   if (denominator <= 0) {
     return null;
@@ -382,16 +414,7 @@ export async function getAdminClassMetricsPageData(
   const attendees = (attendeesResult.data ?? []) as MetricsAttendeeRow[];
 
   const slotAggregates = new Map<string, ClassSlotAggregate>();
-  const instructorAggregates = new Map<
-    string,
-    {
-      instructorUserId: string;
-      instructorName: string;
-      totalBookings: number;
-      attendanceCount: number;
-      sessionIds: Set<string>;
-    }
-  >();
+  const instructorAggregates = new Map<string, InstructorMetricsAggregate>();
   const noShowByUser = new Map<
     string,
     { total: number; recent: number; lastAt: string | null }
@@ -489,17 +512,14 @@ export async function getAdminClassMetricsPageData(
         instructorUserId &&
         isRetrospectiveMetricsSession(session, nowIso)
       ) {
-        const instructorEntry = instructorAggregates.get(instructorUserId) ?? {
+        const instructorEntry = getOrCreateInstructorMetricsAggregate(
+          instructorAggregates,
           instructorUserId,
           instructorName,
-          totalBookings: 0,
-          attendanceCount: 0,
-          sessionIds: new Set<string>(),
-        };
+        );
 
         instructorEntry.totalBookings += 1;
         instructorEntry.sessionIds.add(session.id);
-        instructorAggregates.set(instructorUserId, instructorEntry);
       }
     }
 
@@ -514,11 +534,14 @@ export async function getAdminClassMetricsPageData(
         instructorUserId &&
         isRetrospectiveMetricsSession(session, nowIso)
       ) {
-        const instructorEntry = instructorAggregates.get(instructorUserId);
+        const instructorEntry = getOrCreateInstructorMetricsAggregate(
+          instructorAggregates,
+          instructorUserId,
+          instructorName,
+        );
 
-        if (instructorEntry) {
-          instructorEntry.attendanceCount += 1;
-        }
+        instructorEntry.attendanceCount += 1;
+        instructorEntry.sessionIds.add(session.id);
       }
     }
 
@@ -598,10 +621,10 @@ export async function getAdminClassMetricsPageData(
         totalBookings: row.totalBookings,
         attendanceCount: row.attendanceCount,
         sessionsTaught: row.sessionIds.size,
-        averageAttendancePerSession:
-          row.sessionIds.size > 0
-            ? Math.round((row.attendanceCount / row.sessionIds.size) * 10) / 10
-            : null,
+        averageAttendancePerSession: calculateAverageAttendancePerSession(
+          row.attendanceCount,
+          row.sessionIds.size,
+        ),
         utilisationPercent: formatUtilisationPercent(
           row.totalBookings,
           instructorCapacity,

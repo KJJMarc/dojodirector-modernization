@@ -41,6 +41,18 @@ export function isRetrospectiveMetricsSession(
   return session.starts_at <= nowIso;
 }
 
+/** Total present marks divided by sessions taught — not unique students. */
+export function calculateAverageAttendancePerSession(
+  totalAttendance: number,
+  sessionsTaught: number,
+): number | null {
+  if (sessionsTaught <= 0) {
+    return null;
+  }
+
+  return Math.round((totalAttendance / sessionsTaught) * 10) / 10;
+}
+
 export function isNoShowBookingStatus(bookingStatus: string | null) {
   return bookingStatus === "booked" || bookingStatus === "walk_in";
 }
