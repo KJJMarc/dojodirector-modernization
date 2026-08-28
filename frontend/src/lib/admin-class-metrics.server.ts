@@ -225,7 +225,8 @@ type InstructorMetricsAggregate = {
   instructorName: string;
   totalBookings: number;
   attendanceCount: number;
-  sessionIds: Set<string>;
+  bookingSessionIds: Set<string>;
+  sessionsWithAttendanceIds: Set<string>;
 };
 
 function getOrCreateInstructorMetricsAggregate(
@@ -244,7 +245,8 @@ function getOrCreateInstructorMetricsAggregate(
     instructorName,
     totalBookings: 0,
     attendanceCount: 0,
-    sessionIds: new Set<string>(),
+    bookingSessionIds: new Set<string>(),
+    sessionsWithAttendanceIds: new Set<string>(),
   };
 
   instructorAggregates.set(instructorUserId, created);
@@ -415,6 +417,8 @@ export async function getAdminClassMetricsPageData(
 
   const slotAggregates = new Map<string, ClassSlotAggregate>();
   const instructorAggregates = new Map<string, InstructorMetricsAggregate>();
+  const bookingsBySessionId = new Map<string, number>();
+  const presentBySessionId = new Map<string, number>();
   const noShowByUser = new Map<
     string,
     { total: number; recent: number; lastAt: string | null }
@@ -495,53 +499,30 @@ export async function getAdminClassMetricsPageData(
       continue;
     }
 
-    const instructorUserId = instructorUserIdBySessionId.get(session.id);
-    const instructorName =
-      instructorNameBySessionId.get(session.id) ?? "Unassigned";
     const dayTimeKey = `${dayLabel}|${timeLabel}`;
     const dayTime = dayTimeAggregates.get(dayTimeKey);
 
     if (countsAsBooking(attendee.booking_status)) {
       slot.totalBookings += 1;
+      bookingsBySessionId.set(
+        session.id,
+        (bookingsBySessionId.get(session.id) ?? 0) + 1,
+      );
 
       if (dayTime) {
         dayTime.bookings += 1;
-      }
-
-      if (
-        instructorUserId &&
-        isRetrospectiveMetricsSession(session, nowIso)
-      ) {
-        const instructorEntry = getOrCreateInstructorMetricsAggregate(
-          instructorAggregates,
-          instructorUserId,
-          instructorName,
-        );
-
-        instructorEntry.totalBookings += 1;
-        instructorEntry.sessionIds.add(session.id);
       }
     }
 
     if (isPresentAttendanceStatus(attendee.attendance_status)) {
       slot.attendanceCount += 1;
+      presentBySessionId.set(
+        session.id,
+        (presentBySessionId.get(session.id) ?? 0) + 1,
+      );
 
       if (dayTime) {
         dayTime.attendance += 1;
-      }
-
-      if (
-        instructorUserId &&
-        isRetrospectiveMetricsSession(session, nowIso)
-      ) {
-        const instructorEntry = getOrCreateInstructorMetricsAggregate(
-          instructorAggregates,
-          instructorUserId,
-          instructorName,
-        );
-
-        instructorEntry.attendanceCount += 1;
-        instructorEntry.sessionIds.add(session.id);
       }
     }
 
@@ -578,6 +559,42 @@ export async function getAdminClassMetricsPageData(
     }
   }
 
+  for (const session of sessions) {
+    if (!isRetrospectiveMetricsSession(session, nowIso)) {
+      continue;
+    }
+
+    const instructorUserId = instructorUserIdBySessionId.get(session.id);
+
+    if (!instructorUserId) {
+      continue;
+    }
+
+    const sessionBookings = bookingsBySessionId.get(session.id) ?? 0;
+    const sessionPresent = presentBySessionId.get(session.id) ?? 0;
+
+    if (sessionBookings === 0 && sessionPresent === 0) {
+      continue;
+    }
+
+    const instructorEntry = getOrCreateInstructorMetricsAggregate(
+      instructorAggregates,
+      instructorUserId,
+      instructorNameBySessionId.get(session.id) ?? "Unassigned",
+    );
+
+    instructorEntry.totalBookings += sessionBookings;
+    instructorEntry.attendanceCount += sessionPresent;
+
+    if (sessionBookings > 0) {
+      instructorEntry.bookingSessionIds.add(session.id);
+    }
+
+    if (sessionPresent > 0) {
+      instructorEntry.sessionsWithAttendanceIds.add(session.id);
+    }
+  }
+
   const popularClasses: ClassPopularityRow[] = Array.from(slotAggregates.values())
     .sort((left, right) => right.totalBookings - left.totalBookings)
     .slice(0, 12)
@@ -606,7 +623,7 @@ export async function getAdminClassMetricsPageData(
     .map((row, index) => {
       let instructorCapacity = 0;
 
-      for (const sessionId of Array.from(row.sessionIds)) {
+      for (const sessionId of Array.from(row.bookingSessionIds)) {
         const taughtSession = sessionById.get(sessionId);
 
         if (taughtSession?.capacity != null && taughtSession.capacity > 0) {
@@ -620,10 +637,10 @@ export async function getAdminClassMetricsPageData(
         instructorName: row.instructorName,
         totalBookings: row.totalBookings,
         attendanceCount: row.attendanceCount,
-        sessionsTaught: row.sessionIds.size,
+        sessionsTaught: row.sessionsWithAttendanceIds.size,
         averageAttendancePerSession: calculateAverageAttendancePerSession(
           row.attendanceCount,
-          row.sessionIds.size,
+          row.sessionsWithAttendanceIds.size,
         ),
         utilisationPercent: formatUtilisationPercent(
           row.totalBookings,

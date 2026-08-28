@@ -157,7 +157,7 @@ export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
 
       <MetricsSection
         title="Instructor metrics"
-        description="Instructors ranked on past sessions (last 90 days). Bookings and attendance are totals—not unique students. A student attending 5 classes counts 5 times. Avg / session is total attendance divided by sessions taught."
+        description="Instructors ranked on past sessions (last 90 days). Bookings and attendance are totals—not unique students. Sessions counts classes with at least one present mark. Avg / session is the average number of students marked present in those classes."
       >
         {data.instructorMetrics.length === 0 ? (
           <EmptyState message="No instructor assignment data available for this period." />

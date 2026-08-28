@@ -30,9 +30,9 @@ function msAfterEnd(minutes: number) {
 }
 
 describe("calculateAverageAttendancePerSession", () => {
-  it("returns total attendance divided by sessions, not unique students", () => {
+  it("returns total attendance divided by sessions with present marks", () => {
+    assert.equal(calculateAverageAttendancePerSession(740, 37), 20);
     assert.equal(calculateAverageAttendancePerSession(540, 45), 12);
-    assert.equal(calculateAverageAttendancePerSession(847, 94), 9);
   });
 
   it("returns null when no sessions were taught", () => {
