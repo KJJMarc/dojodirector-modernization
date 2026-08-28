@@ -157,7 +157,7 @@ export function ClassMetricsView({ clubSlug, data }: ClassMetricsViewProps) {
 
       <MetricsSection
         title="Instructor metrics"
-        description="Instructors ranked by bookings on sessions they are assigned to teach."
+        description="Instructors ranked by bookings and attendance on sessions they have already taught (last 90 days)."
       >
         {data.instructorMetrics.length === 0 ? (
           <EmptyState message="No instructor assignment data available for this period." />

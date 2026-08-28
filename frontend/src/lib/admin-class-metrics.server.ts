@@ -7,6 +7,7 @@ import {
   isNoShow,
   isNoShowTrackingEligibleStudentMembership,
   isPresentAttendanceStatus,
+  isRetrospectiveMetricsSession,
   resolveNoShowTrackingStatus,
 } from "@/lib/admin-class-metrics.shared";
 import type {
@@ -484,7 +485,10 @@ export async function getAdminClassMetricsPageData(
         dayTime.bookings += 1;
       }
 
-      if (instructorUserId) {
+      if (
+        instructorUserId &&
+        isRetrospectiveMetricsSession(session, nowIso)
+      ) {
         const instructorEntry = instructorAggregates.get(instructorUserId) ?? {
           instructorUserId,
           instructorName,
@@ -506,7 +510,10 @@ export async function getAdminClassMetricsPageData(
         dayTime.attendance += 1;
       }
 
-      if (instructorUserId) {
+      if (
+        instructorUserId &&
+        isRetrospectiveMetricsSession(session, nowIso)
+      ) {
         const instructorEntry = instructorAggregates.get(instructorUserId);
 
         if (instructorEntry) {

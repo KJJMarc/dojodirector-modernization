@@ -33,6 +33,14 @@ export function isPresentAttendanceStatus(attendanceStatus: string | null) {
   return attendanceStatus === "present";
 }
 
+/** Sessions that have already started — used for retrospective instructor metrics. */
+export function isRetrospectiveMetricsSession(
+  session: { starts_at: string },
+  nowIso: string,
+) {
+  return session.starts_at <= nowIso;
+}
+
 export function isNoShowBookingStatus(bookingStatus: string | null) {
   return bookingStatus === "booked" || bookingStatus === "walk_in";
 }

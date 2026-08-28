@@ -5,6 +5,7 @@ import {
   hasNoShowEligibilityWindowPassed,
   isNoShow,
   isNoShowTrackingEligibleStudentMembership,
+  isRetrospectiveMetricsSession,
   NO_SHOW_REGISTER_GRACE_MS,
   resolveNoShowTrackingStatus,
 } from "@/lib/admin-class-metrics.shared";
@@ -26,6 +27,35 @@ function msAfterEnd(minutes: number) {
     new Date(SESSION_END).getTime() + minutes * 60 * 1000,
   ).toISOString();
 }
+
+describe("isRetrospectiveMetricsSession", () => {
+  it("includes sessions that have already started", () => {
+    assert.equal(
+      isRetrospectiveMetricsSession(
+        { starts_at: "2026-06-05T18:00:00.000Z" },
+        "2026-06-05T18:00:00.000Z",
+      ),
+      true,
+    );
+    assert.equal(
+      isRetrospectiveMetricsSession(
+        { starts_at: "2026-06-05T18:00:00.000Z" },
+        "2026-06-05T19:00:00.000Z",
+      ),
+      true,
+    );
+  });
+
+  it("excludes sessions that have not started yet", () => {
+    assert.equal(
+      isRetrospectiveMetricsSession(
+        { starts_at: "2026-06-06T18:00:00.000Z" },
+        "2026-06-05T19:00:00.000Z",
+      ),
+      false,
+    );
+  });
+});
 
 describe("isNoShow", () => {
   it("does not count a no-show before the class starts", () => {
