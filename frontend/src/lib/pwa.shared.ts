@@ -70,7 +70,50 @@ export function appendPortalSignOutRedirect(formData: FormData) {
   return formData;
 }
 
-/** Destination for the standalone PWA × close control on public academy pages. */
-export function resolveAppStandaloneCloseHref() {
+/** Query param carrying the portal page to restore when closing a public view in the PWA. */
+export const APP_STANDALONE_RETURN_TO_PARAM = "returnTo";
+
+export function isSafeAppStandaloneReturnTo(returnTo: string): boolean {
+  if (!returnTo.startsWith("/") || returnTo.startsWith("//")) {
+    return false;
+  }
+
+  const pathname = returnTo.split("?")[0] ?? "";
+
+  return (
+    pathname === PWA_APP_ENTRY_PATH ||
+    pathname.startsWith("/student-portal/") ||
+    pathname === "/student-portal" ||
+    pathname.startsWith("/instructor-portal/") ||
+    pathname === "/instructor-portal"
+  );
+}
+
+/** Attach a safe returnTo so the standalone × can restore the portal dashboard. */
+export function appendAppStandaloneReturnTo(href: string, returnTo: string) {
+  if (!isSafeAppStandaloneReturnTo(returnTo)) {
+    return href;
+  }
+
+  try {
+    const url = new URL(href, "https://dojodirector.invalid");
+    url.searchParams.set(APP_STANDALONE_RETURN_TO_PARAM, returnTo);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return href;
+  }
+}
+
+/**
+ * Destination for the standalone PWA × close control.
+ * Prefer an explicit safe returnTo (portal dashboard); fall back to app home.
+ */
+export function resolveAppStandaloneCloseHref(returnTo?: string | null) {
+  const candidate = returnTo?.trim();
+
+  if (candidate && isSafeAppStandaloneReturnTo(candidate)) {
+    return candidate;
+  }
+
   return PWA_APP_ENTRY_PATH;
 }
