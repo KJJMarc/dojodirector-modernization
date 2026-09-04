@@ -28,6 +28,7 @@
     "audit:pwa": "npm run build && npx --yes lighthouse http://localhost:3000/app --only-categories=pwa --chrome-flags='--headless --no-sandbox' --output=json --output-path=./lighthouse-pwa-report.json",
     "verify:london-migrations": "node scripts/verify-london-recurring-migrations.mjs",
     "test:public-timetable": "npx --yes tsx --test src/lib/public-timetable.shared.test.ts",
+    "test:pwa-shared": "npx --yes tsx --test src/lib/pwa.shared.test.ts",
     "repair:london-sessions": "node scripts/repair-london-timetable-sessions.mjs"
   },
   "dependencies": {

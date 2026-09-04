@@ -1,32 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import {
-  isStandaloneDisplayMode,
-  PWA_APP_ENTRY_PATH,
-} from "@/lib/pwa.shared";
-
-const subscribe = () => () => {};
-
-function getClientStandaloneSnapshot() {
-  return isStandaloneDisplayMode();
-}
-
-function getServerStandaloneSnapshot() {
-  return false;
-}
+import { useStandaloneDisplayMode } from "@/lib/pwa-display-mode";
+import { PWA_APP_ENTRY_PATH } from "@/lib/pwa.shared";
 
 interface PortalBackLinkProps {
   portalHomeHref?: string;
 }
 
 export function PortalBackLink({ portalHomeHref }: PortalBackLinkProps) {
-  const isStandalone = useSyncExternalStore(
-    subscribe,
-    getClientStandaloneSnapshot,
-    getServerStandaloneSnapshot,
-  );
+  const isStandalone = useStandaloneDisplayMode();
 
   const href = isStandalone
     ? PWA_APP_ENTRY_PATH

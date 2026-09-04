@@ -69,3 +69,8 @@ export function appendPortalSignOutRedirect(formData: FormData) {
 
   return formData;
 }
+
+/** Destination for the standalone PWA × close control on public academy pages. */
+export function resolveAppStandaloneCloseHref() {
+  return PWA_APP_ENTRY_PATH;
+}

@@ -1,27 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
 import { DojoDirectorWordmark } from "@/components/layout/dojo-director-wordmark";
 import { APP_INSTALL_GUIDANCE } from "@/lib/home-platform-content";
-import { isStandaloneDisplayMode } from "@/lib/pwa.shared";
-
-const subscribe = () => () => {};
-
-function getClientStandaloneSnapshot() {
-  return isStandaloneDisplayMode();
-}
-
-function getServerStandaloneSnapshot() {
-  return false;
-}
+import { useStandaloneDisplayMode } from "@/lib/pwa-display-mode";
 
 export function AppEntryScreen() {
-  const isStandalone = useSyncExternalStore(
-    subscribe,
-    getClientStandaloneSnapshot,
-    getServerStandaloneSnapshot,
-  );
+  const isStandalone = useStandaloneDisplayMode();
 
   return (
     <main className="portal-page-shell mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-3 py-8 sm:max-w-lg sm:px-5">
