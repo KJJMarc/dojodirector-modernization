@@ -2,6 +2,7 @@ import {
   formatBookingDate,
 } from "@/lib/booking";
 import {
+  encodeLocationForExternalId,
   londonLocalDateTimeToUtcIso,
   normalizeLondonClockTime,
   utcIsoToLondonDate,
@@ -213,6 +214,29 @@ export function resolveSessionLocationFromRow(row: {
   }
 
   return null;
+}
+
+/**
+ * Rewrite the venue suffix on a timetable/admin session external_id.
+ * Returns the original value when the id shape is not recognised.
+ */
+export function rewriteSessionExternalIdLocation(
+  externalId: string | null,
+  location: string,
+): string | null {
+  if (!externalId) {
+    return null;
+  }
+
+  const match = externalId.match(
+    /^((?:kjj_timetable|kids_timetable|admin_recurring|admin_one_off):[^:]+:\d{4}-\d{2}-\d{2}:\d{1,2}:\d{2}(?::\d{2})?):(.+)$/,
+  );
+
+  if (!match?.[1]) {
+    return externalId;
+  }
+
+  return `${match[1]}:${encodeLocationForExternalId(location)}`;
 }
 
 /** Timetable slot time from external_id when present; falls back to London wall time. */

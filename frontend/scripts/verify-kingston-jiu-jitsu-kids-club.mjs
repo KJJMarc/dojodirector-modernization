@@ -41,8 +41,8 @@ const EXPECTED_KIDS_RECURRING_SLOTS = [
   { className: "Kids Jiu Jitsu (5-10)", dow: 6, startTime: "08:15:00", location: "St. John's Parish Hall" },
   { className: "Kids Jiu Jitsu (5-10)", dow: 6, startTime: "09:00:00", location: "St. John's Parish Hall" },
   { className: "Kids Jiu Jitsu (11-15)", dow: 6, startTime: "09:45:00", location: "St. John's Parish Hall" },
-  { className: "Kids Jiu Jitsu (5-10)", dow: 5, startTime: "17:15:00", location: "Grey Court School" },
-  { className: "Kids Jiu Jitsu (11-15)", dow: 5, startTime: "18:00:00", location: "Grey Court School" },
+  { className: "Kids Jiu Jitsu (5-10)", dow: 5, startTime: "17:15:00", location: "St. John's Parish Hall" },
+  { className: "Kids Jiu Jitsu (11-15)", dow: 5, startTime: "18:00:00", location: "St. John's Parish Hall" },
 ];
 
 function requiredEnv(name) {

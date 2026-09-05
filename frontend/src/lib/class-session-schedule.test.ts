@@ -5,6 +5,8 @@ import {
   formatScheduleDayLabelSafe,
   resolveEffectiveRecurringScheduleId,
   resolveScheduleDateKey,
+  resolveSessionLocationFromRow,
+  rewriteSessionExternalIdLocation,
 } from "./class-session-schedule.ts";
 import { utcIsoToLondonTime } from "./london-datetime.ts";
 
@@ -174,5 +176,36 @@ describe("formatScheduleDayLabelSafe", () => {
       formatScheduleDayLabelSafe("2026-06-04T19:00:00+00:00"),
       "Thursday",
     );
+  });
+});
+
+describe("rewriteSessionExternalIdLocation", () => {
+  it("rewrites the venue suffix used for booking display", () => {
+    const before =
+      "kids_timetable:class-5-10:2026-09-11:17:15:Grey_Court_School";
+    const after = rewriteSessionExternalIdLocation(
+      before,
+      "St. John's Parish Hall",
+    );
+
+    assert.equal(
+      after,
+      "kids_timetable:class-5-10:2026-09-11:17:15:St._John's_Parish_Hall",
+    );
+    assert.equal(
+      resolveSessionLocationFromRow({
+        source: "kids_timetable_seed",
+        external_id: after,
+      }),
+      "St. John's Parish Hall",
+    );
+  });
+
+  it("leaves unrecognised external ids unchanged", () => {
+    assert.equal(
+      rewriteSessionExternalIdLocation("manual-session-1", "Tiffin"),
+      "manual-session-1",
+    );
+    assert.equal(rewriteSessionExternalIdLocation(null, "Tiffin"), null);
   });
 });

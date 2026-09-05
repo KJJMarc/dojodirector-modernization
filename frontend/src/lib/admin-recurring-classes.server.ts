@@ -20,7 +20,10 @@ import type {
   CreateRecurringClassInput,
   UpdateRecurringClassInput,
 } from "@/lib/admin-recurring-classes.input";
-import { sessionBelongsToRecurringScheduleRow } from "@/lib/class-session-schedule";
+import {
+  rewriteSessionExternalIdLocation,
+  sessionBelongsToRecurringScheduleRow,
+} from "@/lib/class-session-schedule";
 import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -416,7 +419,7 @@ async function loadSessionIdsWithRecordedAttendance(sessionIds: string[]) {
   );
 }
 
-/** Sync capacity (and schedule link) onto future generated sessions for one recurring timetable row. */
+/** Sync capacity, schedule link, and venue external_id onto future sessions. */
 export async function syncFutureRecurringSessionCapacity(input: {
   scheduleId: string;
   clubId: string;
@@ -446,12 +449,20 @@ export async function syncFutureRecurringSessionCapacity(input: {
   let skippedCancelledCount = 0;
 
   const matchingSessions = rows.filter((session) => {
-    const belongsToSchedule = sessionBelongsToRecurringScheduleRow(session, {
-      scheduleId: input.scheduleId,
-      dayOfWeek: input.dayOfWeek,
-      startTime: input.startTime,
-      location: input.location,
-    });
+    // Match by schedule id / day+time even when external_id still has the old venue.
+    const belongsToSchedule =
+      sessionBelongsToRecurringScheduleRow(session, {
+        scheduleId: input.scheduleId,
+        dayOfWeek: input.dayOfWeek,
+        startTime: input.startTime,
+        location: input.location,
+      }) ||
+      sessionBelongsToRecurringScheduleRow(session, {
+        scheduleId: input.scheduleId,
+        dayOfWeek: input.dayOfWeek,
+        startTime: input.startTime,
+        location: null,
+      });
 
     if (!belongsToSchedule) {
       return false;
@@ -481,14 +492,14 @@ export async function syncFutureRecurringSessionCapacity(input: {
     matchingSessions.map((session) => session.id),
   );
 
-  const sessionIdsToUpdate = matchingSessions
-    .map((session) => session.id)
-    .filter((sessionId) => !sessionIdsWithAttendance.has(sessionId));
+  const sessionsToUpdate = matchingSessions.filter(
+    (session) => !sessionIdsWithAttendance.has(session.id),
+  );
 
   const skippedAttendanceCount =
-    matchingSessions.length - sessionIdsToUpdate.length;
+    matchingSessions.length - sessionsToUpdate.length;
 
-  if (sessionIdsToUpdate.length === 0) {
+  if (sessionsToUpdate.length === 0) {
     return {
       matchedCount: matchingSessions.length,
       updatedCount: 0,
@@ -497,23 +508,36 @@ export async function syncFutureRecurringSessionCapacity(input: {
     };
   }
 
-  const { error: updateError } = await supabase
-    .from("class_sessions")
-    .update({
-      class_id: input.classId,
-      capacity: input.capacity,
-      recurring_schedule_id: input.scheduleId,
-      updated_at: new Date().toISOString(),
-    })
-    .in("id", sessionIdsToUpdate);
+  const updatedAt = new Date().toISOString();
+  await Promise.all(
+    sessionsToUpdate.map(async (session) => {
+      const nextExternalId = rewriteSessionExternalIdLocation(
+        session.external_id,
+        input.location,
+      );
 
-  if (updateError) {
-    throw new Error(`Unable to update future sessions: ${updateError.message}`);
-  }
+      const { error } = await supabase
+        .from("class_sessions")
+        .update({
+          class_id: input.classId,
+          capacity: input.capacity,
+          recurring_schedule_id: input.scheduleId,
+          external_id: nextExternalId ?? session.external_id,
+          updated_at: updatedAt,
+        })
+        .eq("id", session.id);
+
+      if (error) {
+        throw new Error(
+          `Unable to update future session ${session.id}: ${error.message}`,
+        );
+      }
+    }),
+  );
 
   return {
     matchedCount: matchingSessions.length,
-    updatedCount: sessionIdsToUpdate.length,
+    updatedCount: sessionsToUpdate.length,
     skippedAttendanceCount,
     skippedCancelledCount,
   };
