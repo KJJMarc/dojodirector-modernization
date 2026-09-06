@@ -75,13 +75,13 @@ body:has([data-academy="bahamas-jiu-jitsu"]),
   --tw-ring-color: #2a7a7a;
 }
 
-/* Section titles on Bahamas book / trial pages — brighter blue to stand out. */
+/* Section titles on Bahamas book / trial pages — same navy as main text. */
 [data-academy="bahamas-jiu-jitsu"] .academy-form-section-title {
-  color: #0c8ce9;
+  color: #1b2a4a;
 }
 
 [data-academy="bahamas-jiu-jitsu"] .academy-form-section {
-  border-color: rgb(12 140 233 / 0.45);
+  border-color: rgb(27 42 74 / 0.45);
 }
 
 body {
