@@ -55,6 +55,26 @@ body:has([data-academy="bahamas-jiu-jitsu"]),
   color: #b8d3f8;
 }
 
+/*
+ * Bahamas booking "Select class" (and other green booking CTAs) → flag/logo teal.
+ * Matches bahamasjiujitsu.com --teal / --teal-light. Kingston keeps Tailwind green.
+ */
+[data-academy="bahamas-jiu-jitsu"] .bg-green-600 {
+  background-color: #2a7a7a;
+}
+
+[data-academy="bahamas-jiu-jitsu"] .hover\:bg-green-500:hover {
+  background-color: #3a9a9a;
+}
+
+[data-academy="bahamas-jiu-jitsu"] .ring-green-500 {
+  --tw-ring-color: #3a9a9a;
+}
+
+[data-academy="bahamas-jiu-jitsu"] .ring-green-600 {
+  --tw-ring-color: #2a7a7a;
+}
+
 body {
   @apply bg-dojo-black text-dojo-white antialiased;
   -webkit-tap-highlight-color: transparent;
