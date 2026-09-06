@@ -22,13 +22,13 @@ import {
   BAHAMAS_MEMBERSHIP_AGREEMENT_SECTIONS,
   BAHAMAS_MEMBERSHIP_AGREEMENT_TITLE,
   BAHAMAS_MEMBERSHIP_AGREEMENT_VERSION,
-} from "../src/lib/bahamas-jiu-jitsu-agreements.shared.ts";
+} from "../src/lib/bahamas-jiu-jitsu-agreements.shared";
 import {
   CLUB_AGREEMENT_TYPE_GUEST_TRAINING,
   CLUB_AGREEMENT_TYPE_MEMBER_PORTAL,
   serializeAgreementSectionsToBody,
-} from "../src/lib/club-agreement-templates.shared.ts";
-import { BAHAMAS_JIU_JITSU_CLUB_SLUG } from "../src/lib/clubs.shared.ts";
+} from "../src/lib/club-agreement-templates.shared";
+import { BAHAMAS_JIU_JITSU_CLUB_SLUG } from "../src/lib/clubs.shared";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const apply = process.argv.includes("--apply");
