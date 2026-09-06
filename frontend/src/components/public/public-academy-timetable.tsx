@@ -16,7 +16,7 @@ interface PublicAcademyTimetableProps {
 function ClassCard({ entry }: { entry: PublicTimetableClassEntry }) {
   return (
     <article className="flex min-h-[4.5rem] flex-col justify-center rounded-md border border-dojo-border border-l-[3px] border-l-dojo-red bg-white px-3 py-2.5 shadow-sm">
-      <h4 className="text-sm font-semibold leading-snug text-dojo-black [overflow-wrap:anywhere]">
+      <h4 className="text-sm font-semibold leading-snug text-neutral-900 [overflow-wrap:anywhere]">
         {entry.className}
       </h4>
       <p className="mt-1 text-xs font-medium tabular-nums text-neutral-600">
@@ -36,7 +36,7 @@ function DayHeading({
   return (
     <h3
       id={id}
-      className="flex min-h-10 items-center justify-center bg-dojo-black px-2 py-2 text-center text-xs font-bold uppercase tracking-wide text-dojo-white sm:text-[0.7rem]"
+      className="timetable-brand-bar flex min-h-10 items-center justify-center bg-dojo-black px-2 py-2 text-center text-xs font-bold uppercase tracking-wide text-dojo-white sm:text-[0.7rem]"
     >
       {label}
     </h3>
@@ -116,7 +116,7 @@ function VenueTimetableSection({
       className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
       aria-labelledby={headingId}
     >
-      <header className="space-y-1 bg-dojo-black px-4 py-3.5 sm:px-5 sm:py-4">
+      <header className="timetable-brand-bar space-y-1 bg-dojo-black px-4 py-3.5 sm:px-5 sm:py-4">
         <h2
           id={headingId}
           className="text-lg font-bold leading-snug tracking-tight text-dojo-white sm:text-xl"
@@ -124,7 +124,7 @@ function VenueTimetableSection({
           {venue.venueName}
         </h2>
         {venue.venueAddress ? (
-          <p className="text-sm leading-relaxed text-neutral-300">{venue.venueAddress}</p>
+          <p className="text-sm leading-relaxed text-dojo-muted">{venue.venueAddress}</p>
         ) : null}
       </header>
 

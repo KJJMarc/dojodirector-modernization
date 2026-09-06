@@ -4,6 +4,55 @@
 
 :root {
   color-scheme: dark;
+  /* Default Dojo Director palette (platform + Kingston public pages). */
+  --color-dojo-black: 10 10 10;
+  --color-dojo-surface: 17 17 17;
+  --color-dojo-elevated: 26 26 26;
+  --color-dojo-border: 42 42 42;
+  --color-dojo-muted: 156 163 175;
+  --color-dojo-white: 245 245 245;
+  --color-dojo-red: 220 38 38;
+  --color-dojo-red-hover: 239 68 68;
+}
+
+/*
+ * Bahamas Jiu Jitsu public pages only — light cream + navy + gold
+ * from bahamasjiujitsu.com. Tokens are inverted vs the default dark UI:
+ * dojo-black = page chrome, dojo-white = primary text.
+ * Scoped via data-academy; admin/Kingston stay on defaults.
+ */
+body:has([data-academy="bahamas-jiu-jitsu"]),
+[data-academy="bahamas-jiu-jitsu"] {
+  color-scheme: light;
+  --color-dojo-black: 248 244 238; /* cream */
+  --color-dojo-surface: 255 255 255;
+  --color-dojo-elevated: 240 234 224; /* linen */
+  --color-dojo-border: 212 196 176; /* sand */
+  --color-dojo-muted: 94 94 91;
+  --color-dojo-white: 27 42 74; /* navy */
+  --color-dojo-red: 200 150 10; /* gold */
+  --color-dojo-red-hover: 168 122 8;
+}
+
+/* Cream label text on gold CTAs (matches bahamasjiujitsu.com .btn-gold). */
+[data-academy="bahamas-jiu-jitsu"] .bg-dojo-red {
+  color: #f8f4ee;
+}
+
+[data-academy="bahamas-jiu-jitsu"] .bg-dojo-red:hover,
+[data-academy="bahamas-jiu-jitsu"] .hover\:bg-dojo-red-hover:hover {
+  color: #f8f4ee;
+}
+
+/* Navy brand bars on the light timetable (cream page, navy headers). */
+[data-academy="bahamas-jiu-jitsu"] .timetable-brand-bar {
+  background-color: #1b2a4a;
+  color: #f8f4ee;
+}
+
+[data-academy="bahamas-jiu-jitsu"] .timetable-brand-bar .text-dojo-muted,
+[data-academy="bahamas-jiu-jitsu"] .timetable-brand-bar p {
+  color: #b8d3f8;
 }
 
 body {
@@ -26,8 +75,13 @@ body {
 body:has(.adult-belt-rankings-page),
 body:has(.junior-belt-rankings-page),
 body:has(.student-of-the-year-page) {
-  @apply bg-dojo-black text-white;
+  @apply bg-dojo-black text-dojo-white;
   color-scheme: dark;
+}
+
+/* Keep Bahamas public pages on a light scheme even when rankings shells are present. */
+body:has([data-academy="bahamas-jiu-jitsu"]) {
+  color-scheme: light;
 }
 
 a {

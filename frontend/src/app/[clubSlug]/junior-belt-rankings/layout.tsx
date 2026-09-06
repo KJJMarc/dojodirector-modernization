@@ -7,7 +7,7 @@ export default function JuniorBeltRankingsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="junior-belt-rankings-page flex min-h-screen flex-col bg-dojo-black text-white antialiased">
+    <div className="junior-belt-rankings-page flex min-h-screen flex-col bg-dojo-black text-dojo-white antialiased">
       <AppStandaloneCloseButton />
       <div className="flex-1">{children}</div>
       <PublicSiteFooter variant="academy" />

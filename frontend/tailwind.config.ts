@@ -10,14 +10,15 @@ const config: Config = {
     extend: {
       colors: {
         dojo: {
-          black: "#0a0a0a",
-          surface: "#111111",
-          elevated: "#1a1a1a",
-          border: "#2a2a2a",
-          muted: "#9ca3af",
-          white: "#f5f5f5",
-          red: "#dc2626",
-          "red-hover": "#ef4444",
+          // Channel tokens so academy layouts can remap the palette via CSS variables.
+          black: "rgb(var(--color-dojo-black) / <alpha-value>)",
+          surface: "rgb(var(--color-dojo-surface) / <alpha-value>)",
+          elevated: "rgb(var(--color-dojo-elevated) / <alpha-value>)",
+          border: "rgb(var(--color-dojo-border) / <alpha-value>)",
+          muted: "rgb(var(--color-dojo-muted) / <alpha-value>)",
+          white: "rgb(var(--color-dojo-white) / <alpha-value>)",
+          red: "rgb(var(--color-dojo-red) / <alpha-value>)",
+          "red-hover": "rgb(var(--color-dojo-red-hover) / <alpha-value>)",
         },
       },
     },

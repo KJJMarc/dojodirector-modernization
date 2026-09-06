@@ -11,10 +11,10 @@ export default async function ClubPublicLayout({
   params,
 }: ClubPublicLayoutProps) {
   return (
-    <>
+    <div data-academy={params.clubSlug} className="min-h-screen bg-dojo-black text-dojo-white">
       <PublicAcademyAttributionCapture clubSlug={params.clubSlug} />
       <PublicAcademyPixelTracking clubSlug={params.clubSlug} />
       {children}
-    </>
+    </div>
   );
 }
