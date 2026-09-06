@@ -33,7 +33,7 @@ export function GuestDetailsForm({
       className={`rounded-xl border border-dojo-border bg-dojo-surface p-4 ${visuallyHidden ? "sr-only" : ""}`}
       aria-hidden={visuallyHidden}
     >
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
+      <h2 className="academy-form-section-title text-sm font-semibold uppercase tracking-wide text-dojo-red">
         Your details
       </h2>
       <p className="mt-1 text-xs text-dojo-muted">

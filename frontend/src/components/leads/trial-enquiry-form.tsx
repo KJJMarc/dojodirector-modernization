@@ -148,8 +148,8 @@ export function TrialEnquiryForm({
     >
       <TrialEnquiryAttributionFields clubSlug={clubSlug} />
 
-      <fieldset className="space-y-3 rounded-xl border-2 border-dojo-red/40 bg-dojo-elevated p-4">
-        <legend className="px-1 text-sm font-semibold uppercase tracking-wide text-dojo-red">
+      <fieldset className="academy-form-section space-y-3 rounded-xl border-2 border-dojo-red/40 bg-dojo-elevated p-4">
+        <legend className="academy-form-section-title px-1 text-sm font-semibold uppercase tracking-wide text-dojo-red">
           Who is the trial for?
         </legend>
         <p className="text-xs text-dojo-muted">Choose who the trial is for.</p>
