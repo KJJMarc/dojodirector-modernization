@@ -20,7 +20,7 @@ export function GuestBookingMemberNotice() {
         </div>
         <Link
           href={STUDENT_PORTAL_PATH}
-          className="inline-flex min-h-[40px] shrink-0 items-center justify-center self-start rounded-md bg-dojo-red px-5 py-2 text-sm font-semibold text-dojo-white ring-1 ring-dojo-red transition hover:bg-dojo-red-hover active:scale-[0.98] sm:self-center"
+          className="guest-booking-portal-login-btn inline-flex min-h-[40px] shrink-0 items-center justify-center self-start rounded-md bg-dojo-red px-5 py-2 text-sm font-semibold text-dojo-white ring-1 ring-dojo-red transition hover:bg-dojo-red-hover active:scale-[0.98] sm:self-center"
         >
           Student Portal Login
         </Link>

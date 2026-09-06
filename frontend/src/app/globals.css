@@ -84,6 +84,18 @@ body:has([data-academy="bahamas-jiu-jitsu"]),
   border-color: rgb(27 42 74 / 0.45);
 }
 
+/* Bahamas guest booking Student Portal Login — teal (not gold accent). */
+[data-academy="bahamas-jiu-jitsu"] .guest-booking-portal-login-btn {
+  background-color: #2a7a7a;
+  color: #f8f4ee;
+  --tw-ring-color: #3a9a9a;
+}
+
+[data-academy="bahamas-jiu-jitsu"] .guest-booking-portal-login-btn:hover {
+  background-color: #3a9a9a;
+  color: #f8f4ee;
+}
+
 body {
   @apply bg-dojo-black text-dojo-white antialiased;
   -webkit-tap-highlight-color: transparent;

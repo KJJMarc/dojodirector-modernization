@@ -77,9 +77,13 @@ export function clubTrialEnquiryApiPath(slug: string) {
     : `/api/${KINGSTON_CLUB_SLUG}/trial-enquiry`;
 }
 
-/** Adult KJJ guest booking shows the student portal notice; Kids does not. */
+/** Adult KJJ + Bahamas guest booking show the student portal notice; Kids does not. */
 export function shouldShowGuestBookingStudentPortalNotice(clubSlug: string) {
-  return clubSlug.trim() === KINGSTON_CLUB_SLUG;
+  const normalized = clubSlug.trim().toLowerCase();
+  return (
+    normalized === KINGSTON_CLUB_SLUG ||
+    normalized === BAHAMAS_JIU_JITSU_CLUB_SLUG
+  );
 }
 
 /** Public junior belt rankings page for a club. */
