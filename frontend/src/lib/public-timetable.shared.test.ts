@@ -16,6 +16,7 @@ import {
 import {
   BAHAMAS_JIU_JITSU_CLUB_SLUG,
   BAHAMAS_JIU_JITSU_IANA_TIME_ZONE,
+  clubPublicTimetableApiPath,
   clubTimetablePath,
   DEFAULT_CLUB_IANA_TIME_ZONE,
   getClubIanaTimeZone,
@@ -326,6 +327,23 @@ describe("buildPublicTimetableVenueGroups", () => {
     assert.equal(groups[2].venueName, PUBLIC_TIMETABLE_UNASSIGNED_VENUE_LABEL);
   });
 
+  it("keeps class template id and programme type on public entries", () => {
+    const groups = buildPublicTimetableVenueGroups([
+      schedule({
+        id: "slot-1",
+        classId: "class-fundamentals",
+        className: "Fundamentals",
+        dayOfWeek: 1,
+        startTime: "18:00",
+        programmeType: "bjj",
+      }),
+    ]);
+
+    assert.equal(groups[0].days[0].classes[0].id, "slot-1");
+    assert.equal(groups[0].days[0].classes[0].classId, "class-fundamentals");
+    assert.equal(groups[0].days[0].classes[0].programmeType, "bjj");
+  });
+
   it("excludes inactive schedules and inactive class templates", () => {
     const groups = buildPublicTimetableVenueGroups([
       schedule({
@@ -526,6 +544,14 @@ describe("clubTimetablePath and Academy Pages catalog", () => {
   it("builds academy-scoped public timetable URLs", () => {
     assert.equal(clubTimetablePath("kingston-jiu-jitsu"), "/kingston-jiu-jitsu/timetable");
     assert.equal(clubTimetablePath("bahamas-jiu-jitsu"), "/bahamas-jiu-jitsu/timetable");
+    assert.equal(
+      clubPublicTimetableApiPath("kingston-jiu-jitsu"),
+      "/api/public/clubs/kingston-jiu-jitsu/timetable",
+    );
+    assert.equal(
+      clubPublicTimetableApiPath("kingston-jiu-jitsu-kids"),
+      "/api/public/clubs/kingston-jiu-jitsu-kids/timetable",
+    );
   });
 
   it("includes Timetable in Academy Pages for every academy", () => {

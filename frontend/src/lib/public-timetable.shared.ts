@@ -31,6 +31,8 @@ export const PUBLIC_TIMETABLE_WEEKDAY_ORDER = [
 
 export interface PublicTimetableClassEntry {
   id: string;
+  /** Class template id; schedule `id` remains the unique timetable slot. */
+  classId: string | null;
   className: string;
   dayOfWeek: number;
   dayLabel: string;
@@ -40,6 +42,8 @@ export interface PublicTimetableClassEntry {
   timeRangeLabel: string;
   locationKey: string;
   locationLabel: string;
+  /** Stored programme category (`bjj`, `muay_thai`, …), when present. */
+  programmeType: string | null;
 }
 
 export interface PublicTimetableDayGroup {
@@ -58,6 +62,7 @@ export interface PublicTimetableVenueGroup {
 
 export interface PublicTimetableScheduleInput {
   id: string;
+  classId?: string | null;
   className: string;
   dayOfWeek: number;
   startTime: string;
@@ -65,6 +70,7 @@ export interface PublicTimetableScheduleInput {
   location: string | null | undefined;
   isActive: boolean;
   classIsActive?: boolean;
+  programmeType?: string | null;
 }
 
 /**
@@ -257,8 +263,12 @@ export function buildPublicTimetableClassEntry(
   const venue = resolvePublicTimetableVenue(schedule.location);
   const className = schedule.className?.trim() || "Class";
 
+  const classId = schedule.classId?.trim() || null;
+  const programmeType = schedule.programmeType?.trim() || null;
+
   return {
     id: schedule.id,
+    classId,
     className,
     dayOfWeek: schedule.dayOfWeek,
     dayLabel: formatDayOfWeekLabel(schedule.dayOfWeek),
@@ -267,6 +277,7 @@ export function buildPublicTimetableClassEntry(
     timeRangeLabel: formatPublicTimetableTimeRange(startTime, endTime),
     locationKey: venue.locationKey,
     locationLabel: venue.venueName,
+    programmeType,
   };
 }
 

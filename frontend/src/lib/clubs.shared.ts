@@ -69,6 +69,14 @@ export function clubTimetablePath(slug: string) {
   return normalized ? `/${normalized}/timetable` : `/${KINGSTON_CLUB_SLUG}/timetable`;
 }
 
+/** Public read-only JSON timetable for a club (same data as the HTML timetable page). */
+export function clubPublicTimetableApiPath(slug: string) {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return normalized
+    ? `/api/public/clubs/${normalized}/timetable`
+    : `/api/public/clubs/${KINGSTON_CLUB_SLUG}/timetable`;
+}
+
 /** POST endpoint for public trial enquiry submissions. */
 export function clubTrialEnquiryApiPath(slug: string) {
   const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
