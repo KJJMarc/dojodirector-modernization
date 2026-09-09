@@ -32,29 +32,29 @@ export function BookingSessionCard({
     (isFull ? "Join waiting list" : "Book class");
 
   return (
-    <article className="rounded-xl border border-dojo-border bg-dojo-surface p-3">
+    <article className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <h3 className="truncate text-base font-semibold text-dojo-white">
+            <h3 className="truncate text-base font-semibold text-neutral-900">
               {session.className}
             </h3>
-            <p className="text-sm text-dojo-muted">
+            <p className="text-sm text-neutral-600">
               {formatScheduleTimeRange(
                 session.startsAt,
                 session.endsAt,
                 session.externalId,
               )}
             </p>
-            <p className="text-sm text-dojo-muted">
+            <p className="text-sm text-neutral-600">
               {formatSessionLocation(session.location)}
             </p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-xs font-medium text-dojo-muted">
+            <p className="text-xs font-medium text-neutral-500">
               {formatScheduleCapacitySummary(session)}
             </p>
-            <p className="mt-1 text-xs font-medium text-dojo-white">
+            <p className="mt-1 text-xs font-medium text-neutral-900">
               {formatSpacesAvailable(session.spacesAvailable)}
             </p>
           </div>
@@ -64,12 +64,10 @@ export function BookingSessionCard({
           type="button"
           onClick={() => onBookSession(session.id)}
           disabled={actionDisabled}
-          className={`min-h-[40px] w-full rounded-md px-3 text-sm font-semibold transition active:scale-[0.98] ${
+          className={`min-h-[40px] w-full rounded-md px-3 text-sm font-semibold shadow-sm transition active:scale-[0.98] ${
             actionDisabled
-              ? "cursor-not-allowed bg-dojo-border text-dojo-muted"
-              : isFull
-                ? "bg-dojo-red text-dojo-white hover:bg-dojo-red-hover"
-                : "bg-green-600 text-white ring-1 ring-green-500 hover:bg-green-500"
+              ? "cursor-not-allowed bg-neutral-200 text-neutral-500 shadow-none"
+              : "bg-dojo-red text-white hover:bg-dojo-red-hover"
           }`}
         >
           {actionLabel}

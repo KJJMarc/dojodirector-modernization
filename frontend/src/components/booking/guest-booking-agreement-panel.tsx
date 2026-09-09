@@ -30,12 +30,15 @@ interface GuestBookingAgreementPanelProps {
 }
 
 const inputClassName =
-  "min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2";
+  "min-h-[40px] w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 ring-dojo-red/40 focus:border-dojo-red focus:ring-2";
 
 const errorInputClassName =
-  "min-h-[40px] w-full rounded-md border border-dojo-red/60 bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-dojo-red/40 focus:ring-2";
+  "min-h-[40px] w-full rounded-md border border-dojo-red/60 bg-white px-3 text-sm text-neutral-900 outline-none ring-dojo-red/40 focus:border-dojo-red focus:ring-2";
 
-const labelClassName = "text-xs font-medium text-dojo-muted";
+const labelClassName = "text-xs font-medium text-neutral-600";
+
+const signatoryCardClassName =
+  "flex min-h-[52px] cursor-pointer items-start gap-3 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-900 transition has-[:checked]:border-dojo-red has-[:checked]:bg-dojo-red/10";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) {
@@ -106,17 +109,17 @@ export function GuestBookingAgreementPanel({
   }
 
   return (
-    <section className="rounded-xl border border-dojo-red/40 bg-dojo-surface p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-dojo-red">
+    <section className="academy-form-section rounded-xl border-2 border-dojo-red/40 bg-white p-4 shadow-sm">
+      <h2 className="academy-form-section-title text-sm font-semibold uppercase tracking-wide text-dojo-red">
         Training agreement
       </h2>
-      <p className="mt-1 text-sm text-dojo-muted">
-        Before confirming your booking for <strong className="text-dojo-white">{className}</strong>{" "}
+      <p className="mt-1 text-sm text-neutral-600">
+        Before confirming your booking for <strong className="text-neutral-900">{className}</strong>{" "}
         on {dateLabel} at {timeLabel}, read and accept the{" "}
         {trainingAgreement.displayLabel}.
       </p>
 
-      <div className="mt-4 max-h-[min(50vh,420px)] overflow-y-auto rounded-lg border border-dojo-border bg-dojo-black/40 p-3">
+      <div className="mt-4 max-h-[min(50vh,420px)] overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-3">
         <MembershipAgreementDocument
           agreementVersion={trainingAgreement.version}
           sections={trainingAgreement.sections}
@@ -132,16 +135,16 @@ export function GuestBookingAgreementPanel({
         <fieldset className="space-y-3">
           <legend className={labelClassName}>Signatory type</legend>
           {SIGNATORY_TYPE_OPTIONS.map((option) => (
-            <label key={option.value} className="flex items-start gap-3">
+            <label key={option.value} className={signatoryCardClassName}>
               <input
                 type="radio"
                 name="signatoryType"
                 value={option.value}
                 checked={signatoryType === option.value}
                 onChange={() => handleSignatoryTypeChange(option.value)}
-                className="mt-1 h-4 w-4 border-dojo-border"
+                className="mt-1 h-4 w-4 shrink-0 accent-dojo-red border-neutral-300 text-dojo-red focus:ring-dojo-red/30"
               />
-              <span className="text-sm text-dojo-white">{option.label}</span>
+              <span>{option.label}</span>
             </label>
           ))}
           <FieldError message={fieldErrors.signatoryType} />
@@ -205,10 +208,10 @@ export function GuestBookingAgreementPanel({
                   value="on"
                   checked={guardianConfirm}
                   onChange={(event) => setGuardianConfirm(event.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-dojo-border"
+                  className="mt-1 h-4 w-4 rounded border-neutral-300 accent-dojo-red text-dojo-red focus:ring-dojo-red/30"
                   aria-invalid={Boolean(fieldErrors.guardianConfirm)}
                 />
-                <span className="text-sm text-dojo-white">
+                <span className="text-sm text-neutral-900">
                   {checkboxLabels.guardianConfirm}
                 </span>
               </label>
@@ -220,10 +223,10 @@ export function GuestBookingAgreementPanel({
                   value="on"
                   checked={consentTraining}
                   onChange={(event) => setConsentTraining(event.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-dojo-border"
+                  className="mt-1 h-4 w-4 rounded border-neutral-300 accent-dojo-red text-dojo-red focus:ring-dojo-red/30"
                   aria-invalid={Boolean(fieldErrors.consentTraining)}
                 />
-                <span className="text-sm text-dojo-white">
+                <span className="text-sm text-neutral-900">
                   {checkboxLabels.consentTraining}
                 </span>
               </label>
@@ -235,10 +238,10 @@ export function GuestBookingAgreementPanel({
                   value="on"
                   checked={agreementAccepted}
                   onChange={(event) => setAgreementAccepted(event.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-dojo-border"
+                  className="mt-1 h-4 w-4 rounded border-neutral-300 accent-dojo-red text-dojo-red focus:ring-dojo-red/30"
                   aria-invalid={Boolean(fieldErrors.agreeAgreement)}
                 />
-                <span className="text-sm text-dojo-white">
+                <span className="text-sm text-neutral-900">
                   {checkboxLabels.agreeAgreement}
                 </span>
               </label>
@@ -253,10 +256,10 @@ export function GuestBookingAgreementPanel({
                   value="on"
                   checked={agreementAccepted}
                   onChange={(event) => setAgreementAccepted(event.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-dojo-border"
+                  className="mt-1 h-4 w-4 rounded border-neutral-300 accent-dojo-red text-dojo-red focus:ring-dojo-red/30"
                   aria-invalid={Boolean(fieldErrors.agreeAgreement)}
                 />
-                <span className="text-sm text-dojo-white">
+                <span className="text-sm text-neutral-900">
                   {checkboxLabels.participant}
                 </span>
               </label>
@@ -271,7 +274,7 @@ export function GuestBookingAgreementPanel({
           type="button"
           onClick={onCancel}
           disabled={isPending}
-          className="min-h-[40px] flex-1 rounded-md border border-dojo-border px-3 text-sm font-semibold text-dojo-white transition hover:bg-dojo-elevated disabled:opacity-60"
+          className="min-h-[40px] flex-1 rounded-md border border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-900 transition hover:border-dojo-red hover:text-dojo-red disabled:opacity-60"
         >
           Choose another class
         </button>
@@ -279,7 +282,7 @@ export function GuestBookingAgreementPanel({
           type="button"
           onClick={() => onConfirm(buildAgreementValues())}
           disabled={isPending}
-          className="min-h-[40px] flex-1 rounded-md bg-green-600 px-3 text-sm font-semibold text-white transition hover:bg-green-500 disabled:opacity-60"
+          className="min-h-[40px] flex-1 rounded-md bg-dojo-red px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-dojo-red-hover disabled:opacity-60"
         >
           {isPending ? "Confirming…" : "Confirm guest booking"}
         </button>

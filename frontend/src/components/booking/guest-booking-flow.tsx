@@ -246,9 +246,9 @@ export function GuestBookingFlow({
 
       {pendingSession &&
       (fieldErrors.firstName || fieldErrors.lastName || fieldErrors.email) ? (
-        <section className="rounded-xl border border-dojo-red/40 bg-dojo-red/10 px-4 py-3 text-sm text-dojo-white">
+        <section className="rounded-xl border border-dojo-red/40 bg-dojo-red/10 px-4 py-3 text-sm text-dojo-red">
           <p className="font-medium">Please fix your contact details:</p>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-dojo-muted">
+          <ul className="mt-2 list-inside list-disc space-y-1">
             {fieldErrors.firstName ? <li>{fieldErrors.firstName}</li> : null}
             {fieldErrors.lastName ? <li>{fieldErrors.lastName}</li> : null}
             {fieldErrors.email ? <li>{fieldErrors.email}</li> : null}
@@ -285,20 +285,20 @@ export function GuestBookingFlow({
       ) : null}
 
       {serverErrorMessage ? (
-        <section className="rounded-xl border border-dojo-red/40 bg-dojo-red/10 px-4 py-3 text-sm text-dojo-white">
+        <section className="rounded-xl border border-dojo-red/40 bg-dojo-red/10 px-4 py-3 text-sm text-dojo-red">
           {serverErrorMessage}
         </section>
       ) : null}
 
       {!pendingSession && sessionGroups.length === 0 ? (
-        <section className="rounded-xl border border-dojo-border bg-dojo-surface p-6 text-center text-sm text-dojo-muted">
+        <section className="rounded-xl border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-600 shadow-sm">
           No upcoming classes in the next 14 days.
         </section>
       ) : null}
 
       {!pendingSession && sessionGroups.length > 0 ? (
         <div
-          className={`space-y-5 ${showMemberPortalNotice ? "border-t border-dojo-border pt-6" : ""}`}
+          className={`space-y-5 ${showMemberPortalNotice ? "border-t border-neutral-200 pt-6" : ""}`}
         >
           {sessionGroups.map((group) => (
             <BookingDateGroup

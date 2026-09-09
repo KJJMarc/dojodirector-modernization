@@ -38,15 +38,16 @@ export default async function ClubBookPage({ params }: ClubBookPageProps) {
   );
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-neutral-50 text-neutral-900 [color-scheme:light]">
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 px-3 py-4 pb-8 sm:px-5">
         <PublicAcademyPageHeader
           pageTitle="Guest Booking"
           clubName={club.name}
           sticky
+          tone="light"
         />
 
-        <p className="text-sm text-dojo-muted">
+        <p className="text-sm leading-relaxed text-neutral-600">
           Choose a class below and complete your details to book.
         </p>
 
