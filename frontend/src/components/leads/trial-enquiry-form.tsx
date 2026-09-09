@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { trackAcademyLeadConversion } from "@/lib/academy-pixel-tracking.client";
 import type { AcademyPublicPixelSettings } from "@/lib/academy-pixel-settings.shared";
 import { TrialEnquiryAttributionFields } from "@/components/leads/trial-enquiry-attribution-fields";
@@ -251,6 +252,17 @@ export function TrialEnquiryForm({
       ) : null}
 
       <p className="text-center text-xs text-neutral-500">We normally respond within 24 hours.</p>
+
+      <p className="text-xs leading-relaxed text-neutral-500">
+        Your details will only be used to respond to your enquiry and arrange your free
+        trial.{" "}
+        <Link
+          href="/privacy-policy"
+          className="underline underline-offset-2 transition hover:text-neutral-700"
+        >
+          Privacy Policy
+        </Link>
+      </p>
 
       <button
         type="submit"
