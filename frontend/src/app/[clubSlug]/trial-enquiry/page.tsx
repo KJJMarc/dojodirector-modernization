@@ -32,15 +32,16 @@ export default async function TrialEnquiryPage({ params }: TrialEnquiryPageProps
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-neutral-50 text-neutral-900 [color-scheme:light]">
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 px-3 py-4 pb-8 sm:px-5">
         <PublicAcademyPageHeader
           pageTitle="Request Your Free Trial"
           clubName={club.name}
           sticky
+          tone="light"
         />
 
-        <p className="text-sm leading-relaxed text-dojo-muted">
+        <p className="text-sm leading-relaxed text-neutral-600">
           Beginner friendly. No experience required. Tell us a little about yourself and
           we&apos;ll help you find the right class.
         </p>

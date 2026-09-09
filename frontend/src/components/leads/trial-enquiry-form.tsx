@@ -81,12 +81,12 @@ interface TrialEnquiryFormProps {
 }
 
 const inputClassName =
-  "min-h-[40px] w-full rounded-md border border-dojo-border bg-dojo-black px-3 text-sm text-dojo-white outline-none ring-green-600 focus:ring-2";
+  "min-h-[40px] w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 ring-dojo-red/40 focus:border-dojo-red focus:ring-2";
 
-const labelClassName = "text-xs font-medium text-dojo-muted";
+const labelClassName = "text-xs font-medium text-neutral-600";
 
 const audienceCardClassName =
-  "flex min-h-[52px] cursor-pointer items-center gap-3 rounded-lg border border-dojo-border bg-dojo-black px-4 py-3 text-sm font-medium text-dojo-white transition has-[:checked]:border-dojo-red/70 has-[:checked]:bg-dojo-red/10";
+  "flex min-h-[52px] cursor-pointer items-center gap-3 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-900 transition has-[:checked]:border-dojo-red has-[:checked]:bg-dojo-red/10";
 
 export function TrialEnquiryForm({
   clubSlug,
@@ -100,12 +100,12 @@ export function TrialEnquiryForm({
   if (isSubmitted) {
     return (
       <section
-        className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-5"
+        className="rounded-xl border border-emerald-200 bg-emerald-50 p-5"
         role="status"
       >
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-dojo-white">Thank you for your enquiry.</h2>
-          <p className="text-sm text-dojo-muted">
+          <h2 className="text-lg font-semibold text-neutral-900">Thank you for your enquiry.</h2>
+          <p className="text-sm text-neutral-600">
             We&apos;ll be in touch shortly about your free trial.
           </p>
         </div>
@@ -115,7 +115,7 @@ export function TrialEnquiryForm({
 
   return (
     <form
-      className={`space-y-5 rounded-xl border border-dojo-border bg-dojo-surface p-4 ${isPending ? "pointer-events-none opacity-60" : ""}`}
+      className={`space-y-5 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm ${isPending ? "pointer-events-none opacity-60" : ""}`}
       onSubmit={(event) => {
         event.preventDefault();
         setErrorMessage(null);
@@ -148,11 +148,11 @@ export function TrialEnquiryForm({
     >
       <TrialEnquiryAttributionFields clubSlug={clubSlug} />
 
-      <fieldset className="academy-form-section space-y-3 rounded-xl border-2 border-dojo-red/40 bg-dojo-elevated p-4">
+      <fieldset className="academy-form-section space-y-3 rounded-xl border-2 border-dojo-red/40 bg-neutral-50 p-4">
         <legend className="academy-form-section-title px-1 text-sm font-semibold uppercase tracking-wide text-dojo-red">
           Who is the trial for?
         </legend>
-        <p className="text-xs text-dojo-muted">Choose who the trial is for.</p>
+        <p className="text-xs text-neutral-600">Choose who the trial is for.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {TRIAL_AUDIENCES.map((value) => (
             <label key={value} className={audienceCardClassName}>
@@ -161,7 +161,7 @@ export function TrialEnquiryForm({
                 name="trialAudience"
                 value={value}
                 required
-                className="h-5 w-5 shrink-0 border-dojo-border text-dojo-red focus:ring-dojo-red/30"
+                className="h-5 w-5 shrink-0 accent-dojo-red border-neutral-300 text-dojo-red focus:ring-dojo-red/30"
               />
               {formatTrialAudienceLabel(value)}
             </label>
@@ -250,12 +250,12 @@ export function TrialEnquiryForm({
         </p>
       ) : null}
 
-      <p className="text-center text-xs text-dojo-muted">We normally respond within 24 hours.</p>
+      <p className="text-center text-xs text-neutral-500">We normally respond within 24 hours.</p>
 
       <button
         type="submit"
         disabled={isPending}
-        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-md border border-dojo-red/60 bg-dojo-red/10 px-4 py-2 text-sm font-semibold text-dojo-white transition hover:border-dojo-red hover:bg-dojo-red/20 disabled:cursor-not-allowed sm:w-auto"
+        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-md bg-dojo-red px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-dojo-red-hover disabled:cursor-not-allowed sm:w-auto"
       >
         {isPending ? "Sending…" : "Request Free Trial"}
       </button>
