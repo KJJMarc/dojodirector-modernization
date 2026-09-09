@@ -253,7 +253,7 @@ export function TrialEnquiryForm({
 
       <p className="text-center text-xs text-neutral-500">We normally respond within 24 hours.</p>
 
-      <p className="text-xs leading-relaxed text-neutral-500">
+      <p className="text-center text-xs leading-relaxed text-neutral-500">
         Your details will only be used to respond to your enquiry and arrange your free
         trial.{" "}
         <Link
