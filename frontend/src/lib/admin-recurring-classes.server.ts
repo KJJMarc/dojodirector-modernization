@@ -573,7 +573,8 @@ export async function syncFutureRecurringSessionCapacity(input: {
   if (timingTargets.length > 0) {
     const tempBaseMs = Date.UTC(2099, 0, 1, 0, 0, 0);
 
-    for (const [index, target] of timingTargets.entries()) {
+    for (let index = 0; index < timingTargets.length; index += 1) {
+      const target = timingTargets[index]!;
       const temporaryStartsAt = new Date(
         tempBaseMs + index * 60_000,
       ).toISOString();
