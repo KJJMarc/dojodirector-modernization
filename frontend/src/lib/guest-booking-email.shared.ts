@@ -43,7 +43,7 @@ export function buildGuestBookingConfirmationHtml(content: GuestBookingEmailCont
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Time</td><td>${escapeHtml(content.timeLabel)}</td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Location</td><td>${escapeHtml(location)}</td></tr>
     </table>
-    <p>If you need to change or cancel this booking, please reply to this email.</p>
+    <p>If you need to change or cancel your booking, please let us know.</p>
   `.trim();
 }
 
@@ -60,7 +60,7 @@ export function buildGuestBookingConfirmationText(content: GuestBookingEmailCont
     `Time: ${content.timeLabel}`,
     `Location: ${location}`,
     "",
-    "If you need to change or cancel this booking, please reply to this email.",
+    "If you need to change or cancel your booking, please let us know.",
   ].join("\n");
 }
 
