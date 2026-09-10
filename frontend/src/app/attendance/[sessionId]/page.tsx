@@ -18,7 +18,7 @@ import {
   attendanceRegisterPath,
   parseAttendanceRegisterNavContext,
 } from "@/lib/attendance-register-navigation.shared";
-import { getClubBySlug } from "@/lib/clubs.server";
+import { getClubById, getClubBySlug } from "@/lib/clubs.server";
 import { readSelectedInstructorPortalClubSlug } from "@/lib/instructor-portal-club.server";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +49,7 @@ export default async function AttendanceSessionPage({
   const { session, endsAt, externalId, capacity, isCancelled, status, clubId, programmeType } =
     details;
   const navContext = parseAttendanceRegisterNavContext(searchParams);
+  const sessionClub = await getClubById(clubId);
 
   if (navContext?.from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal) {
     const clubSlug =
@@ -84,7 +85,7 @@ export default async function AttendanceSessionPage({
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl space-y-4 px-3 py-4 pb-20 sm:px-5">
-      <AppHeader pageTitle={session.class_name} />
+      <AppHeader pageTitle={session.class_name} clubName={sessionClub?.name ?? null} />
 
       <Link
         href={attendanceRegisterPath(navContext)}

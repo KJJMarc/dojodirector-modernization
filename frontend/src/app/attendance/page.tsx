@@ -15,6 +15,7 @@ import {
   parseAttendanceRegisterNavContext,
 } from "@/lib/attendance-register-navigation.shared";
 import { getClubBySlug } from "@/lib/clubs.server";
+import type { ClubRow } from "@/lib/clubs.shared";
 import { readSelectedInstructorPortalClubSlug } from "@/lib/instructor-portal-club.server";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +29,13 @@ interface AttendancePageProps {
   };
 }
 
-async function resolveAttendanceClubId(
+async function resolveAttendanceClub(
   searchParams: AttendancePageProps["searchParams"],
-): Promise<string | undefined> {
+): Promise<ClubRow | null> {
   const navContext = parseAttendanceRegisterNavContext(searchParams);
 
   if (!navContext) {
-    return undefined;
+    return null;
   }
 
   if (navContext.from === ATTENDANCE_REGISTER_NAV_FROM.instructorPortal) {
@@ -42,26 +43,27 @@ async function resolveAttendanceClubId(
       navContext.clubSlug ?? (await readSelectedInstructorPortalClubSlug()) ?? undefined;
 
     if (!clubSlug) {
-      return undefined;
+      return null;
     }
 
-    const club = await getClubBySlug(clubSlug);
-    return club?.id;
+    return getClubBySlug(clubSlug);
   }
 
   if (navContext.clubSlug) {
-    const club = await getClubBySlug(navContext.clubSlug);
-    return club?.id;
+    return getClubBySlug(navContext.clubSlug);
   }
 
-  return undefined;
+  return null;
 }
 
 export default async function AttendancePage({ searchParams }: AttendancePageProps) {
   const navContext = parseAttendanceRegisterNavContext(searchParams);
-  const clubId = await resolveAttendanceClubId(searchParams);
+  const club = await resolveAttendanceClub(searchParams);
   const scheduleFilter = resolveAttendanceScheduleFilter(navContext);
-  const sessions = await getAttendanceScheduleSessionsForFilter(scheduleFilter, clubId);
+  const sessions = await getAttendanceScheduleSessionsForFilter(
+    scheduleFilter,
+    club?.id,
+  );
   const groupedSessions = groupAttendanceSessionsByMonth(sessions);
   const monthGroups =
     scheduleFilter.mode === "default" &&
@@ -80,7 +82,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       data-attendance-time-fix={ATTENDANCE_TIME_DISPLAY_FIX_VERSION}
       data-attendance-page="register"
     >
-      <AppHeader pageTitle="Attendance Register" />
+      <AppHeader pageTitle="Attendance Register" clubName={club?.name ?? null} />
 
       {navContext ? <AttendanceRegisterBackLink context={navContext} /> : null}
 
