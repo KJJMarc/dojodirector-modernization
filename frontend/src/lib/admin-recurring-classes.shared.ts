@@ -160,6 +160,8 @@ export interface RecurringSessionCapacitySyncResult {
   updatedCount: number;
   skippedAttendanceCount: number;
   skippedCancelledCount: number;
+  skippedCollisionCount: number;
+  timingUpdatedCount: number;
 }
 
 export function formatRecurringSessionCapacitySyncSummary(
@@ -173,6 +175,12 @@ export function formatRecurringSessionCapacitySyncSummary(
     `${result.updatedCount} future session${result.updatedCount === 1 ? "" : "s"} updated`,
   ];
 
+  if (result.timingUpdatedCount > 0) {
+    parts.push(
+      `${result.timingUpdatedCount} retimed to the new day/time`,
+    );
+  }
+
   if (result.skippedAttendanceCount > 0) {
     parts.push(
       `${result.skippedAttendanceCount} skipped (attendance recorded)`,
@@ -181,6 +189,12 @@ export function formatRecurringSessionCapacitySyncSummary(
 
   if (result.skippedCancelledCount > 0) {
     parts.push(`${result.skippedCancelledCount} skipped (cancelled)`);
+  }
+
+  if (result.skippedCollisionCount > 0) {
+    parts.push(
+      `${result.skippedCollisionCount} skipped (time slot already in use)`,
+    );
   }
 
   return `Class saved. ${parts.join(" · ")}`;

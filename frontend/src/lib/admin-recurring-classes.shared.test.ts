@@ -122,6 +122,8 @@ test("formatRecurringSessionCapacitySyncSummary uses calm copy when no sessions 
       updatedCount: 0,
       skippedAttendanceCount: 0,
       skippedCancelledCount: 0,
+      skippedCollisionCount: 0,
+      timingUpdatedCount: 0,
     }),
     "Class saved. Future sessions will use the updated details when generated.",
   );
@@ -134,8 +136,24 @@ test("formatRecurringSessionCapacitySyncSummary reports session sync details", (
       updatedCount: 2,
       skippedAttendanceCount: 0,
       skippedCancelledCount: 0,
+      skippedCollisionCount: 0,
+      timingUpdatedCount: 2,
     }),
-    "Class saved. 2 future sessions updated",
+    "Class saved. 2 future sessions updated · 2 retimed to the new day/time",
+  );
+});
+
+test("formatRecurringSessionCapacitySyncSummary reports collisions and attendance skips", () => {
+  assert.equal(
+    formatRecurringSessionCapacitySyncSummary({
+      matchedCount: 5,
+      updatedCount: 2,
+      skippedAttendanceCount: 1,
+      skippedCancelledCount: 1,
+      skippedCollisionCount: 1,
+      timingUpdatedCount: 2,
+    }),
+    "Class saved. 2 future sessions updated · 2 retimed to the new day/time · 1 skipped (attendance recorded) · 1 skipped (cancelled) · 1 skipped (time slot already in use)",
   );
 });
 

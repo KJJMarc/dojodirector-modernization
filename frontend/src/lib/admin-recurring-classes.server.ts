@@ -20,10 +20,8 @@ import type {
   CreateRecurringClassInput,
   UpdateRecurringClassInput,
 } from "@/lib/admin-recurring-classes.input";
-import {
-  rewriteSessionExternalIdLocation,
-  sessionBelongsToRecurringScheduleRow,
-} from "@/lib/class-session-schedule";
+import { sessionBelongsToRecurringScheduleRow } from "@/lib/class-session-schedule";
+import { planRecurringSessionSyncTargets } from "@/lib/admin-recurring-session-sync.shared";
 import { generateRecurringClassSessions } from "@/lib/generate-recurring-class-sessions.server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -384,10 +382,12 @@ const RECORDED_ATTENDANCE_STATUSES = ["present", "absent"] as const;
 interface FutureRecurringSessionRow {
   id: string;
   starts_at: string;
+  ends_at: string | null;
   external_id: string | null;
   recurring_schedule_id: string | null;
   source: string | null;
   status: string | null;
+  class_id: string;
 }
 
 function isUpdatableSessionStatus(status: string | null) {
@@ -419,22 +419,37 @@ async function loadSessionIdsWithRecordedAttendance(sessionIds: string[]) {
   );
 }
 
-/** Sync capacity, schedule link, and venue external_id onto future sessions. */
+/** Sync timing, capacity, schedule link, and venue onto future sessions in place. */
 export async function syncFutureRecurringSessionCapacity(input: {
   scheduleId: string;
   clubId: string;
   classId: string;
   dayOfWeek: number;
   startTime: string;
+  endTime: string;
   location: string;
   capacity: number;
 }): Promise<RecurringSessionCapacitySyncResult> {
+  const emptyResult = (
+    partial: Partial<RecurringSessionCapacitySyncResult> = {},
+  ): RecurringSessionCapacitySyncResult => ({
+    matchedCount: 0,
+    updatedCount: 0,
+    skippedAttendanceCount: 0,
+    skippedCancelledCount: 0,
+    skippedCollisionCount: 0,
+    timingUpdatedCount: 0,
+    ...partial,
+  });
+
   const supabase = getSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 
   const { data: sessionRows, error: sessionsError } = await supabase
     .from("class_sessions")
-    .select("id, starts_at, external_id, recurring_schedule_id, source, status")
+    .select(
+      "id, starts_at, ends_at, external_id, recurring_schedule_id, source, status, class_id",
+    )
     .eq("club_id", input.clubId)
     .gte("starts_at", nowIso)
     .or(
@@ -449,7 +464,7 @@ export async function syncFutureRecurringSessionCapacity(input: {
   let skippedCancelledCount = 0;
 
   const matchingSessions = rows.filter((session) => {
-    // Match by schedule id / day+time even when external_id still has the old venue.
+    // Match by schedule id even when day/time/venue on the row still lag the template.
     const belongsToSchedule =
       sessionBelongsToRecurringScheduleRow(session, {
         scheduleId: input.scheduleId,
@@ -480,66 +495,133 @@ export async function syncFutureRecurringSessionCapacity(input: {
   });
 
   if (matchingSessions.length === 0) {
-    return {
-      matchedCount: 0,
-      updatedCount: 0,
-      skippedAttendanceCount: 0,
-      skippedCancelledCount,
-    };
+    return emptyResult({ skippedCancelledCount });
   }
 
   const sessionIdsWithAttendance = await loadSessionIdsWithRecordedAttendance(
     matchingSessions.map((session) => session.id),
   );
 
-  const sessionsToUpdate = matchingSessions.filter(
+  const sessionsWithoutAttendance = matchingSessions.filter(
     (session) => !sessionIdsWithAttendance.has(session.id),
   );
 
   const skippedAttendanceCount =
-    matchingSessions.length - sessionsToUpdate.length;
+    matchingSessions.length - sessionsWithoutAttendance.length;
 
-  if (sessionsToUpdate.length === 0) {
-    return {
+  if (sessionsWithoutAttendance.length === 0) {
+    return emptyResult({
       matchedCount: matchingSessions.length,
-      updatedCount: 0,
       skippedAttendanceCount,
       skippedCancelledCount,
-    };
+    });
+  }
+
+  const candidateIds = new Set(
+    sessionsWithoutAttendance.map((session) => session.id),
+  );
+
+  const { data: occupiedRows, error: occupiedError } = await supabase
+    .from("class_sessions")
+    .select("id, starts_at")
+    .eq("club_id", input.clubId)
+    .eq("class_id", input.classId)
+    .gte("starts_at", nowIso);
+
+  if (occupiedError) {
+    throw new Error(
+      `Unable to load session slots for collision checks: ${occupiedError.message}`,
+    );
+  }
+
+  const occupiedStartsAtKeys = new Set(
+    ((occupiedRows ?? []) as Array<{ id: string; starts_at: string }>)
+      .filter((row) => !candidateIds.has(row.id))
+      .map((row) => new Date(row.starts_at).toISOString()),
+  );
+
+  const { targets, skippedCollisionIds } = planRecurringSessionSyncTargets({
+    sessions: sessionsWithoutAttendance.map((session) => ({
+      id: session.id,
+      startsAt: session.starts_at,
+      endsAt: session.ends_at || session.starts_at,
+      externalId: session.external_id,
+    })),
+    schedule: {
+      scheduleId: input.scheduleId,
+      dayOfWeek: input.dayOfWeek,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      location: input.location,
+    },
+    occupiedStartsAtKeys,
+  });
+
+  if (targets.length === 0) {
+    return emptyResult({
+      matchedCount: matchingSessions.length,
+      skippedAttendanceCount,
+      skippedCancelledCount,
+      skippedCollisionCount: skippedCollisionIds.length,
+    });
   }
 
   const updatedAt = new Date().toISOString();
-  await Promise.all(
-    sessionsToUpdate.map(async (session) => {
-      const nextExternalId = rewriteSessionExternalIdLocation(
-        session.external_id,
-        input.location,
-      );
+  const timingTargets = targets.filter((target) => target.timingChanged);
+
+  // Two-phase starts_at updates avoid unique-index collisions when slots swap.
+  if (timingTargets.length > 0) {
+    const tempBaseMs = Date.UTC(2099, 0, 1, 0, 0, 0);
+
+    for (const [index, target] of timingTargets.entries()) {
+      const temporaryStartsAt = new Date(
+        tempBaseMs + index * 60_000,
+      ).toISOString();
 
       const { error } = await supabase
         .from("class_sessions")
         .update({
-          class_id: input.classId,
-          capacity: input.capacity,
-          recurring_schedule_id: input.scheduleId,
-          external_id: nextExternalId ?? session.external_id,
+          starts_at: temporaryStartsAt,
           updated_at: updatedAt,
         })
-        .eq("id", session.id);
+        .eq("id", target.id);
 
       if (error) {
         throw new Error(
-          `Unable to update future session ${session.id}: ${error.message}`,
+          `Unable to prepare future session ${target.id} for retiming: ${error.message}`,
         );
       }
-    }),
-  );
+    }
+  }
+
+  for (const target of targets) {
+    const { error } = await supabase
+      .from("class_sessions")
+      .update({
+        class_id: input.classId,
+        capacity: input.capacity,
+        recurring_schedule_id: input.scheduleId,
+        starts_at: target.startsAt,
+        ends_at: target.endsAt,
+        external_id: target.externalId,
+        updated_at: updatedAt,
+      })
+      .eq("id", target.id);
+
+    if (error) {
+      throw new Error(
+        `Unable to update future session ${target.id}: ${error.message}`,
+      );
+    }
+  }
 
   return {
     matchedCount: matchingSessions.length,
-    updatedCount: sessionsToUpdate.length,
+    updatedCount: targets.length,
     skippedAttendanceCount,
     skippedCancelledCount,
+    skippedCollisionCount: skippedCollisionIds.length,
+    timingUpdatedCount: timingTargets.length,
   };
 }
 
@@ -887,6 +969,7 @@ export async function updateRecurringClassSchedule(
     classId,
     dayOfWeek: input.dayOfWeek,
     startTime: input.startTime,
+    endTime: input.endTime,
     location: input.location,
     capacity: input.capacity,
   });
