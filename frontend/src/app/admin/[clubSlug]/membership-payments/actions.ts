@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminAccessForClubSlug } from "@/lib/admin-auth.server";
+import { adminUpdateMembershipStatus } from "@/lib/admin-student-membership.server";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   inactivateMembershipPaymentMember,
   isMembershipPaymentsEnabledForClub,
@@ -25,9 +27,27 @@ async function requireMembershipPaymentsAccess(clubSlug: string) {
   return club;
 }
 
-function revalidateMembershipPayments(clubSlug: string) {
+function revalidateMembershipPayments(clubSlug: string, memberId?: string) {
   revalidatePath(clubMembershipPaymentsAdminPath(clubSlug));
   revalidatePath(`/admin/${clubSlug}`);
+
+  if (memberId) {
+    revalidatePath(clubAdminPath(clubSlug, `students/${memberId}/profile`));
+    revalidatePath(clubAdminPath(clubSlug, `students/${memberId}/edit`));
+    revalidatePath(clubAdminPath(clubSlug, "students"));
+  }
+}
+
+async function syncClubMembershipStatus(input: {
+  clubId: string;
+  memberId: string;
+  status: "active" | "paused" | "inactive";
+}) {
+  await adminUpdateMembershipStatus({
+    userId: input.memberId,
+    clubId: input.clubId,
+    status: input.status,
+  });
 }
 
 export async function markMembershipPaidAction(input: {
@@ -46,7 +66,7 @@ export async function markMembershipPaidAction(input: {
     paidAt: input.paidAt,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }
 
 export async function updateMembershipPaidAtAction(input: {
@@ -64,7 +84,7 @@ export async function updateMembershipPaidAtAction(input: {
     paidAt: input.paidAt,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }
 
 export async function unmarkMembershipPaidAction(input: {
@@ -80,7 +100,7 @@ export async function unmarkMembershipPaidAction(input: {
     billingMonth: input.billingMonth,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }
 
 export async function pauseMembershipPaymentAction(input: {
@@ -89,13 +109,19 @@ export async function pauseMembershipPaymentAction(input: {
 }) {
   const club = await requireMembershipPaymentsAccess(input.clubSlug);
 
+  await syncClubMembershipStatus({
+    clubId: club.id,
+    memberId: input.memberId,
+    status: "paused",
+  });
+
   await pauseMembershipPaymentMember({
     academyId: club.id,
     clubSlug: club.slug,
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }
 
 export async function resumeMembershipPaymentAction(input: {
@@ -104,13 +130,19 @@ export async function resumeMembershipPaymentAction(input: {
 }) {
   const club = await requireMembershipPaymentsAccess(input.clubSlug);
 
+  await syncClubMembershipStatus({
+    clubId: club.id,
+    memberId: input.memberId,
+    status: "active",
+  });
+
   await resumeMembershipPaymentMember({
     academyId: club.id,
     clubSlug: club.slug,
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }
 
 export async function inactivateMembershipPaymentAction(input: {
@@ -119,13 +151,19 @@ export async function inactivateMembershipPaymentAction(input: {
 }) {
   const club = await requireMembershipPaymentsAccess(input.clubSlug);
 
+  await syncClubMembershipStatus({
+    clubId: club.id,
+    memberId: input.memberId,
+    status: "inactive",
+  });
+
   await inactivateMembershipPaymentMember({
     academyId: club.id,
     clubSlug: club.slug,
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }
 
 export async function reactivateMembershipPaymentAction(input: {
@@ -134,10 +172,16 @@ export async function reactivateMembershipPaymentAction(input: {
 }) {
   const club = await requireMembershipPaymentsAccess(input.clubSlug);
 
+  await syncClubMembershipStatus({
+    clubId: club.id,
+    memberId: input.memberId,
+    status: "active",
+  });
+
   await reactivateMembershipPaymentMember({
     academyId: club.id,
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug);
+  revalidateMembershipPayments(club.slug, input.memberId);
 }

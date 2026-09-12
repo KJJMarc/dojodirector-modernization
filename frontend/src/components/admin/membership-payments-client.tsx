@@ -11,6 +11,7 @@ import {
   unmarkMembershipPaidAction,
   updateMembershipPaidAtAction,
 } from "@/app/admin/[clubSlug]/membership-payments/actions";
+import { clubAdminPath } from "@/lib/clubs.shared";
 import {
   MEMBERSHIP_PAYMENT_LIST_FILTERS,
   MEMBERSHIP_PAYMENT_STATUS_LABELS,
@@ -325,9 +326,15 @@ export function MembershipPaymentsClient({
                       }`}
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-dojo-white">
+                        <Link
+                          href={clubAdminPath(
+                            clubSlug,
+                            `students/${member.memberId}/profile`,
+                          )}
+                          className="block truncate text-sm font-semibold text-dojo-white hover:text-dojo-red hover:underline"
+                        >
                           {member.fullName}
-                        </p>
+                        </Link>
                         <p className="text-xs text-dojo-muted">
                           {MEMBERSHIP_PAYMENT_STATUS_LABELS[member.status]}
                           {dueLabel ? ` · Next due ${dueLabel}` : " · Next due after first payment"}
@@ -338,15 +345,15 @@ export function MembershipPaymentsClient({
                       <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
                         <div className="flex w-[4.75rem] shrink-0 items-center justify-start">
                           {isPaid ? (
-                            <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
+                            <span className="inline-flex w-full items-center justify-center rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
                               Paid
                             </span>
                           ) : member.monthState === "overdue" ? (
-                            <span className="rounded-md bg-dojo-red/20 px-2 py-1 text-xs font-semibold text-dojo-red">
+                            <span className="inline-flex w-full items-center justify-center rounded-md bg-dojo-red/20 px-2 py-1 text-xs font-semibold text-dojo-red">
                               Overdue
                             </span>
                           ) : canMarkPaid ? null : (
-                            <span className="rounded-md bg-dojo-elevated px-2 py-1 text-xs text-dojo-muted">
+                            <span className="inline-flex w-full items-center justify-center rounded-md bg-dojo-elevated px-2 py-1 text-xs text-dojo-muted">
                               {member.monthState === "paused"
                                 ? "Paused"
                                 : member.monthState === "inactive"
