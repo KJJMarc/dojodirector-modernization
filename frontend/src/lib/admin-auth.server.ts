@@ -15,6 +15,10 @@ import {
   superAdminLoginPath,
   SUPER_ADMIN_PATH,
 } from "@/lib/admin-auth.shared";
+import {
+  getAdminRequestPathForMfaNext,
+  redirectToAdminMfaChallengeIfNeeded,
+} from "@/lib/admin-mfa.server";
 import type { AdminDashboardAccessSummary } from "@/lib/admin-student-profile.shared";
 import { clubAdminPath } from "@/lib/clubs.shared";
 import {
@@ -479,6 +483,10 @@ export async function requireAdminLoginSession(): Promise<{ authUserId: string }
     redirect(`${adminLoginPath()}?denied=1`);
   }
 
+  await redirectToAdminMfaChallengeIfNeeded(
+    getAdminRequestPathForMfaNext(adminAcademySelectPath()),
+  );
+
   return { authUserId: authUser.id };
 }
 
@@ -494,6 +502,10 @@ export async function requireAcademyAdminSelectionAccess(): Promise<AcademySelec
   if (academies.length === 0) {
     redirect(`${adminLoginPath()}?denied=1`);
   }
+
+  await redirectToAdminMfaChallengeIfNeeded(
+    getAdminRequestPathForMfaNext(adminAcademySelectPath()),
+  );
 
   if (academies.length === 1) {
     redirect(academies[0].href);
@@ -616,6 +628,10 @@ export async function requireAdminAccessForClubSlug(clubSlug: string) {
     redirect(`${adminAccessPath(club.slug)}?denied=1`);
   }
 
+  await redirectToAdminMfaChallengeIfNeeded(
+    getAdminRequestPathForMfaNext(clubAdminPath(club.slug)),
+  );
+
   return { club, session: state.session };
 }
 
@@ -639,6 +655,10 @@ export async function requireSuperAdminAccess() {
 
     redirect(`${superAdminLoginPath()}?denied=1`);
   }
+
+  await redirectToAdminMfaChallengeIfNeeded(
+    getAdminRequestPathForMfaNext(SUPER_ADMIN_PATH),
+  );
 
   return { session: state.session };
 }
@@ -694,6 +714,7 @@ export async function signInAdminAccessAndRedirect(
         throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
       }
 
+      await redirectToAdminMfaChallengeIfNeeded(SUPER_ADMIN_PATH);
       redirect(SUPER_ADMIN_PATH);
     }
 
@@ -707,6 +728,7 @@ export async function signInAdminAccessAndRedirect(
       throw new Error(ADMIN_ACCESS_DENIED_MESSAGE);
     }
 
+    await redirectToAdminMfaChallengeIfNeeded(destination);
     redirect(destination);
   } catch (error) {
     throwPortalAuthError(`admin.sign-in.${intent}`, error);

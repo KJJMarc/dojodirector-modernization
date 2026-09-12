@@ -29,6 +29,12 @@ export const USER_FACING_PORTAL_AUTH_MESSAGES = new Set<string>([
   "This account does not have student portal access. The member portal is for students with an active academy membership.",
   "You do not have student portal access for this academy. Sign in with a student account or contact the academy for assistance.",
   "You do not have instructor access to that academy.",
+  "That authenticator code is invalid or expired. Try again.",
+  "Enter the 6-digit code from your authenticator app to continue.",
+  "Two-factor authentication is already enabled.",
+  "Two-factor authentication is not enabled on this account.",
+  "Missing authenticator setup. Start setup again.",
+  "Unable to start authenticator setup.",
 ]);
 
 function normalizeErrorMessage(error: unknown): string {

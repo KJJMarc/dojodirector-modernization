@@ -13,6 +13,7 @@ import { getClubBySlug } from "@/lib/clubs.server";
 import { clubLeadSourceAnalyticsAdminPath } from "@/lib/lead-source-analytics.shared";
 import { isMembershipPaymentsEnabledForClub } from "@/lib/membership-payments.server";
 import { clubMembershipPaymentsAdminPath } from "@/lib/membership-payments.shared";
+import { clubAdminSecurityPath } from "@/lib/admin-mfa.shared";
 
 interface DashboardAction {
   label: string;
@@ -71,6 +72,12 @@ function buildDashboardSections(
     label: "Competition Bracket Generator",
     href: clubCompetitionBracketGeneratorPath(clubSlug),
     description: "Create printable knockout tournament brackets",
+  });
+
+  programmeActions.push({
+    label: "Security",
+    href: clubAdminSecurityPath(clubSlug),
+    description: "Two-factor authentication for admin access",
   });
 
   const sections: DashboardSectionConfig[] = [

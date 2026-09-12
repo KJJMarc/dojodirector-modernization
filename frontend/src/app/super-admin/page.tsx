@@ -34,6 +34,13 @@ export default async function SuperAdminPage() {
       <SuperAdminClubList clubs={clubs} />
 
       <Link
+        href="/super-admin/security"
+        className="inline-block text-sm font-medium text-dojo-white transition hover:text-dojo-red"
+      >
+        Security — two-factor authentication
+      </Link>
+
+      <Link
         href="/admin"
         className="inline-block text-sm font-medium text-dojo-muted transition hover:text-dojo-white"
       >

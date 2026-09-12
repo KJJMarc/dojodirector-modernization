@@ -1,8 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { ADMIN_MFA_PATHNAME_HEADER } from "@/lib/admin-mfa.shared";
+
+function withDojoPathnameHeader(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(
+    ADMIN_MFA_PATHNAME_HEADER,
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+}
 
 export async function updateSupabaseSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  let response = withDojoPathnameHeader(request);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -21,7 +34,7 @@ export async function updateSupabaseSession(request: NextRequest) {
           request.cookies.set(name, value);
         }
 
-        response = NextResponse.next({ request });
+        response = withDojoPathnameHeader(request);
 
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
