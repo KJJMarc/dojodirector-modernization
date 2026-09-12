@@ -8,6 +8,7 @@ import {
   currentBillingMonthKey,
   filterMembershipPaymentRows,
   isBillingMonthPayable,
+  resolveDueDateForBillingMonth,
   resolveMembershipMonthPaymentState,
   shiftBillingMonth,
   toBillingMonthKey,
@@ -20,6 +21,7 @@ function profile(
 ): MembershipPaymentProfileInput {
   return {
     status: "active",
+    dueDay: null,
     pausedFrom: null,
     resumeDate: null,
     inactiveFrom: null,
@@ -34,6 +36,8 @@ function row(
   return {
     email: null,
     status: "active",
+    dueDay: null,
+    dueDate: null,
     pausedFrom: null,
     resumeDate: null,
     inactiveFrom: null,
@@ -50,6 +54,36 @@ describe("membership payments shared", () => {
     assert.equal(shiftBillingMonth("2026-01-01", -1), "2025-12-01");
     assert.equal(billingMonthLabel("2026-09-01"), "September 2026");
     assert.equal(compareBillingMonths("2026-08", "2026-09-01"), -1);
+  });
+
+  it("resolves due dates and clamps short months", () => {
+    assert.equal(resolveDueDateForBillingMonth("2026-09-01", 15), "2026-09-15");
+    assert.equal(resolveDueDateForBillingMonth("2026-02-01", 31), "2026-02-28");
+    assert.equal(resolveDueDateForBillingMonth("2026-09-01", null), null);
+  });
+
+  it("marks unpaid past due day as overdue", () => {
+    assert.equal(
+      resolveMembershipMonthPaymentState({
+        profile: profile({ dueDay: 10 }),
+        billingMonth: "2026-09-01",
+        paid: false,
+        currentBillingMonth: "2026-09-01",
+        todayIso: "2026-09-12",
+      }),
+      "overdue",
+    );
+
+    assert.equal(
+      resolveMembershipMonthPaymentState({
+        profile: profile({ dueDay: 20 }),
+        billingMonth: "2026-09-01",
+        paid: false,
+        currentBillingMonth: "2026-09-01",
+        todayIso: "2026-09-12",
+      }),
+      "awaiting",
+    );
   });
 
   it("does not treat paused or inactive months as unpaid", () => {
@@ -131,6 +165,7 @@ describe("membership payments shared", () => {
         billingMonth: "2026-12-01",
         paid: false,
         currentBillingMonth: "2026-09-01",
+        todayIso: "2026-09-12",
       }),
       "future",
     );
@@ -141,6 +176,7 @@ describe("membership payments shared", () => {
         billingMonth: "2026-08-01",
         paid: false,
         currentBillingMonth: "2026-09-01",
+        todayIso: "2026-09-12",
       }),
       "awaiting",
     );
@@ -154,6 +190,7 @@ describe("membership payments shared", () => {
         billingMonth: "2026-08-01",
         paid: false,
         currentBillingMonth: "2026-09-01",
+        todayIso: "2026-09-12",
       }),
       "paused",
     );
@@ -186,17 +223,27 @@ describe("membership payments shared", () => {
         status: "inactive",
         monthState: "inactive",
       }),
+      row({
+        memberId: "5",
+        fullName: "Eve Overdue",
+        status: "active",
+        monthState: "overdue",
+        dueDay: 5,
+        dueDate: "2026-09-05",
+      }),
     ];
 
     assert.deepEqual(buildMembershipPaymentMonthSummary(rows), {
-      activeCount: 2,
+      activeCount: 3,
       paidThisMonth: 1,
-      awaitingPayment: 1,
+      awaitingPayment: 2,
+      overdueCount: 1,
       pausedCount: 1,
       inactiveCount: 1,
     });
 
-    assert.equal(filterMembershipPaymentRows(rows, "awaiting", "").length, 1);
+    assert.equal(filterMembershipPaymentRows(rows, "awaiting", "").length, 2);
+    assert.equal(filterMembershipPaymentRows(rows, "overdue", "").length, 1);
     assert.equal(filterMembershipPaymentRows(rows, "all", "blake").length, 1);
   });
 
@@ -212,6 +259,7 @@ describe("membership payments shared", () => {
       year: 2026,
       paymentsByMemberMonth: new Map([["1", new Set(["2026-01-01", "2026-02-01"])]]),
       currentBillingMonth: "2026-03-01",
+      todayIso: "2026-03-12",
     });
 
     assert.equal(yearRows[0]?.cells[0]?.state, "paid");

@@ -14,6 +14,7 @@ export type MembershipPaymentListFilter =
   | "active"
   | "paid"
   | "awaiting"
+  | "overdue"
   | "paused"
   | "inactive";
 
@@ -22,6 +23,7 @@ export const MEMBERSHIP_PAYMENT_LIST_FILTERS: MembershipPaymentListFilter[] = [
   "active",
   "paid",
   "awaiting",
+  "overdue",
   "paused",
   "inactive",
 ];
@@ -37,6 +39,7 @@ export const MEMBERSHIP_PAYMENT_STATUS_LABELS: Record<
 
 export interface MembershipPaymentProfileInput {
   status: MembershipPaymentStatus;
+  dueDay: number | null;
   pausedFrom: string | null;
   resumeDate: string | null;
   inactiveFrom: string | null;
@@ -51,6 +54,7 @@ export interface MembershipPaymentRecordView {
 export type MembershipMonthPaymentState =
   | "paid"
   | "awaiting"
+  | "overdue"
   | "paused"
   | "inactive"
   | "future"
@@ -61,6 +65,8 @@ export interface MembershipPaymentMemberRow {
   fullName: string;
   email: string | null;
   status: MembershipPaymentStatus;
+  dueDay: number | null;
+  dueDate: string | null;
   pausedFrom: string | null;
   resumeDate: string | null;
   inactiveFrom: string | null;
@@ -72,6 +78,7 @@ export interface MembershipPaymentMonthSummary {
   activeCount: number;
   paidThisMonth: number;
   awaitingPayment: number;
+  overdueCount: number;
   pausedCount: number;
   inactiveCount: number;
 }
@@ -229,10 +236,87 @@ export function currentLocalDateIso(
 export function defaultMembershipPaymentProfile(): MembershipPaymentProfileInput {
   return {
     status: MEMBERSHIP_PAYMENT_STATUS_ACTIVE,
+    dueDay: null,
     pausedFrom: null,
     resumeDate: null,
     inactiveFrom: null,
   };
+}
+
+export function parseMembershipPaymentDueDay(
+  value: string | number | null | undefined,
+): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(String(value).trim());
+
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 31) {
+    throw new Error("Due day must be a whole number between 1 and 31.");
+  }
+
+  return parsed;
+}
+
+/** Last calendar day of a billing month (UTC date parts). */
+export function lastDayOfBillingMonth(billingMonth: string): number {
+  const key = toBillingMonthKey(billingMonth);
+  const [yearRaw, monthRaw] = key.split("-");
+  const year = Number(yearRaw);
+  const monthIndex = Number(monthRaw) - 1;
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
+/**
+ * Resolve the due date for a billing month from a recurring due day.
+ * Days past the end of shorter months clamp to the last day.
+ */
+export function resolveDueDateForBillingMonth(
+  billingMonth: string,
+  dueDay: number | null | undefined,
+): string | null {
+  if (dueDay === null || dueDay === undefined) {
+    return null;
+  }
+
+  const parsed = parseMembershipPaymentDueDay(dueDay);
+  if (parsed === null) {
+    return null;
+  }
+
+  const key = toBillingMonthKey(billingMonth);
+  const [year, month] = key.split("-");
+  const day = Math.min(parsed, lastDayOfBillingMonth(key));
+  return `${year}-${month}-${String(day).padStart(2, "0")}`;
+}
+
+export function formatDueDateLabel(dueDate: string | null): string | null {
+  if (!dueDate) {
+    return null;
+  }
+
+  const [year, month, day] = dueDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+export function isMembershipPaymentOverdue(input: {
+  dueDate: string | null;
+  paid: boolean;
+  todayIso: string;
+}): boolean {
+  if (input.paid || !input.dueDate) {
+    return false;
+  }
+
+  return input.todayIso > input.dueDate;
 }
 
 /**
@@ -282,6 +366,7 @@ export function resolveMembershipMonthPaymentState(input: {
   billingMonth: string;
   paid: boolean;
   currentBillingMonth: string;
+  todayIso?: string;
 }): MembershipMonthPaymentState {
   const month = toBillingMonthKey(input.billingMonth);
   const current = toBillingMonthKey(input.currentBillingMonth);
@@ -326,6 +411,19 @@ export function resolveMembershipMonthPaymentState(input: {
     return "not_applicable";
   }
 
+  const dueDate = resolveDueDateForBillingMonth(month, input.profile.dueDay);
+  const todayIso = input.todayIso ?? currentLocalDateIso();
+
+  if (
+    isMembershipPaymentOverdue({
+      dueDate,
+      paid: false,
+      todayIso,
+    })
+  ) {
+    return "overdue";
+  }
+
   return "awaiting";
 }
 
@@ -335,6 +433,7 @@ export function buildMembershipPaymentMonthSummary(
   let activeCount = 0;
   let paidThisMonth = 0;
   let awaitingPayment = 0;
+  let overdueCount = 0;
   let pausedCount = 0;
   let inactiveCount = 0;
 
@@ -355,8 +454,12 @@ export function buildMembershipPaymentMonthSummary(
       paidThisMonth += 1;
     }
 
-    if (row.monthState === "awaiting") {
+    if (row.monthState === "awaiting" || row.monthState === "overdue") {
       awaitingPayment += 1;
+    }
+
+    if (row.monthState === "overdue") {
+      overdueCount += 1;
     }
   }
 
@@ -364,6 +467,7 @@ export function buildMembershipPaymentMonthSummary(
     activeCount,
     paidThisMonth,
     awaitingPayment,
+    overdueCount,
     pausedCount,
     inactiveCount,
   };
@@ -391,7 +495,9 @@ export function filterMembershipPaymentRows(
       case "paid":
         return row.monthState === "paid";
       case "awaiting":
-        return row.monthState === "awaiting";
+        return row.monthState === "awaiting" || row.monthState === "overdue";
+      case "overdue":
+        return row.monthState === "overdue";
       case "paused":
         return row.status === MEMBERSHIP_PAYMENT_STATUS_PAUSED;
       case "inactive":
@@ -412,6 +518,7 @@ export function buildMembershipPaymentYearRows(input: {
   year: number;
   paymentsByMemberMonth: Map<string, Set<string>>;
   currentBillingMonth: string;
+  todayIso?: string;
 }): MembershipPaymentYearRow[] {
   const months = Array.from({ length: 12 }, (_, index) => {
     const month = String(index + 1).padStart(2, "0");
@@ -433,6 +540,7 @@ export function buildMembershipPaymentYearRows(input: {
             billingMonth,
             paid: paidMonths.has(toBillingMonthKey(billingMonth)),
             currentBillingMonth: input.currentBillingMonth,
+            todayIso: input.todayIso,
           }),
         })),
       };

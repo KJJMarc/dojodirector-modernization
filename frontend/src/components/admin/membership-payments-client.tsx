@@ -9,6 +9,7 @@ import {
   reactivateMembershipPaymentAction,
   resumeMembershipPaymentAction,
   unmarkMembershipPaidAction,
+  updateMembershipDueDayAction,
   updateMembershipPaidAtAction,
 } from "@/app/admin/[clubSlug]/membership-payments/actions";
 import {
@@ -17,6 +18,7 @@ import {
   billingMonthLabel,
   clubMembershipPaymentsAdminPath,
   filterMembershipPaymentRows,
+  formatDueDateLabel,
   shiftBillingMonth,
   type MembershipPaymentListFilter,
   type MembershipPaymentMemberRow,
@@ -41,6 +43,7 @@ const FILTER_LABELS: Record<MembershipPaymentListFilter, string> = {
   active: "Active",
   paid: "Paid",
   awaiting: "Awaiting",
+  overdue: "Overdue",
   paused: "Paused",
   inactive: "Inactive",
 };
@@ -70,6 +73,17 @@ function YearCell({ state }: { state: MembershipMonthPaymentState }) {
         title="Outstanding"
       >
         •
+      </span>
+    );
+  }
+
+  if (state === "overdue") {
+    return (
+      <span
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-dojo-red/20 text-[10px] font-semibold text-dojo-red"
+        title="Overdue"
+      >
+        !
       </span>
     );
   }
@@ -148,11 +162,12 @@ export function MembershipPaymentsClient({
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[
           { label: "Active members", value: summary.activeCount },
           { label: "Paid this month", value: summary.paidThisMonth },
           { label: "Awaiting payment", value: summary.awaitingPayment },
+          { label: "Overdue", value: summary.overdueCount },
           { label: "Paused", value: summary.pausedCount },
         ].map((card) => (
           <div
@@ -293,12 +308,19 @@ export function MembershipPaymentsClient({
               ) : (
                 visibleRows.map((member) => {
                   const isPaid = member.monthState === "paid";
+                  const canMarkPaid =
+                    member.monthState === "awaiting" || member.monthState === "overdue";
+                  const dueLabel = formatDueDateLabel(member.dueDate);
 
                   return (
                     <li
                       key={member.memberId}
                       className={`flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
-                        isPaid ? "bg-emerald-500/10" : ""
+                        isPaid
+                          ? "bg-emerald-500/10"
+                          : member.monthState === "overdue"
+                            ? "bg-dojo-red/10"
+                            : ""
                       }`}
                     >
                       <div className="min-w-0">
@@ -307,11 +329,52 @@ export function MembershipPaymentsClient({
                         </p>
                         <p className="text-xs text-dojo-muted">
                           {MEMBERSHIP_PAYMENT_STATUS_LABELS[member.status]}
+                          {dueLabel ? ` · Due ${dueLabel}` : " · No due day set"}
                           {member.email ? ` · ${member.email}` : ""}
                         </p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
+                        <label className="flex items-center gap-1 text-xs text-dojo-muted">
+                          Due day
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            placeholder="—"
+                            defaultValue={member.dueDay ?? ""}
+                            disabled={isPending}
+                            onBlur={(event) => {
+                              const raw = event.target.value.trim();
+                              const next = raw === "" ? null : Number(raw);
+                              const current = member.dueDay;
+
+                              if (next === current || (next === null && current === null)) {
+                                return;
+                              }
+
+                              if (
+                                next !== null &&
+                                (!Number.isInteger(next) || next < 1 || next > 31)
+                              ) {
+                                setErrorMessage("Due day must be between 1 and 31.");
+                                event.target.value =
+                                  current === null ? "" : String(current);
+                                return;
+                              }
+
+                              runAction(() =>
+                                updateMembershipDueDayAction({
+                                  clubSlug,
+                                  memberId: member.memberId,
+                                  dueDay: next,
+                                }),
+                              );
+                            }}
+                            className="w-14 rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
+                          />
+                        </label>
+
                         {isPaid && member.payment ? (
                           <>
                             <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
@@ -366,23 +429,30 @@ export function MembershipPaymentsClient({
                               Unmark
                             </button>
                           </>
-                        ) : member.monthState === "awaiting" ? (
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() =>
-                              runAction(() =>
-                                markMembershipPaidAction({
-                                  clubSlug,
-                                  memberId: member.memberId,
-                                  billingMonth,
-                                }),
-                              )
-                            }
-                            className="rounded-lg bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white hover:opacity-90"
-                          >
-                            Mark paid
-                          </button>
+                        ) : canMarkPaid ? (
+                          <>
+                            {member.monthState === "overdue" ? (
+                              <span className="rounded-md bg-dojo-red/20 px-2 py-1 text-xs font-semibold text-dojo-red">
+                                Overdue
+                              </span>
+                            ) : null}
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() =>
+                                runAction(() =>
+                                  markMembershipPaidAction({
+                                    clubSlug,
+                                    memberId: member.memberId,
+                                    billingMonth,
+                                  }),
+                                )
+                              }
+                              className="rounded-lg bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white hover:opacity-90"
+                            >
+                              Mark paid
+                            </button>
+                          </>
                         ) : (
                           <span className="rounded-md bg-dojo-elevated px-2 py-1 text-xs text-dojo-muted">
                             {member.monthState === "paused"

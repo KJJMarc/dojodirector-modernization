@@ -18,6 +18,8 @@ import {
   MEMBERSHIP_PAYMENT_STATUS_INACTIVE,
   MEMBERSHIP_PAYMENT_STATUS_PAUSED,
   parseIsoDateInput,
+  parseMembershipPaymentDueDay,
+  resolveDueDateForBillingMonth,
   resolveMembershipMonthPaymentState,
   toBillingMonthKey,
   type MembershipPaymentMemberRow,
@@ -38,6 +40,7 @@ interface PaymentProfileRow {
   academy_id: string;
   member_id: string;
   status: string;
+  due_day: number | null;
   paused_from: string | null;
   resume_date: string | null;
   inactive_from: string | null;
@@ -96,6 +99,10 @@ function mapProfileRow(row: PaymentProfileRow | null | undefined): MembershipPay
     status: isMembershipPaymentStatus(row.status)
       ? row.status
       : MEMBERSHIP_PAYMENT_STATUS_ACTIVE,
+    dueDay:
+      row.due_day === null || row.due_day === undefined
+        ? null
+        : parseMembershipPaymentDueDay(row.due_day),
     pausedFrom: row.paused_from,
     resumeDate: row.resume_date,
     inactiveFrom: row.inactive_from,
@@ -108,7 +115,9 @@ async function loadPaymentProfilesByMemberId(
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("membership_payment_profiles")
-    .select("academy_id, member_id, status, paused_from, resume_date, inactive_from")
+    .select(
+      "academy_id, member_id, status, due_day, paused_from, resume_date, inactive_from",
+    )
     .eq("academy_id", academyId);
 
   if (error) {
@@ -204,6 +213,7 @@ export async function loadMembershipPaymentsWorkspace(input: {
   year?: number | null;
 }): Promise<MembershipPaymentsWorkspace> {
   const timeZone = getClubIanaTimeZone(input.clubSlug);
+  const todayIso = currentLocalDateIso(new Date(), timeZone);
   const currentBillingMonth = currentBillingMonthKey(new Date(), timeZone);
   const billingMonth = toBillingMonthKey(input.billingMonth ?? currentBillingMonth);
   const year =
@@ -231,11 +241,13 @@ export async function loadMembershipPaymentsWorkspace(input: {
 
     const profile = profilesByMemberId.get(memberId) ?? defaultMembershipPaymentProfile();
     const payment = paymentsByMemberId.get(memberId) ?? null;
+    const dueDate = resolveDueDateForBillingMonth(billingMonth, profile.dueDay);
     const monthState = resolveMembershipMonthPaymentState({
       profile,
       billingMonth,
       paid: Boolean(payment),
       currentBillingMonth,
+      todayIso,
     });
 
     rows.push({
@@ -243,6 +255,8 @@ export async function loadMembershipPaymentsWorkspace(input: {
       fullName: getStudentFullName(user.first_name, user.last_name),
       email: user.email,
       status: profile.status,
+      dueDay: profile.dueDay,
+      dueDate,
       pausedFrom: profile.pausedFrom,
       resumeDate: profile.resumeDate,
       inactiveFrom: profile.inactiveFrom,
@@ -273,6 +287,7 @@ export async function loadMembershipPaymentsWorkspace(input: {
       fullName: row.fullName,
       profile: {
         status: row.status,
+        dueDay: row.dueDay,
         pausedFrom: row.pausedFrom,
         resumeDate: row.resumeDate,
         inactiveFrom: row.inactiveFrom,
@@ -281,6 +296,7 @@ export async function loadMembershipPaymentsWorkspace(input: {
     year,
     paymentsByMemberMonth,
     currentBillingMonth,
+    todayIso,
   });
 
   return {
@@ -402,6 +418,7 @@ async function upsertPaymentProfile(input: {
   academyId: string;
   memberId: string;
   status: MembershipPaymentStatus;
+  dueDay: number | null;
   pausedFrom: string | null;
   resumeDate: string | null;
   inactiveFrom: string | null;
@@ -415,6 +432,7 @@ async function upsertPaymentProfile(input: {
       academy_id: input.academyId,
       member_id: input.memberId,
       status: input.status,
+      due_day: input.dueDay,
       paused_from: input.pausedFrom,
       resume_date: input.resumeDate,
       inactive_from: input.inactiveFrom,
@@ -432,6 +450,26 @@ async function upsertPaymentProfile(input: {
   }
 }
 
+export async function updateMembershipPaymentDueDay(input: {
+  academyId: string;
+  memberId: string;
+  dueDay: number | null;
+}): Promise<void> {
+  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
+  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
+  const dueDay = parseMembershipPaymentDueDay(input.dueDay);
+
+  await upsertPaymentProfile({
+    academyId: input.academyId,
+    memberId: input.memberId,
+    status: existing.status,
+    dueDay,
+    pausedFrom: existing.pausedFrom,
+    resumeDate: existing.resumeDate,
+    inactiveFrom: existing.inactiveFrom,
+  });
+}
+
 export async function pauseMembershipPaymentMember(input: {
   academyId: string;
   clubSlug: string;
@@ -442,11 +480,14 @@ export async function pauseMembershipPaymentMember(input: {
   const pausedFrom = input.pausedFrom?.trim()
     ? parseIsoDateInput(input.pausedFrom)
     : currentLocalDateIso(new Date(), timeZone);
+  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
+  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
 
   await upsertPaymentProfile({
     academyId: input.academyId,
     memberId: input.memberId,
     status: MEMBERSHIP_PAYMENT_STATUS_PAUSED,
+    dueDay: existing.dueDay,
     pausedFrom,
     resumeDate: null,
     inactiveFrom: null,
@@ -471,6 +512,7 @@ export async function resumeMembershipPaymentMember(input: {
     academyId: input.academyId,
     memberId: input.memberId,
     status: MEMBERSHIP_PAYMENT_STATUS_ACTIVE,
+    dueDay: existing.dueDay,
     pausedFrom: existing.pausedFrom,
     resumeDate,
     inactiveFrom: null,
@@ -495,6 +537,7 @@ export async function inactivateMembershipPaymentMember(input: {
     academyId: input.academyId,
     memberId: input.memberId,
     status: MEMBERSHIP_PAYMENT_STATUS_INACTIVE,
+    dueDay: existing.dueDay,
     pausedFrom: existing.pausedFrom,
     resumeDate: existing.resumeDate,
     inactiveFrom,
@@ -512,6 +555,7 @@ export async function reactivateMembershipPaymentMember(input: {
     academyId: input.academyId,
     memberId: input.memberId,
     status: MEMBERSHIP_PAYMENT_STATUS_ACTIVE,
+    dueDay: existing.dueDay,
     pausedFrom: existing.pausedFrom,
     resumeDate: existing.resumeDate,
     inactiveFrom: null,
