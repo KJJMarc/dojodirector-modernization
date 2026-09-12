@@ -35,6 +35,7 @@ export const USER_FACING_PORTAL_AUTH_MESSAGES = new Set<string>([
   "Two-factor authentication is not enabled on this account.",
   "Missing authenticator setup. Start setup again.",
   "Unable to start authenticator setup.",
+  "Admin accounts must set up two-factor authentication before continuing.",
 ]);
 
 function normalizeErrorMessage(error: unknown): string {

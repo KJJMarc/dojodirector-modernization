@@ -13,7 +13,8 @@ import {
 } from "@/lib/admin-mfa.server";
 import {
   ADMIN_MFA_INVALID_CODE_MESSAGE,
-  adminNeedsMfaChallenge,
+  buildAdminMfaSetupPath,
+  resolveAdminMfaGate,
   sanitizeAdminMfaNextPath,
 } from "@/lib/admin-mfa.shared";
 import { throwPortalAuthError } from "@/lib/portal-auth-errors.server";
@@ -49,22 +50,22 @@ export async function verifyAdminMfaChallengeAction(formData: FormData) {
     }
 
     const assurance = await getAdminMfaAssurance();
+    const next = sanitizeAdminMfaNextPath(
+      String(formData.get("next") ?? ""),
+      resolveDefaultAdminDestination(access),
+    );
+    const decision = resolveAdminMfaGate(assurance);
 
-    if (!adminNeedsMfaChallenge(assurance)) {
-      const next = sanitizeAdminMfaNextPath(
-        String(formData.get("next") ?? ""),
-        resolveDefaultAdminDestination(access),
-      );
+    if (decision === "setup") {
+      redirect(buildAdminMfaSetupPath(next));
+    }
+
+    if (decision === "allow") {
       redirect(next);
     }
 
     const code = String(formData.get("code") ?? "");
     await verifyAdminTotpChallenge(code);
-
-    const next = sanitizeAdminMfaNextPath(
-      String(formData.get("next") ?? ""),
-      resolveDefaultAdminDestination(access),
-    );
     redirect(next);
   } catch (error) {
     throwPortalAuthError("admin.mfa.verify", error);
@@ -87,12 +88,13 @@ export async function getAdminMfaChallengePageState(nextParam?: string) {
   const assurance = await getAdminMfaAssurance();
   const defaultDestination = resolveDefaultAdminDestination(access);
   const next = sanitizeAdminMfaNextPath(nextParam, defaultDestination);
+  const decision = resolveAdminMfaGate(assurance);
 
-  if (!assurance.hasVerifiedTotp) {
-    redirect(next);
+  if (decision === "setup") {
+    redirect(buildAdminMfaSetupPath(next));
   }
 
-  if (!adminNeedsMfaChallenge(assurance)) {
+  if (decision === "allow") {
     redirect(next);
   }
 

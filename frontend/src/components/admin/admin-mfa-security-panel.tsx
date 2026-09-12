@@ -92,10 +92,13 @@ export function AdminMfaSecurityPanel({
         return;
       }
 
-      setCode("");
-      setIsEnabled(false);
-      setEnrollment(null);
-      setSuccessMessage("Two-factor authentication has been disabled.");
+          setCode("");
+          setIsEnabled(false);
+          setEnrollment(null);
+          // MFA is mandatory for admins — send them straight back to enroll.
+          window.location.assign(
+            `/admin/mfa/setup?next=${encodeURIComponent(revalidatePathname)}`,
+          );
     });
   }
 
@@ -109,8 +112,8 @@ export function AdminMfaSecurityPanel({
           Two-factor authentication
         </h2>
         <p className="mt-1 text-sm text-dojo-muted">
-          Protect admin access with a code from an authenticator app such as Google
-          Authenticator or 1Password.
+          Admin accounts require an authenticator app. Use this page to reset
+          two-factor authentication if you need to set it up again.
         </p>
       </div>
 

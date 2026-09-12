@@ -6,11 +6,11 @@ import {
   ADMIN_MFA_FRIENDLY_NAME,
   ADMIN_MFA_INVALID_CODE_MESSAGE,
   ADMIN_MFA_PATHNAME_HEADER,
-  adminNeedsMfaChallenge,
-  buildAdminMfaVerifyPath,
+  buildAdminMfaGateRedirectPath,
   isSafeAdminMfaNextPath,
   isValidTotpCode,
   normalizeTotpCode,
+  resolveAdminMfaGate,
   sanitizeAdminMfaNextPath,
 } from "@/lib/admin-mfa.shared";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/server-auth";
@@ -55,18 +55,26 @@ export async function getAdminMfaAssurance(): Promise<AdminMfaAssurance> {
   };
 }
 
-export async function adminSessionNeedsMfaChallenge(): Promise<boolean> {
+/**
+ * Redirect to mandatory MFA setup or challenge when the admin session is not AAL2-ready.
+ * Exempt pages (login, /admin/mfa/setup, /admin/mfa/verify) must not call this.
+ */
+export async function redirectToAdminMfaGateIfNeeded(nextPath: string) {
   const assurance = await getAdminMfaAssurance();
-  return adminNeedsMfaChallenge(assurance);
+  const decision = resolveAdminMfaGate(assurance);
+  const redirectPath = buildAdminMfaGateRedirectPath(
+    decision,
+    sanitizeAdminMfaNextPath(nextPath),
+  );
+
+  if (redirectPath) {
+    redirect(redirectPath);
+  }
 }
 
-/** Redirect to MFA challenge when the session has verified TOTP but is still AAL1. */
+/** @deprecated Use redirectToAdminMfaGateIfNeeded */
 export async function redirectToAdminMfaChallengeIfNeeded(nextPath: string) {
-  if (!(await adminSessionNeedsMfaChallenge())) {
-    return;
-  }
-
-  redirect(buildAdminMfaVerifyPath(sanitizeAdminMfaNextPath(nextPath)));
+  await redirectToAdminMfaGateIfNeeded(nextPath);
 }
 
 async function cleanupUnverifiedTotpFactors() {
