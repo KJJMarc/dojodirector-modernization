@@ -6,6 +6,8 @@ export const KINGSTON_JIU_JITSU_CLUB_ID = "a869a3a1-2174-43a5-87d1-3f365f11c68a"
 /** Kingston Jiu Jitsu Kids academy club id (grading + memberships). */
 export const KINGSTON_JIU_JITSU_KIDS_CLUB_ID =
   "0e81995e-7ed5-490d-8425-f23c87f34587";
+/** Bahamas Jiu Jitsu academy club id. */
+export const BAHAMAS_JIU_JITSU_CLUB_ID = "276cb805-7095-4e78-984b-bb41fb2cb664";
 /** Kingston academies cap junior stripes at three (Bahamas remains at four). */
 export const KINGSTON_JUNIOR_MAX_STRIPE_COUNT = 3;
 /**

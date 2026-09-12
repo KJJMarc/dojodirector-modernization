@@ -18,6 +18,7 @@
     "test:grade-award-delete": "npx --yes tsx --test src/lib/admin-grade-award.shared.test.ts",
     "test:class-session-schedule": "npx --yes tsx --test src/lib/class-session-schedule.test.ts",
     "test:recurring-session-sync": "npx --yes tsx --test src/lib/admin-recurring-session-sync.shared.test.ts",
+    "test:membership-payments": "npx --yes tsx --test src/lib/membership-payments.shared.test.ts",
     "test:class-metrics": "npx --yes tsx --test src/lib/admin-class-metrics.shared.test.ts",
     "test:london-datetime": "npx --yes tsx --test src/lib/london-datetime.test.ts",
     "test:lead-attribution": "node --experimental-strip-types --test src/lib/lead-attribution.shared.test.ts",

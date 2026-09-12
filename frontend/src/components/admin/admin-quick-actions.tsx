@@ -9,12 +9,22 @@ import {
 } from "@/lib/admin-programmes.shared";
 import { getProgrammesSchemaAvailable } from "@/lib/admin-programmes.server";
 import { clubAdminPath } from "@/lib/clubs.shared";
+import { getClubBySlug } from "@/lib/clubs.server";
 import { clubLeadSourceAnalyticsAdminPath } from "@/lib/lead-source-analytics.shared";
+import { isMembershipPaymentsEnabledForClub } from "@/lib/membership-payments.server";
+import { clubMembershipPaymentsAdminPath } from "@/lib/membership-payments.shared";
 
 interface DashboardAction {
   label: string;
   href: string;
   description: string;
+}
+
+interface DashboardSectionConfig {
+  title: string;
+  ariaLabel: string;
+  actions: DashboardAction[];
+  showProgrammesUnavailableNotice: boolean;
 }
 
 const CARD_CLASS =
@@ -26,7 +36,8 @@ const SECTION_HEADING_CLASS =
 function buildDashboardSections(
   clubSlug: string,
   programmesSchemaAvailable: boolean,
-) {
+  membershipPaymentsEnabled: boolean,
+): DashboardSectionConfig[] {
   const programmeActions: DashboardAction[] = programmesSchemaAvailable
     ? [
         {
@@ -62,7 +73,7 @@ function buildDashboardSections(
     description: "Create printable knockout tournament brackets",
   });
 
-  return [
+  const sections: DashboardSectionConfig[] = [
     {
       title: "ACADEMY MANAGEMENT",
       ariaLabel: "Academy management",
@@ -140,7 +151,24 @@ function buildDashboardSections(
       ],
       showProgrammesUnavailableNotice: false,
     },
-  ] as const;
+  ];
+
+  if (membershipPaymentsEnabled) {
+    sections.push({
+      title: "MEMBERSHIP & PAYMENTS",
+      ariaLabel: "Membership and payments",
+      actions: [
+        {
+          label: "Manage Membership & Payments",
+          href: clubMembershipPaymentsAdminPath(clubSlug),
+          description: "Track monthly membership payments and member status",
+        },
+      ],
+      showProgrammesUnavailableNotice: false,
+    });
+  }
+
+  return sections;
 }
 
 function DashboardActionCard({ label, href, description }: DashboardAction) {
@@ -186,7 +214,15 @@ interface AdminQuickActionsProps {
 
 export async function AdminQuickActions({ clubSlug }: AdminQuickActionsProps) {
   const programmesSchemaAvailable = await getProgrammesSchemaAvailable();
-  const sections = buildDashboardSections(clubSlug, programmesSchemaAvailable);
+  const club = await getClubBySlug(clubSlug);
+  const membershipPaymentsEnabled = club
+    ? await isMembershipPaymentsEnabledForClub(club.id)
+    : false;
+  const sections = buildDashboardSections(
+    clubSlug,
+    programmesSchemaAvailable,
+    membershipPaymentsEnabled,
+  );
 
   return (
     <div className="space-y-6">
