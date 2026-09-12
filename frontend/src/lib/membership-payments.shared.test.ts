@@ -252,7 +252,6 @@ describe("membership payments shared", () => {
       inactiveCount: 1,
     });
 
-    assert.equal(filterMembershipPaymentRows(rows, "awaiting", "").length, 2);
     assert.equal(filterMembershipPaymentRows(rows, "overdue", "").length, 1);
     assert.equal(filterMembershipPaymentRows(rows, "all", "blake").length, 1);
   });

@@ -185,20 +185,32 @@ async function loadPaymentsForYear(
 }
 
 /**
- * Student members for the payment ledger.
- * Excludes inactive club memberships so people like former students do not appear.
+ * All student club memberships for the payment ledger, including inactive.
+ * Inactive club members appear under the Inactive filter only.
  */
-async function loadAcademyStudentMemberIds(academyId: string): Promise<string[]> {
+async function loadAcademyStudentMemberships(
+  academyId: string,
+): Promise<Array<{ userId: string; clubStatus: string | null }>> {
   const memberships = await loadClubMembershipRows(academyId);
-  const studentIds = memberships
-    .filter(
-      (membership) =>
-        (membership.role ?? "").trim().toLowerCase() === "student" &&
-        !isInactiveMembershipStatus(membership.status),
-    )
-    .map((membership) => membership.user_id);
+  const byUserId = new Map<string, string | null>();
 
-  return Array.from(new Set(studentIds));
+  for (const membership of memberships) {
+    if ((membership.role ?? "").trim().toLowerCase() !== "student") {
+      continue;
+    }
+
+    byUserId.set(membership.user_id, membership.status);
+  }
+
+  return Array.from(byUserId.entries()).map(([userId, clubStatus]) => ({
+    userId,
+    clubStatus,
+  }));
+}
+
+async function loadAcademyStudentMemberIds(academyId: string): Promise<string[]> {
+  const memberships = await loadAcademyStudentMemberships(academyId);
+  return memberships.map((membership) => membership.userId);
 }
 
 export interface MembershipPaymentsWorkspace {
@@ -225,7 +237,8 @@ export async function loadMembershipPaymentsWorkspace(input: {
       ? Math.trunc(input.year)
       : Number(billingMonth.slice(0, 4));
 
-  const memberIds = await loadAcademyStudentMemberIds(input.academyId);
+  const studentMemberships = await loadAcademyStudentMemberships(input.academyId);
+  const memberIds = studentMemberships.map((membership) => membership.userId);
   const [profilesByMemberId, paymentsByMemberId, yearPayments, profiles] =
     await Promise.all([
       loadPaymentProfilesByMemberId(input.academyId),
@@ -236,28 +249,39 @@ export async function loadMembershipPaymentsWorkspace(input: {
 
   const rows: MembershipPaymentMemberRow[] = [];
 
-  for (const memberId of memberIds) {
-    const user = profiles.get(memberId);
+  for (const membership of studentMemberships) {
+    const user = profiles.get(membership.userId);
 
     if (!user) {
       continue;
     }
 
-    const profile = profilesByMemberId.get(memberId) ?? defaultMembershipPaymentProfile();
-    const payment = paymentsByMemberId.get(memberId) ?? null;
-    const monthState = resolveMembershipMonthPaymentState({
-      profile,
-      billingMonth,
-      paid: Boolean(payment),
-      currentBillingMonth,
-      todayIso,
-    });
+    const profile =
+      profilesByMemberId.get(membership.userId) ?? defaultMembershipPaymentProfile();
+    const clubInactive = isInactiveMembershipStatus(membership.clubStatus);
+    const status = clubInactive
+      ? MEMBERSHIP_PAYMENT_STATUS_INACTIVE
+      : profile.status;
+    const effectiveProfile: MembershipPaymentProfileInput = {
+      ...profile,
+      status,
+    };
+    const payment = paymentsByMemberId.get(membership.userId) ?? null;
+    const monthState = clubInactive
+      ? "inactive"
+      : resolveMembershipMonthPaymentState({
+          profile: effectiveProfile,
+          billingMonth,
+          paid: Boolean(payment),
+          currentBillingMonth,
+          todayIso,
+        });
 
     rows.push({
-      memberId,
+      memberId: membership.userId,
       fullName: getStudentFullName(user.first_name, user.last_name),
       email: user.email,
-      status: profile.status,
+      status,
       dueDate: profile.nextDueDate,
       pausedFrom: profile.pausedFrom,
       resumeDate: profile.resumeDate,

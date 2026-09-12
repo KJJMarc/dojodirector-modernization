@@ -42,7 +42,6 @@ const FILTER_LABELS: Record<MembershipPaymentListFilter, string> = {
   all: "All",
   active: "Active",
   paid: "Paid",
-  awaiting: "Awaiting",
   overdue: "Overdue",
   paused: "Paused",
   inactive: "Inactive",
@@ -336,14 +335,33 @@ export function MembershipPaymentsClient({
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        {isPaid && member.payment ? (
-                          <>
+                      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+                        <div className="flex w-[4.75rem] shrink-0 items-center justify-start">
+                          {isPaid ? (
                             <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
                               Paid
                             </span>
-                            <label className="flex items-center gap-1 text-xs text-dojo-muted">
-                              Paid date
+                          ) : member.monthState === "overdue" ? (
+                            <span className="rounded-md bg-dojo-red/20 px-2 py-1 text-xs font-semibold text-dojo-red">
+                              Overdue
+                            </span>
+                          ) : canMarkPaid ? null : (
+                            <span className="rounded-md bg-dojo-elevated px-2 py-1 text-xs text-dojo-muted">
+                              {member.monthState === "paused"
+                                ? "Paused"
+                                : member.monthState === "inactive"
+                                  ? "Inactive"
+                                  : member.monthState === "future"
+                                    ? "Future"
+                                    : "N/A"}
+                            </span>
+                          )}
+                        </div>
+
+                        {(isPaid && member.payment) || canMarkPaid ? (
+                          <label className="flex shrink-0 items-center gap-1 text-xs text-dojo-muted">
+                            Paid date
+                            {isPaid && member.payment ? (
                               <input
                                 type="date"
                                 defaultValue={member.payment.paidAt}
@@ -363,9 +381,31 @@ export function MembershipPaymentsClient({
                                     }),
                                   );
                                 }}
-                                className="rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
+                                className="w-[9.5rem] rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
                               />
-                            </label>
+                            ) : (
+                              <input
+                                type="date"
+                                required
+                                value={paidAtDrafts[member.memberId] ?? todayIso}
+                                disabled={isPending}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setPaidAtDrafts((previous) => ({
+                                    ...previous,
+                                    [member.memberId]: value,
+                                  }));
+                                }}
+                                className="w-[9.5rem] rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
+                              />
+                            )}
+                          </label>
+                        ) : (
+                          <div className="hidden w-[9.5rem] sm:block" aria-hidden />
+                        )}
+
+                        <div className="flex w-[5.75rem] shrink-0 items-center justify-start">
+                          {isPaid && member.payment ? (
                             <button
                               type="button"
                               disabled={isPending}
@@ -386,39 +426,11 @@ export function MembershipPaymentsClient({
                                   }),
                                 );
                               }}
-                              className="rounded-lg border border-dojo-border px-3 py-1.5 text-xs text-dojo-muted hover:text-dojo-white"
+                              className="w-full rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/30"
                             >
                               Unmark
                             </button>
-                          </>
-                        ) : isPaid ? (
-                          <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
-                            Paid
-                          </span>
-                        ) : canMarkPaid ? (
-                          <>
-                            {member.monthState === "overdue" ? (
-                              <span className="rounded-md bg-dojo-red/20 px-2 py-1 text-xs font-semibold text-dojo-red">
-                                Overdue
-                              </span>
-                            ) : null}
-                            <label className="flex items-center gap-1 text-xs text-dojo-muted">
-                              Paid date
-                              <input
-                                type="date"
-                                required
-                                value={paidAtDrafts[member.memberId] ?? todayIso}
-                                disabled={isPending}
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  setPaidAtDrafts((previous) => ({
-                                    ...previous,
-                                    [member.memberId]: value,
-                                  }));
-                                }}
-                                className="rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
-                              />
-                            </label>
+                          ) : canMarkPaid ? (
                             <button
                               type="button"
                               disabled={isPending}
@@ -440,22 +452,12 @@ export function MembershipPaymentsClient({
                                   }),
                                 );
                               }}
-                              className="rounded-lg bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white hover:opacity-90"
+                              className="w-full rounded-lg bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white hover:opacity-90"
                             >
                               Mark paid
                             </button>
-                          </>
-                        ) : (
-                          <span className="rounded-md bg-dojo-elevated px-2 py-1 text-xs text-dojo-muted">
-                            {member.monthState === "paused"
-                              ? "Paused"
-                              : member.monthState === "inactive"
-                                ? "Inactive"
-                                : member.monthState === "future"
-                                  ? "Future"
-                                  : "N/A"}
-                          </span>
-                        )}
+                          ) : null}
+                        </div>
 
                         {member.status === "active" ? (
                           <>

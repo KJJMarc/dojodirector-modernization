@@ -13,7 +13,6 @@ export type MembershipPaymentListFilter =
   | "all"
   | "active"
   | "paid"
-  | "awaiting"
   | "overdue"
   | "paused"
   | "inactive";
@@ -22,7 +21,6 @@ export const MEMBERSHIP_PAYMENT_LIST_FILTERS: MembershipPaymentListFilter[] = [
   "all",
   "active",
   "paid",
-  "awaiting",
   "overdue",
   "paused",
   "inactive",
@@ -459,11 +457,15 @@ export function filterMembershipPaymentRows(
       case "active":
         return row.status === MEMBERSHIP_PAYMENT_STATUS_ACTIVE;
       case "paid":
-        return row.monthState === "paid";
-      case "awaiting":
-        return row.monthState === "awaiting" || row.monthState === "overdue";
+        return (
+          row.status !== MEMBERSHIP_PAYMENT_STATUS_INACTIVE &&
+          row.monthState === "paid"
+        );
       case "overdue":
-        return row.monthState === "overdue";
+        return (
+          row.status !== MEMBERSHIP_PAYMENT_STATUS_INACTIVE &&
+          row.monthState === "overdue"
+        );
       case "paused":
         return row.status === MEMBERSHIP_PAYMENT_STATUS_PAUSED;
       case "inactive":
