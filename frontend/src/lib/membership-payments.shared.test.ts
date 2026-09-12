@@ -81,7 +81,19 @@ describe("membership payments shared", () => {
         currentBillingMonth: "2026-09-01",
         todayIso: "2026-09-12",
       }),
-      "awaiting",
+      "paid",
+    );
+
+    // Even with a payment row for this month, past next-due means overdue.
+    assert.equal(
+      resolveMembershipMonthPaymentState({
+        profile: profile({ nextDueDate: "2026-09-01" }),
+        billingMonth: "2026-09-01",
+        paid: true,
+        currentBillingMonth: "2026-09-01",
+        todayIso: "2026-09-12",
+      }),
+      "overdue",
     );
   });
 

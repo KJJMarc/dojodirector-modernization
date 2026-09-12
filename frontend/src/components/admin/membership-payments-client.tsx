@@ -391,6 +391,10 @@ export function MembershipPaymentsClient({
                               Unmark
                             </button>
                           </>
+                        ) : isPaid ? (
+                          <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
+                            Paid
+                          </span>
                         ) : canMarkPaid ? (
                           <>
                             {member.monthState === "overdue" ? (

@@ -335,10 +335,6 @@ export function resolveMembershipMonthPaymentState(input: {
   const month = toBillingMonthKey(input.billingMonth);
   const current = toBillingMonthKey(input.currentBillingMonth);
 
-  if (input.paid) {
-    return "paid";
-  }
-
   if (compareBillingMonths(month, current) > 0) {
     return "future";
   }
@@ -380,17 +376,21 @@ export function resolveMembershipMonthPaymentState(input: {
     : null;
   const todayIso = input.todayIso ?? currentLocalDateIso();
 
-  if (
-    isMembershipPaymentOverdue({
-      dueDate,
-      paid: false,
-      todayIso,
-    })
-  ) {
+  // Past months: use the month ledger record.
+  if (compareBillingMonths(month, current) < 0) {
+    return input.paid ? "paid" : "awaiting";
+  }
+
+  // Current month: covered until next due date (inclusive), then overdue.
+  if (dueDate) {
+    if (todayIso <= dueDate) {
+      return "paid";
+    }
+
     return "overdue";
   }
 
-  return "awaiting";
+  return input.paid ? "paid" : "awaiting";
 }
 
 export function buildMembershipPaymentMonthSummary(
