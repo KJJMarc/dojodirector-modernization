@@ -10,7 +10,11 @@ import {
   loadMembershipPaymentsWorkspace,
   MEMBERSHIP_PAYMENTS_NOT_CONFIGURED_MESSAGE,
 } from "@/lib/membership-payments.server";
-import { toBillingMonthKey } from "@/lib/membership-payments.shared";
+import {
+  currentLocalDateIso,
+  toBillingMonthKey,
+} from "@/lib/membership-payments.shared";
+import { getClubIanaTimeZone } from "@/lib/clubs.shared";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +103,7 @@ export default async function MembershipPaymentsPage({
         clubSlug={club.slug}
         billingMonth={workspace.billingMonth}
         currentBillingMonth={workspace.currentBillingMonth}
+        todayIso={currentLocalDateIso(new Date(), getClubIanaTimeZone(club.slug))}
         year={workspace.year}
         initialView={searchParams?.view === "year" ? "year" : "month"}
         summary={workspace.summary}

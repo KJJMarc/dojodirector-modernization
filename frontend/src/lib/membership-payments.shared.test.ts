@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  addOneCalendarMonth,
   billingMonthLabel,
   buildMembershipPaymentMonthSummary,
   buildMembershipPaymentYearRows,
@@ -8,7 +9,6 @@ import {
   currentBillingMonthKey,
   filterMembershipPaymentRows,
   isBillingMonthPayable,
-  resolveDueDateForBillingMonth,
   resolveMembershipMonthPaymentState,
   shiftBillingMonth,
   toBillingMonthKey,
@@ -21,7 +21,7 @@ function profile(
 ): MembershipPaymentProfileInput {
   return {
     status: "active",
-    dueDay: null,
+    nextDueDate: null,
     pausedFrom: null,
     resumeDate: null,
     inactiveFrom: null,
@@ -36,7 +36,6 @@ function row(
   return {
     email: null,
     status: "active",
-    dueDay: null,
     dueDate: null,
     pausedFrom: null,
     resumeDate: null,
@@ -56,16 +55,16 @@ describe("membership payments shared", () => {
     assert.equal(compareBillingMonths("2026-08", "2026-09-01"), -1);
   });
 
-  it("resolves due dates and clamps short months", () => {
-    assert.equal(resolveDueDateForBillingMonth("2026-09-01", 15), "2026-09-15");
-    assert.equal(resolveDueDateForBillingMonth("2026-02-01", 31), "2026-02-28");
-    assert.equal(resolveDueDateForBillingMonth("2026-09-01", null), null);
+  it("sets next due as paid date plus one calendar month", () => {
+    assert.equal(addOneCalendarMonth("2026-09-12"), "2026-10-12");
+    assert.equal(addOneCalendarMonth("2026-01-31"), "2026-02-28");
+    assert.equal(addOneCalendarMonth("2026-12-15"), "2027-01-15");
   });
 
-  it("marks unpaid past due day as overdue", () => {
+  it("marks unpaid past next due date as overdue", () => {
     assert.equal(
       resolveMembershipMonthPaymentState({
-        profile: profile({ dueDay: 10 }),
+        profile: profile({ nextDueDate: "2026-09-10" }),
         billingMonth: "2026-09-01",
         paid: false,
         currentBillingMonth: "2026-09-01",
@@ -76,7 +75,7 @@ describe("membership payments shared", () => {
 
     assert.equal(
       resolveMembershipMonthPaymentState({
-        profile: profile({ dueDay: 20 }),
+        profile: profile({ nextDueDate: "2026-09-20" }),
         billingMonth: "2026-09-01",
         paid: false,
         currentBillingMonth: "2026-09-01",
@@ -228,7 +227,6 @@ describe("membership payments shared", () => {
         fullName: "Eve Overdue",
         status: "active",
         monthState: "overdue",
-        dueDay: 5,
         dueDate: "2026-09-05",
       }),
     ];

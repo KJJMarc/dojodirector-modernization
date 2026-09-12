@@ -9,7 +9,6 @@ import {
   reactivateMembershipPaymentAction,
   resumeMembershipPaymentAction,
   unmarkMembershipPaidAction,
-  updateMembershipDueDayAction,
   updateMembershipPaidAtAction,
 } from "@/app/admin/[clubSlug]/membership-payments/actions";
 import {
@@ -31,6 +30,7 @@ interface MembershipPaymentsClientProps {
   clubSlug: string;
   billingMonth: string;
   currentBillingMonth: string;
+  todayIso: string;
   year: number;
   initialView?: "month" | "year";
   summary: MembershipPaymentMonthSummary;
@@ -115,6 +115,7 @@ export function MembershipPaymentsClient({
   clubSlug,
   billingMonth,
   currentBillingMonth,
+  todayIso,
   year,
   initialView = "month",
   summary,
@@ -124,6 +125,7 @@ export function MembershipPaymentsClient({
   const [filter, setFilter] = useState<MembershipPaymentListFilter>("active");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"month" | "year">(initialView);
+  const [paidAtDrafts, setPaidAtDrafts] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -329,59 +331,19 @@ export function MembershipPaymentsClient({
                         </p>
                         <p className="text-xs text-dojo-muted">
                           {MEMBERSHIP_PAYMENT_STATUS_LABELS[member.status]}
-                          {dueLabel ? ` · Due ${dueLabel}` : " · No due day set"}
+                          {dueLabel ? ` · Next due ${dueLabel}` : " · Next due after first payment"}
                           {member.email ? ` · ${member.email}` : ""}
                         </p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className="flex items-center gap-1 text-xs text-dojo-muted">
-                          Due day
-                          <input
-                            type="number"
-                            min={1}
-                            max={31}
-                            placeholder="—"
-                            defaultValue={member.dueDay ?? ""}
-                            disabled={isPending}
-                            onBlur={(event) => {
-                              const raw = event.target.value.trim();
-                              const next = raw === "" ? null : Number(raw);
-                              const current = member.dueDay;
-
-                              if (next === current || (next === null && current === null)) {
-                                return;
-                              }
-
-                              if (
-                                next !== null &&
-                                (!Number.isInteger(next) || next < 1 || next > 31)
-                              ) {
-                                setErrorMessage("Due day must be between 1 and 31.");
-                                event.target.value =
-                                  current === null ? "" : String(current);
-                                return;
-                              }
-
-                              runAction(() =>
-                                updateMembershipDueDayAction({
-                                  clubSlug,
-                                  memberId: member.memberId,
-                                  dueDay: next,
-                                }),
-                              );
-                            }}
-                            className="w-14 rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
-                          />
-                        </label>
-
                         {isPaid && member.payment ? (
                           <>
                             <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
                               Paid
                             </span>
                             <label className="flex items-center gap-1 text-xs text-dojo-muted">
-                              Date
+                              Paid date
                               <input
                                 type="date"
                                 defaultValue={member.payment.paidAt}
@@ -436,18 +398,44 @@ export function MembershipPaymentsClient({
                                 Overdue
                               </span>
                             ) : null}
+                            <label className="flex items-center gap-1 text-xs text-dojo-muted">
+                              Paid date
+                              <input
+                                type="date"
+                                required
+                                value={paidAtDrafts[member.memberId] ?? todayIso}
+                                disabled={isPending}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setPaidAtDrafts((previous) => ({
+                                    ...previous,
+                                    [member.memberId]: value,
+                                  }));
+                                }}
+                                className="rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
+                              />
+                            </label>
                             <button
                               type="button"
                               disabled={isPending}
-                              onClick={() =>
+                              onClick={() => {
+                                const paidAt =
+                                  paidAtDrafts[member.memberId]?.trim() || todayIso;
+
+                                if (!paidAt) {
+                                  setErrorMessage("Payment date is required.");
+                                  return;
+                                }
+
                                 runAction(() =>
                                   markMembershipPaidAction({
                                     clubSlug,
                                     memberId: member.memberId,
                                     billingMonth,
+                                    paidAt,
                                   }),
-                                )
-                              }
+                                );
+                              }}
                               className="rounded-lg bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white hover:opacity-90"
                             >
                               Mark paid

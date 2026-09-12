@@ -39,7 +39,7 @@ export const MEMBERSHIP_PAYMENT_STATUS_LABELS: Record<
 
 export interface MembershipPaymentProfileInput {
   status: MembershipPaymentStatus;
-  dueDay: number | null;
+  nextDueDate: string | null;
   pausedFrom: string | null;
   resumeDate: string | null;
   inactiveFrom: string | null;
@@ -65,7 +65,6 @@ export interface MembershipPaymentMemberRow {
   fullName: string;
   email: string | null;
   status: MembershipPaymentStatus;
-  dueDay: number | null;
   dueDate: string | null;
   pausedFrom: string | null;
   resumeDate: string | null;
@@ -236,59 +235,24 @@ export function currentLocalDateIso(
 export function defaultMembershipPaymentProfile(): MembershipPaymentProfileInput {
   return {
     status: MEMBERSHIP_PAYMENT_STATUS_ACTIVE,
-    dueDay: null,
+    nextDueDate: null,
     pausedFrom: null,
     resumeDate: null,
     inactiveFrom: null,
   };
 }
 
-export function parseMembershipPaymentDueDay(
-  value: string | number | null | undefined,
-): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
+/** Add one calendar month, clamping to the last valid day of the target month. */
+export function addOneCalendarMonth(isoDate: string): string {
+  const parsed = parseIsoDateInput(isoDate);
+  const [yearRaw, monthRaw, dayRaw] = parsed.split("-").map(Number);
+  const targetMonthIndex = monthRaw; // 1-based month → next month index in Date.UTC end-of-month trick
+  const targetYear = monthRaw === 12 ? yearRaw + 1 : yearRaw;
+  const targetMonth = monthRaw === 12 ? 1 : monthRaw + 1;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const day = Math.min(dayRaw, lastDay);
 
-  const parsed = typeof value === "number" ? value : Number(String(value).trim());
-
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 31) {
-    throw new Error("Due day must be a whole number between 1 and 31.");
-  }
-
-  return parsed;
-}
-
-/** Last calendar day of a billing month (UTC date parts). */
-export function lastDayOfBillingMonth(billingMonth: string): number {
-  const key = toBillingMonthKey(billingMonth);
-  const [yearRaw, monthRaw] = key.split("-");
-  const year = Number(yearRaw);
-  const monthIndex = Number(monthRaw) - 1;
-  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-}
-
-/**
- * Resolve the due date for a billing month from a recurring due day.
- * Days past the end of shorter months clamp to the last day.
- */
-export function resolveDueDateForBillingMonth(
-  billingMonth: string,
-  dueDay: number | null | undefined,
-): string | null {
-  if (dueDay === null || dueDay === undefined) {
-    return null;
-  }
-
-  const parsed = parseMembershipPaymentDueDay(dueDay);
-  if (parsed === null) {
-    return null;
-  }
-
-  const key = toBillingMonthKey(billingMonth);
-  const [year, month] = key.split("-");
-  const day = Math.min(parsed, lastDayOfBillingMonth(key));
-  return `${year}-${month}-${String(day).padStart(2, "0")}`;
+  return `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function formatDueDateLabel(dueDate: string | null): string | null {
@@ -411,7 +375,9 @@ export function resolveMembershipMonthPaymentState(input: {
     return "not_applicable";
   }
 
-  const dueDate = resolveDueDateForBillingMonth(month, input.profile.dueDay);
+  const dueDate = input.profile.nextDueDate
+    ? parseIsoDateInput(input.profile.nextDueDate)
+    : null;
   const todayIso = input.todayIso ?? currentLocalDateIso();
 
   if (

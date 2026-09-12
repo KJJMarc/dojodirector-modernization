@@ -11,12 +11,8 @@ import {
   resumeMembershipPaymentMember,
   unmarkMembershipPayment,
   updateMembershipPaymentDate,
-  updateMembershipPaymentDueDay,
 } from "@/lib/membership-payments.server";
-import {
-  clubMembershipPaymentsAdminPath,
-  parseMembershipPaymentDueDay,
-} from "@/lib/membership-payments.shared";
+import { clubMembershipPaymentsAdminPath } from "@/lib/membership-payments.shared";
 
 async function requireMembershipPaymentsAccess(clubSlug: string) {
   const { club } = await requireAdminAccessForClubSlug(clubSlug);
@@ -34,28 +30,11 @@ function revalidateMembershipPayments(clubSlug: string) {
   revalidatePath(`/admin/${clubSlug}`);
 }
 
-export async function updateMembershipDueDayAction(input: {
-  clubSlug: string;
-  memberId: string;
-  dueDay: string | number | null;
-}) {
-  const club = await requireMembershipPaymentsAccess(input.clubSlug);
-  const dueDay = parseMembershipPaymentDueDay(input.dueDay);
-
-  await updateMembershipPaymentDueDay({
-    academyId: club.id,
-    memberId: input.memberId,
-    dueDay,
-  });
-
-  revalidateMembershipPayments(club.slug);
-}
-
 export async function markMembershipPaidAction(input: {
   clubSlug: string;
   memberId: string;
   billingMonth: string;
-  paidAt?: string | null;
+  paidAt: string;
 }) {
   const club = await requireMembershipPaymentsAccess(input.clubSlug);
 
