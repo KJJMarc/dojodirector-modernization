@@ -373,44 +373,6 @@ export function shouldIncludeJuniorRecentPromotionInPublicCongratulations(
   return !isPlainJuniorWhiteBeltLevel(belt);
 }
 
-export function getJuniorBeltSectionTheme(
-  parts: Pick<JuniorBeltRankParts, "baseColor" | "centerVariant">,
-) {
-
-  const themeByColor: Record<
-    JuniorBeltBaseColor,
-    { badge: string; ring: string; heading: string }
-  > = {
-    green: {
-      badge: "bg-green-700 text-white",
-      ring: "ring-green-700/15",
-      heading: "text-green-950",
-    },
-    orange: {
-      badge: "bg-orange-600 text-white",
-      ring: "ring-orange-600/15",
-      heading: "text-orange-950",
-    },
-    yellow: {
-      badge: "bg-yellow-600 text-white",
-      ring: "ring-yellow-500/20",
-      heading: "text-yellow-950",
-    },
-    grey: {
-      badge: "bg-neutral-600 text-white",
-      ring: "ring-neutral-500/15",
-      heading: "text-neutral-900",
-    },
-    white: {
-      badge: "bg-neutral-500 text-white",
-      ring: "ring-neutral-300/25",
-      heading: "text-neutral-800",
-    },
-  };
-
-  return themeByColor[parts.baseColor];
-}
-
 export function compareStudentsBySurnameFirstName(
   left: Pick<JuniorBeltRankingStudent, "lastName" | "firstName">,
   right: Pick<JuniorBeltRankingStudent, "lastName" | "firstName">,

@@ -123,7 +123,8 @@ function BeltRankingsSection({ group }: { group: AdultBeltRankingGroup }) {
           </h3>
         </div>
         <span
-          className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide sm:inline-flex ${theme.badge}`}
+          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${theme.badge}`}
+          aria-label={`${group.totalStudents} students`}
         >
           {group.totalStudents}
         </span>

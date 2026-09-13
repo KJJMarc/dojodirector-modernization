@@ -2,9 +2,9 @@ import { JuniorBeltColourBar } from "@/components/public/belt-rankings-colour-ba
 import { BeltRankingsRecentPromotions } from "@/components/public/belt-rankings-recent-promotions";
 import {
   formatJuniorStripeGroupDisplayTitle,
-  getJuniorBeltSectionTheme,
   parseJuniorBeltRankParts,
   JUNIOR_BELT_RANKINGS_RECENT_PROMOTIONS_MESSAGE,
+  type JuniorBeltBaseColor,
   type JuniorBeltRankingGroup,
   type JuniorBeltRankingStudent,
   type JuniorBeltRankingsPageData,
@@ -13,6 +13,41 @@ import {
 interface JuniorBeltRankingsViewProps {
   pageData: JuniorBeltRankingsPageData;
 }
+
+/**
+ * Theme classes must live in this component file so Tailwind's content scanner
+ * includes them (lib/*.shared.ts is outside the Tailwind content paths).
+ */
+const JUNIOR_BELT_SECTION_THEMES: Record<
+  JuniorBeltBaseColor,
+  { badge: string; ring: string; heading: string }
+> = {
+  green: {
+    badge: "bg-green-700 text-white",
+    ring: "ring-green-700/15",
+    heading: "text-green-950",
+  },
+  orange: {
+    badge: "bg-orange-600 text-white",
+    ring: "ring-orange-600/15",
+    heading: "text-orange-950",
+  },
+  yellow: {
+    badge: "bg-yellow-600 text-white",
+    ring: "ring-yellow-500/20",
+    heading: "text-yellow-950",
+  },
+  grey: {
+    badge: "bg-neutral-600 text-white",
+    ring: "ring-neutral-500/15",
+    heading: "text-neutral-900",
+  },
+  white: {
+    badge: "bg-neutral-500 text-white",
+    ring: "ring-neutral-300/25",
+    heading: "text-neutral-800",
+  },
+};
 
 function NameList({ students }: { students: JuniorBeltRankingStudent[] }) {
   return (
@@ -49,9 +84,8 @@ function RankSubsection({
 }
 
 function BeltRankingsSection({ group }: { group: JuniorBeltRankingGroup }) {
-  const theme = getJuniorBeltSectionTheme(
-    parseJuniorBeltRankParts(group.beltName, null, group.beltColour),
-  );
+  const parts = parseJuniorBeltRankParts(group.beltName, null, group.beltColour);
+  const theme = JUNIOR_BELT_SECTION_THEMES[parts.baseColor];
 
   return (
     <section
@@ -65,7 +99,8 @@ function BeltRankingsSection({ group }: { group: JuniorBeltRankingGroup }) {
           </h3>
         </div>
         <span
-          className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide sm:inline-flex ${theme.badge}`}
+          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${theme.badge}`}
+          aria-label={`${group.totalStudents} students`}
         >
           {group.totalStudents}
         </span>
