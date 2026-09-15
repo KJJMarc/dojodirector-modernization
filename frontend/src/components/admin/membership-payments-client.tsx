@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   inactivateMembershipPaymentAction,
   markMembershipPaidAction,
@@ -16,6 +16,7 @@ import {
   MEMBERSHIP_PAYMENT_LIST_FILTERS,
   MEMBERSHIP_PAYMENT_STATUS_LABELS,
   billingMonthLabel,
+  buildMembershipPaymentMonthSummary,
   clubMembershipPaymentsAdminPath,
   filterMembershipPaymentRows,
   formatDueDateLabel,
@@ -47,6 +48,9 @@ const FILTER_LABELS: Record<MembershipPaymentListFilter, string> = {
   paused: "Paused",
   inactive: "Inactive",
 };
+
+const ACTION_BUTTON_CLASS =
+  "min-h-10 min-w-[6.5rem] touch-manipulation rounded-lg px-3 py-2 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
 
 function monthHref(clubSlug: string, billingMonth: string, year: number, view: "month" | "year") {
   const params = new URLSearchParams({
@@ -127,21 +131,75 @@ export function MembershipPaymentsClient({
   const [view, setView] = useState<"month" | "year">(initialView);
   const [paidAtDrafts, setPaidAtDrafts] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [localRows, setLocalRows] = useState(rows);
+  const [localSummary, setLocalSummary] = useState(summary);
+  const [pendingMemberIds, setPendingMemberIds] = useState<Record<string, true>>({});
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setLocalRows(rows);
+    setLocalSummary(summary);
+  }, [rows, summary]);
 
   const visibleRows = useMemo(
-    () => filterMembershipPaymentRows(rows, filter, search),
-    [rows, filter, search],
+    () => filterMembershipPaymentRows(localRows, filter, search),
+    [localRows, filter, search],
   );
 
-  const runAction = (action: () => Promise<void>) => {
+  const setMemberPending = (memberId: string, pending: boolean) => {
+    setPendingMemberIds((previous) => {
+      if (pending) {
+        if (previous[memberId]) {
+          return previous;
+        }
+
+        return { ...previous, [memberId]: true };
+      }
+
+      if (!previous[memberId]) {
+        return previous;
+      }
+
+      const next = { ...previous };
+      delete next[memberId];
+      return next;
+    });
+  };
+
+  const applyRows = (nextRows: MembershipPaymentMemberRow[]) => {
+    setLocalRows(nextRows);
+    setLocalSummary(buildMembershipPaymentMonthSummary(nextRows));
+  };
+
+  const runMemberAction = (input: {
+    memberId: string;
+    action: () => Promise<void>;
+    optimisticRows?: MembershipPaymentMemberRow[];
+  }) => {
+    const snapshotRows = localRows;
+    const snapshotSummary = localSummary;
+
     setErrorMessage(null);
+
+    if (input.optimisticRows) {
+      applyRows(input.optimisticRows);
+    }
+
+    setMemberPending(input.memberId, true);
+
     startTransition(() => {
-      void action().catch((error: unknown) => {
-        setErrorMessage(
-          error instanceof Error ? error.message : "Something went wrong.",
-        );
-      });
+      void input
+        .action()
+        .catch((error: unknown) => {
+          applyRows(snapshotRows);
+          setLocalSummary(snapshotSummary);
+          setErrorMessage(
+            error instanceof Error ? error.message : "Something went wrong.",
+          );
+        })
+        .finally(() => {
+          setMemberPending(input.memberId, false);
+        });
     });
   };
 
@@ -166,11 +224,11 @@ export function MembershipPaymentsClient({
     <div className="space-y-6">
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[
-          { label: "Active members", value: summary.activeCount },
-          { label: "Paid this month", value: summary.paidThisMonth },
-          { label: "Awaiting payment", value: summary.awaitingPayment },
-          { label: "Overdue", value: summary.overdueCount },
-          { label: "Paused", value: summary.pausedCount },
+          { label: "Active members", value: localSummary.activeCount },
+          { label: "Paid this month", value: localSummary.paidThisMonth },
+          { label: "Awaiting payment", value: localSummary.awaitingPayment },
+          { label: "Overdue", value: localSummary.overdueCount },
+          { label: "Paused", value: localSummary.pausedCount },
         ].map((card) => (
           <div
             key={card.label}
@@ -313,6 +371,7 @@ export function MembershipPaymentsClient({
                   const canMarkPaid =
                     member.monthState === "awaiting" || member.monthState === "overdue";
                   const dueLabel = formatDueDateLabel(member.dueDate);
+                  const isRowPending = Boolean(pendingMemberIds[member.memberId]);
 
                   return (
                     <li
@@ -323,7 +382,7 @@ export function MembershipPaymentsClient({
                           : member.monthState === "overdue"
                             ? "bg-dojo-red/10"
                             : ""
-                      }`}
+                      } ${isRowPending ? "opacity-80" : ""}`}
                     >
                       <div className="min-w-0">
                         <Link
@@ -342,7 +401,7 @@ export function MembershipPaymentsClient({
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <div className="flex w-[4.75rem] shrink-0 items-center justify-start">
                           {isPaid ? (
                             <span className="inline-flex w-full items-center justify-center rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-400">
@@ -372,30 +431,43 @@ export function MembershipPaymentsClient({
                               <input
                                 type="date"
                                 defaultValue={member.payment.paidAt}
-                                disabled={isPending}
+                                disabled={isRowPending}
                                 onBlur={(event) => {
                                   const next = event.target.value;
                                   if (!next || next === member.payment?.paidAt) {
                                     return;
                                   }
 
-                                  runAction(() =>
-                                    updateMembershipPaidAtAction({
-                                      clubSlug,
-                                      memberId: member.memberId,
-                                      billingMonth,
-                                      paidAt: next,
-                                    }),
-                                  );
+                                  runMemberAction({
+                                    memberId: member.memberId,
+                                    optimisticRows: localRows.map((row) =>
+                                      row.memberId === member.memberId && row.payment
+                                        ? {
+                                            ...row,
+                                            payment: {
+                                              ...row.payment,
+                                              paidAt: next,
+                                            },
+                                          }
+                                        : row,
+                                    ),
+                                    action: () =>
+                                      updateMembershipPaidAtAction({
+                                        clubSlug,
+                                        memberId: member.memberId,
+                                        billingMonth,
+                                        paidAt: next,
+                                      }),
+                                  });
                                 }}
-                                className="w-[9.5rem] rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
+                                className="min-h-10 w-[9.5rem] rounded border border-dojo-border bg-dojo-elevated px-2 py-2 text-dojo-white"
                               />
                             ) : (
                               <input
                                 type="date"
                                 required
                                 value={paidAtDrafts[member.memberId] ?? todayIso}
-                                disabled={isPending}
+                                disabled={isRowPending}
                                 onChange={(event) => {
                                   const value = event.target.value;
                                   setPaidAtDrafts((previous) => ({
@@ -403,89 +475,117 @@ export function MembershipPaymentsClient({
                                     [member.memberId]: value,
                                   }));
                                 }}
-                                className="w-[9.5rem] rounded border border-dojo-border bg-dojo-elevated px-2 py-1 text-dojo-white"
+                                className="min-h-10 w-[9.5rem] rounded border border-dojo-border bg-dojo-elevated px-2 py-2 text-dojo-white"
                               />
                             )}
                           </label>
-                        ) : (
-                          <div className="hidden w-[9.5rem] sm:block" aria-hidden />
-                        )}
+                        ) : null}
 
-                        <div className="flex w-[5.75rem] shrink-0 items-center justify-start">
-                          {isPaid && member.payment ? (
-                            <button
-                              type="button"
-                              disabled={isPending}
-                              onClick={() => {
-                                if (
-                                  !window.confirm(
-                                    `Remove the ${billingMonthLabel(billingMonth)} payment for ${member.fullName}?`,
-                                  )
-                                ) {
-                                  return;
-                                }
+                        {isPaid && member.payment ? (
+                          <button
+                            type="button"
+                            disabled={isRowPending}
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `Remove the ${billingMonthLabel(billingMonth)} payment for ${member.fullName}?`,
+                                )
+                              ) {
+                                return;
+                              }
 
-                                runAction(() =>
+                              runMemberAction({
+                                memberId: member.memberId,
+                                optimisticRows: localRows.map((row) =>
+                                  row.memberId === member.memberId
+                                    ? {
+                                        ...row,
+                                        payment: null,
+                                        monthState:
+                                          row.monthState === "paid"
+                                            ? "awaiting"
+                                            : row.monthState,
+                                      }
+                                    : row,
+                                ),
+                                action: () =>
                                   unmarkMembershipPaidAction({
                                     clubSlug,
                                     memberId: member.memberId,
                                     billingMonth,
                                   }),
-                                );
-                              }}
-                              className="w-full rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/30"
-                            >
-                              Unmark
-                            </button>
-                          ) : canMarkPaid ? (
-                            <button
-                              type="button"
-                              disabled={isPending}
-                              onClick={() => {
-                                const paidAt =
-                                  paidAtDrafts[member.memberId]?.trim() || todayIso;
+                              });
+                            }}
+                            className={`${ACTION_BUTTON_CLASS} bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30`}
+                          >
+                            {isRowPending ? "Saving…" : "Unmark"}
+                          </button>
+                        ) : canMarkPaid ? (
+                          <button
+                            type="button"
+                            disabled={isRowPending}
+                            onClick={() => {
+                              const paidAt =
+                                paidAtDrafts[member.memberId]?.trim() || todayIso;
 
-                                if (!paidAt) {
-                                  setErrorMessage("Payment date is required.");
-                                  return;
-                                }
+                              if (!paidAt) {
+                                setErrorMessage("Payment date is required.");
+                                return;
+                              }
 
-                                runAction(() =>
+                              runMemberAction({
+                                memberId: member.memberId,
+                                optimisticRows: localRows.map((row) =>
+                                  row.memberId === member.memberId
+                                    ? {
+                                        ...row,
+                                        monthState: "paid",
+                                        payment: {
+                                          id: row.payment?.id ?? `optimistic-${row.memberId}`,
+                                          billingMonth,
+                                          paidAt,
+                                        },
+                                        dueDate: row.dueDate,
+                                      }
+                                    : row,
+                                ),
+                                action: () =>
                                   markMembershipPaidAction({
                                     clubSlug,
                                     memberId: member.memberId,
                                     billingMonth,
                                     paidAt,
                                   }),
-                                );
-                              }}
-                              className="w-full rounded-lg bg-dojo-red px-3 py-1.5 text-xs font-semibold text-dojo-white hover:opacity-90"
-                            >
-                              Mark paid
-                            </button>
-                          ) : null}
-                        </div>
+                              });
+                            }}
+                            className={`${ACTION_BUTTON_CLASS} bg-dojo-red text-dojo-white hover:opacity-90`}
+                          >
+                            {isRowPending ? "Saving…" : "Mark paid"}
+                          </button>
+                        ) : null}
 
                         {member.status === "active" ? (
                           <>
                             <button
                               type="button"
-                              disabled={isPending}
+                              disabled={isRowPending}
                               onClick={() =>
-                                runAction(() =>
-                                  pauseMembershipPaymentAction({
-                                    clubSlug,
-                                    memberId: member.memberId,
-                                  }),
-                                )
+                                runMemberAction({
+                                  memberId: member.memberId,
+                                  action: () =>
+                                    pauseMembershipPaymentAction({
+                                      clubSlug,
+                                      memberId: member.memberId,
+                                    }),
+                                })
                               }
-                              className="rounded-lg border border-dojo-border px-3 py-1.5 text-xs text-dojo-muted hover:text-dojo-white"
+                              className="min-h-10 touch-manipulation rounded-lg border border-dojo-border px-3 py-2 text-sm text-dojo-muted hover:text-dojo-white disabled:opacity-60"
                             >
                               Pause
                             </button>
                             <button
                               type="button"
-                              disabled={isPending}
+                              disabled={isRowPending}
                               onClick={() => {
                                 if (
                                   !window.confirm(
@@ -495,14 +595,16 @@ export function MembershipPaymentsClient({
                                   return;
                                 }
 
-                                runAction(() =>
-                                  inactivateMembershipPaymentAction({
-                                    clubSlug,
-                                    memberId: member.memberId,
-                                  }),
-                                );
+                                runMemberAction({
+                                  memberId: member.memberId,
+                                  action: () =>
+                                    inactivateMembershipPaymentAction({
+                                      clubSlug,
+                                      memberId: member.memberId,
+                                    }),
+                                });
                               }}
-                              className="rounded-lg border border-dojo-border px-3 py-1.5 text-xs text-dojo-muted hover:text-dojo-white"
+                              className="min-h-10 touch-manipulation rounded-lg border border-dojo-border px-3 py-2 text-sm text-dojo-muted hover:text-dojo-white disabled:opacity-60"
                             >
                               Make inactive
                             </button>
@@ -512,16 +614,18 @@ export function MembershipPaymentsClient({
                         {member.status === "paused" ? (
                           <button
                             type="button"
-                            disabled={isPending}
+                            disabled={isRowPending}
                             onClick={() =>
-                              runAction(() =>
-                                resumeMembershipPaymentAction({
-                                  clubSlug,
-                                  memberId: member.memberId,
-                                }),
-                              )
+                              runMemberAction({
+                                memberId: member.memberId,
+                                action: () =>
+                                  resumeMembershipPaymentAction({
+                                    clubSlug,
+                                    memberId: member.memberId,
+                                  }),
+                              })
                             }
-                            className="rounded-lg border border-dojo-border px-3 py-1.5 text-xs text-dojo-white"
+                            className="min-h-10 touch-manipulation rounded-lg border border-dojo-border px-3 py-2 text-sm text-dojo-white disabled:opacity-60"
                           >
                             Resume
                           </button>
@@ -530,16 +634,18 @@ export function MembershipPaymentsClient({
                         {member.status === "inactive" ? (
                           <button
                             type="button"
-                            disabled={isPending}
+                            disabled={isRowPending}
                             onClick={() =>
-                              runAction(() =>
-                                reactivateMembershipPaymentAction({
-                                  clubSlug,
-                                  memberId: member.memberId,
-                                }),
-                              )
+                              runMemberAction({
+                                memberId: member.memberId,
+                                action: () =>
+                                  reactivateMembershipPaymentAction({
+                                    clubSlug,
+                                    memberId: member.memberId,
+                                  }),
+                              })
                             }
-                            className="rounded-lg border border-dojo-border px-3 py-1.5 text-xs text-dojo-white"
+                            className="min-h-10 touch-manipulation rounded-lg border border-dojo-border px-3 py-2 text-sm text-dojo-white disabled:opacity-60"
                           >
                             Reactivate
                           </button>

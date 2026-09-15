@@ -134,6 +134,31 @@ async function loadPaymentProfilesByMemberId(
   return map;
 }
 
+async function loadPaymentProfileForMember(
+  academyId: string,
+  memberId: string,
+): Promise<MembershipPaymentProfileInput> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("membership_payment_profiles")
+    .select(
+      "academy_id, member_id, status, next_due_date, paused_from, resume_date, inactive_from",
+    )
+    .eq("academy_id", academyId)
+    .eq("member_id", memberId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingMembershipPaymentsSchemaError(error)) {
+      throw new Error(MEMBERSHIP_PAYMENTS_NOT_CONFIGURED_MESSAGE);
+    }
+
+    throw new Error(`Failed to load membership payment profile: ${error.message}`);
+  }
+
+  return mapProfileRow(data as PaymentProfileRow | null);
+}
+
 async function loadPaymentsForBillingMonth(
   academyId: string,
   billingMonth: string,
@@ -384,8 +409,8 @@ export async function markMembershipPaymentPaid(input: {
     throw new Error(`Unable to mark payment as paid: ${error.message}`);
   }
 
-  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
-  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
+  const profiles = await loadPaymentProfileForMember(input.academyId, input.memberId);
+  const existing = profiles;
 
   await upsertPaymentProfile({
     academyId: input.academyId,
@@ -485,8 +510,8 @@ async function refreshNextDueDateFromLatestPayment(
     throw new Error(`Unable to refresh next due date: ${error.message}`);
   }
 
-  const profiles = await loadPaymentProfilesByMemberId(academyId);
-  const existing = profiles.get(memberId) ?? defaultMembershipPaymentProfile();
+  const profiles = await loadPaymentProfileForMember(academyId, memberId);
+  const existing = profiles;
   const latestPaidAt = (data as { paid_at: string } | null)?.paid_at ?? null;
 
   await upsertPaymentProfile({
@@ -546,8 +571,7 @@ export async function pauseMembershipPaymentMember(input: {
   const pausedFrom = input.pausedFrom?.trim()
     ? parseIsoDateInput(input.pausedFrom)
     : currentLocalDateIso(new Date(), timeZone);
-  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
-  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
+  const existing = await loadPaymentProfileForMember(input.academyId, input.memberId);
 
   await upsertPaymentProfile({
     academyId: input.academyId,
@@ -571,8 +595,7 @@ export async function resumeMembershipPaymentMember(input: {
     ? parseIsoDateInput(input.resumeDate)
     : currentLocalDateIso(new Date(), timeZone);
 
-  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
-  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
+  const existing = await loadPaymentProfileForMember(input.academyId, input.memberId);
 
   await upsertPaymentProfile({
     academyId: input.academyId,
@@ -596,8 +619,7 @@ export async function inactivateMembershipPaymentMember(input: {
     ? parseIsoDateInput(input.inactiveFrom)
     : currentLocalDateIso(new Date(), timeZone);
 
-  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
-  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
+  const existing = await loadPaymentProfileForMember(input.academyId, input.memberId);
 
   await upsertPaymentProfile({
     academyId: input.academyId,
@@ -614,8 +636,7 @@ export async function reactivateMembershipPaymentMember(input: {
   academyId: string;
   memberId: string;
 }): Promise<void> {
-  const profiles = await loadPaymentProfilesByMemberId(input.academyId);
-  const existing = profiles.get(input.memberId) ?? defaultMembershipPaymentProfile();
+  const existing = await loadPaymentProfileForMember(input.academyId, input.memberId);
 
   await upsertPaymentProfile({
     academyId: input.academyId,

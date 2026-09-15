@@ -29,13 +29,17 @@ async function requireMembershipPaymentsAccess(clubSlug: string) {
 
 function revalidateMembershipPayments(clubSlug: string, memberId?: string) {
   revalidatePath(clubMembershipPaymentsAdminPath(clubSlug));
-  revalidatePath(`/admin/${clubSlug}`);
 
   if (memberId) {
     revalidatePath(clubAdminPath(clubSlug, `students/${memberId}/profile`));
-    revalidatePath(clubAdminPath(clubSlug, `students/${memberId}/edit`));
-    revalidatePath(clubAdminPath(clubSlug, "students"));
   }
+}
+
+function revalidateMembershipPaymentsBroad(clubSlug: string, memberId: string) {
+  revalidateMembershipPayments(clubSlug, memberId);
+  revalidatePath(`/admin/${clubSlug}`);
+  revalidatePath(clubAdminPath(clubSlug, `students/${memberId}/edit`));
+  revalidatePath(clubAdminPath(clubSlug, "students"));
 }
 
 async function syncClubMembershipStatus(input: {
@@ -121,7 +125,7 @@ export async function pauseMembershipPaymentAction(input: {
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug, input.memberId);
+  revalidateMembershipPaymentsBroad(club.slug, input.memberId);
 }
 
 export async function resumeMembershipPaymentAction(input: {
@@ -142,7 +146,7 @@ export async function resumeMembershipPaymentAction(input: {
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug, input.memberId);
+  revalidateMembershipPaymentsBroad(club.slug, input.memberId);
 }
 
 export async function inactivateMembershipPaymentAction(input: {
@@ -163,7 +167,7 @@ export async function inactivateMembershipPaymentAction(input: {
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug, input.memberId);
+  revalidateMembershipPaymentsBroad(club.slug, input.memberId);
 }
 
 export async function reactivateMembershipPaymentAction(input: {
@@ -183,5 +187,5 @@ export async function reactivateMembershipPaymentAction(input: {
     memberId: input.memberId,
   });
 
-  revalidateMembershipPayments(club.slug, input.memberId);
+  revalidateMembershipPaymentsBroad(club.slug, input.memberId);
 }
